@@ -9036,13 +9036,14 @@ function exportRevenueDetailToCSV() {
 }
 
 function exportInventoryToCSV() {
-    let csv = 'Název,Kategorie,Množství,Jednotka,Min. stav,Cena nákup,Cena prodej,Poznámka\n';
+    let csv = 'Název,Kategorie,Množství,Jednotka,Min. stav,Cena nákup,DPH,Cena prodej,Poznámka\n';
     
     products.forEach(product => {
         const qty = product.stock !== undefined ? product.stock : (product.quantity || 0);
         const minQty = product.minStock !== undefined ? product.minStock : (product.minQuantity || 1);
         const purchasePrice = product.pricePurchase !== undefined ? product.pricePurchase : (product.purchasePrice || '');
         const salePrice = product.priceRetail !== undefined ? product.priceRetail : (product.priceSale || product.salePrice || '');
+        const vatRate = product.vatRate || 21;
         
         // Najít název kategorie
         const category = productCategories.find(c => c.id === product.categoryId);
@@ -9058,7 +9059,7 @@ function exportInventoryToCSV() {
             return str;
         };
         
-        csv += `${escapeCsv(product.name)},${escapeCsv(categoryName)},${qty},${product.unit},${minQty},${purchasePrice},${salePrice},${escapeCsv(product.description || product.note || '')}\n`;
+        csv += `${escapeCsv(product.name)},${escapeCsv(categoryName)},${qty},${product.unit},${minQty},${purchasePrice},${vatRate}%,${salePrice},${escapeCsv(product.description || product.note || '')}\n`;
     });
     
     downloadCSV(csv, 'inventura.csv');
