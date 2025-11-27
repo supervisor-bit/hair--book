@@ -7548,6 +7548,149 @@ function showSettingsSection(sectionId) {
     }
 }
 
+// Graf měsíčních tržeb
+let revenueChartInstance = null;
+
+function generateRevenueChart(year) {
+    const canvas = document.getElementById('revenueChart');
+    if (!canvas) return;
+    
+    // Zničit předchozí graf
+    if (revenueChartInstance) {
+        revenueChartInstance.destroy();
+    }
+    
+    // Připravit data pro 12 měsíců
+    const monthNames = ['Led', 'Úno', 'Bře', 'Dub', 'Kvě', 'Čvn', 'Čvc', 'Srp', 'Zář', 'Říj', 'Lis', 'Pro'];
+    const monthlyData = Array(12).fill(0).map(() => ({ total: 0, services: 0, products: 0 }));
+    
+    // Spočítat tržby za služby
+    clients.forEach(client => {
+        if (client.visits) {
+            client.visits.forEach(visit => {
+                if (!visit.closed || !visit.price) return;
+                const visitDate = new Date(visit.date);
+                if (visitDate.getFullYear() === year) {
+                    const monthIndex = visitDate.getMonth();
+                    monthlyData[monthIndex].services += visit.price;
+                    monthlyData[monthIndex].total += visit.price;
+                }
+            });
+        }
+        
+        // Spočítat tržby z prodeje produktů
+        if (client.purchases) {
+            client.purchases.forEach(purchase => {
+                const purchaseDate = new Date(purchase.date);
+                if (purchaseDate.getFullYear() === year) {
+                    const monthIndex = purchaseDate.getMonth();
+                    let purchaseTotal = 0;
+                    purchase.items.forEach(item => {
+                        purchaseTotal += item.price * item.quantity;
+                    });
+                    monthlyData[monthIndex].products += purchaseTotal;
+                    monthlyData[monthIndex].total += purchaseTotal;
+                }
+            });
+        }
+    });
+    
+    // Vytvořit nový graf
+    const ctx = canvas.getContext('2d');
+    revenueChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: monthNames,
+            datasets: [
+                {
+                    label: 'Celkové tržby',
+                    data: monthlyData.map(d => d.total),
+                    borderColor: 'rgb(102, 126, 234)',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                },
+                {
+                    label: 'Služby',
+                    data: monthlyData.map(d => d.services),
+                    borderColor: 'rgb(240, 147, 251)',
+                    backgroundColor: 'rgba(240, 147, 251, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: false,
+                    pointRadius: 3,
+                    pointHoverRadius: 5
+                },
+                {
+                    label: 'Prodej produktů',
+                    data: monthlyData.map(d => d.products),
+                    borderColor: 'rgb(79, 172, 254)',
+                    backgroundColor: 'rgba(79, 172, 254, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: false,
+                    pointRadius: 3,
+                    pointHoverRadius: 5
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: { size: 14, weight: 'bold' },
+                    bodyFont: { size: 13 },
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            label += context.parsed.y.toLocaleString('cs-CZ') + ' Kč';
+                            return label;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString('cs-CZ') + ' Kč';
+                        },
+                        font: { size: 11 }
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        font: { size: 11 }
+                    }
+                }
+            }
+        }
+    });
+}
+
 function generateAccountingReport() {
     const year = parseInt(document.getElementById('accountingYear').value);
     const month = document.getElementById('accountingMonth').value;
@@ -7595,6 +7738,9 @@ function generateAccountingReport() {
     document.getElementById('serviceRevenue').textContent = serviceRevenue.toLocaleString('cs-CZ') + ' Kč';
     document.getElementById('productSalesRevenue').textContent = productSalesRevenue.toLocaleString('cs-CZ') + ' Kč';
     document.getElementById('totalVisitsCount').textContent = totalVisitsCount;
+    
+    // Generovat graf měsíčních tržeb
+    generateRevenueChart(year);
     
     // Vypočítat statistiky skladu
     let totalInventoryValue = 0;
