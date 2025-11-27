@@ -2947,6 +2947,14 @@ async function confirmDeleteCategory() {
 }
 
 function addNewProduct() {
+    // Zkontrolovat, jestli modal existuje
+    const modal = document.getElementById('productModal');
+    if (!modal) {
+        console.error('productModal not found - modals.html may not be loaded yet');
+        showNotification('Modal se načítá, zkuste to znovu za chvíli', 'warning');
+        return;
+    }
+    
     document.getElementById('productModalTitle').textContent = 'Nový produkt';
     document.getElementById('productId').value = '';
     document.getElementById('productName').value = '';
@@ -2980,6 +2988,14 @@ function addNewProduct() {
 function editProduct(productId) {
     const product = products.find(p => p.id === productId);
     if (!product) return;
+    
+    // Zkontrolovat, jestli modal existuje
+    const modal = document.getElementById('productModal');
+    if (!modal) {
+        console.error('productModal not found - modals.html may not be loaded yet');
+        showNotification('Modal se načítá, zkuste to znovu za chvíli', 'warning');
+        return;
+    }
     
     document.getElementById('productModalTitle').textContent = 'Upravit produkt';
     document.getElementById('productId').value = product.id;

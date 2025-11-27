@@ -10,19 +10,23 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script>
         // Kontrola přihlášení
-        window.addEventListener('DOMContentLoaded', function() {
+        window.addEventListener('DOMContentLoaded', async function() {
             const isLoggedIn = sessionStorage.getItem('hairbook_logged_in') || localStorage.getItem('hairbook_remember');
             
             if (!isLoggedIn) {
                 window.location.href = 'login.html';
+                return;
             }
             
-            // Načíst modální okna
-            fetch('modals.html')
-                .then(response => response.text())
-                .then(html => {
-                    document.body.insertAdjacentHTML('beforeend', html);
-                });
+            // Načíst modální okna PŘED inicializací aplikace
+            try {
+                const response = await fetch('modals.html');
+                const html = await response.text();
+                document.body.insertAdjacentHTML('beforeend', html);
+                console.log('✅ Modals loaded successfully');
+            } catch (error) {
+                console.error('❌ Failed to load modals:', error);
+            }
         });
     </script>
 </head>
