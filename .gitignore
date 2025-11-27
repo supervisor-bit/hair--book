@@ -21,3 +21,13 @@ Thumbs.db
 # Temporary files
 tmp/
 temp/
+
+# Node modules
+node_modules/
+
+# Build output
+dist/
+*.dmg
+*.exe
+*.AppImage
+*.deb
