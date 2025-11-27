@@ -2760,15 +2760,15 @@ function showProductDetail(product) {
                         // Přepočet na balení (ks)
                         const packageSize = product.packageSize || 1;
                         const packagesCount = (movement.quantity / packageSize).toFixed(2);
-                        const packagesDisplay = packagesCount !== '1.00' ? ` (${packagesCount} ks)` : ' (1 ks)';
+                        const packagesDisplay = packagesCount !== '1.00' ? `${packagesCount} ks` : '1 ks';
                         
                         return `
                             <tr>
                                 <td>${formatDate(movement.date)}</td>
                                 <td><span class="movement-badge ${typeClass}">${typeLabel}</span></td>
                                 <td class="${typeClass}">
-                                    ${quantitySign}${movement.quantity} ${displayUnit}
-                                    <span style="color: #9ca3af; font-size: 0.875rem;">${packagesDisplay}</span>
+                                    <strong>${quantitySign}${packagesDisplay}</strong>
+                                    <span style="color: #9ca3af; font-size: 0.875rem; margin-left: 0.5rem;">(${movement.quantity} ${displayUnit})</span>
                                 </td>
                                 <td>${movement.note}</td>
                             </tr>
