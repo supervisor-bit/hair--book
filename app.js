@@ -2960,6 +2960,7 @@ function addNewProduct() {
     document.getElementById('productMinimalStock').value = '0';
     document.getElementById('productPurchasePrice').value = '';
     document.getElementById('productSalePrice').value = '';
+    document.getElementById('productVatRate').value = '21';
     document.getElementById('productForSale').checked = false;
     document.getElementById('productForWork').checked = true;
     
