@@ -2956,22 +2956,44 @@ function addNewProduct() {
             return;
         }
         
-        document.getElementById('productModalTitle').textContent = 'Nový produkt';
-        document.getElementById('productId').value = '';
-        document.getElementById('productName').value = '';
-        document.getElementById('productBarcode').value = '';
-        document.getElementById('productDescription').value = '';
-        document.getElementById('productCategoryId').value = '';
-        document.getElementById('productUnit').value = 'ml';
-        document.getElementById('productPackageSize').value = '100';
-        document.getElementById('productStock').value = '0';
-        document.getElementById('productStock').disabled = false; // Povolit úpravu u nového produktu
-        document.getElementById('productMinimalStock').value = '0';
-        document.getElementById('productPurchasePrice').value = '';
-        document.getElementById('productSalePrice').value = '';
-        document.getElementById('productVatRate').value = '21';
-        document.getElementById('productForSale').checked = false;
-        document.getElementById('productForWork').checked = true;
+        const titleEl = document.getElementById('productModalTitle');
+        const idEl = document.getElementById('productId');
+        const nameEl = document.getElementById('productName');
+        const barcodeEl = document.getElementById('productBarcode');
+        const descEl = document.getElementById('productDescription');
+        const catEl = document.getElementById('productCategoryId');
+        const unitEl = document.getElementById('productUnit');
+        const pkgEl = document.getElementById('productPackageSize');
+        const stockEl = document.getElementById('productStock');
+        const minStockEl = document.getElementById('productMinimalStock');
+        const purchEl = document.getElementById('productPurchasePrice');
+        const saleEl = document.getElementById('productSalePrice');
+        const vatEl = document.getElementById('productVatRate');
+        const forSaleEl = document.getElementById('productForSale');
+        const forWorkEl = document.getElementById('productForWork');
+        
+        if (!titleEl || !vatEl) {
+            console.error('Missing elements:', { titleEl, vatEl });
+            showNotification('Formulář se ještě nenačetl, zkuste to znovu', 'warning');
+            return;
+        }
+        
+        titleEl.textContent = 'Nový produkt';
+        idEl.value = '';
+        nameEl.value = '';
+        barcodeEl.value = '';
+        descEl.value = '';
+        catEl.value = '';
+        unitEl.value = 'ml';
+        pkgEl.value = '100';
+        stockEl.value = '0';
+        stockEl.disabled = false;
+        minStockEl.value = '0';
+        purchEl.value = '';
+        saleEl.value = '';
+        vatEl.value = '21';
+        forSaleEl.checked = false;
+        forWorkEl.checked = true;
         
         // Naplnit dropdown kategorií
         const categorySelect = document.getElementById('productCategoryId');
