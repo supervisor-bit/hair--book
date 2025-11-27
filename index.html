@@ -25,7 +25,8 @@
             
             // Načíst modální okna PŘED inicializací aplikace
             try {
-                const response = await fetch('modals.html');
+                // Cache busting - přidat timestamp do URL
+                const response = await fetch('modals.html?v=' + Date.now());
                 const html = await response.text();
                 
                 console.log('📦 Modals HTML length:', html.length);
