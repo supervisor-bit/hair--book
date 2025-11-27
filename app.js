@@ -2756,11 +2756,20 @@ function showProductDetail(product) {
                         const typeClass = movement.type === 'purchase' ? 'movement-in' : 'movement-out';
                         const quantitySign = movement.quantity > 0 ? '+' : '';
                         const displayUnit = movement.unit || product.unit;
+                        
+                        // Přepočet na balení (ks)
+                        const packageSize = product.packageSize || 1;
+                        const packagesCount = (movement.quantity / packageSize).toFixed(2);
+                        const packagesDisplay = packagesCount !== '1.00' ? ` (${packagesCount} ks)` : ' (1 ks)';
+                        
                         return `
                             <tr>
                                 <td>${formatDate(movement.date)}</td>
                                 <td><span class="movement-badge ${typeClass}">${typeLabel}</span></td>
-                                <td class="${typeClass}">${quantitySign}${movement.quantity} ${displayUnit}</td>
+                                <td class="${typeClass}">
+                                    ${quantitySign}${movement.quantity} ${displayUnit}
+                                    <span style="color: #9ca3af; font-size: 0.875rem;">${packagesDisplay}</span>
+                                </td>
                                 <td>${movement.note}</td>
                             </tr>
                         `;
