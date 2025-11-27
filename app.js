@@ -7881,6 +7881,8 @@ function generateInventoryTable() {
         row.style.borderBottom = '1px solid #e5e7eb';
         if (isLowStock) row.style.background = '#fef2f2';
         
+        const vatRate = product.vatRate || 21;
+        
         row.innerHTML = `
             <td style="padding: 0.75rem; color: ${isLowStock ? '#ef4444' : '#374151'}; font-weight: ${isLowStock ? '600' : '400'};">
                 ${product.name}
@@ -7891,6 +7893,7 @@ function generateInventoryTable() {
             <td style="padding: 0.75rem; text-align: right; color: #9ca3af;">${product.minStock.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             <td style="padding: 0.75rem; text-align: right; color: #6b7280;">${product.unit}</td>
             <td style="padding: 0.75rem; text-align: right; color: #374151;">${purchasePrice.toLocaleString('cs-CZ')} Kč</td>
+            <td style="padding: 0.75rem; text-align: right; color: #6b7280;">${vatRate}%</td>
             <td style="padding: 0.75rem; text-align: right; color: #374151; font-weight: 600;">${stockValue.toLocaleString('cs-CZ')} Kč</td>
         `;
         
@@ -7901,7 +7904,7 @@ function generateInventoryTable() {
     totalRow.style.background = '#f9fafb';
     totalRow.style.fontWeight = '700';
     totalRow.innerHTML = `
-        <td colspan="6" style="padding: 0.75rem; text-align: right; color: #374151;">Celková hodnota skladu:</td>
+        <td colspan="7" style="padding: 0.75rem; text-align: right; color: #374151;">Celková hodnota skladu:</td>
         <td style="padding: 0.75rem; text-align: right; color: #6366f1; font-size: 1.125rem;">${totalValue.toLocaleString('cs-CZ')} Kč</td>
     `;
     tbody.appendChild(totalRow);
@@ -8128,7 +8131,7 @@ function getMonthName(monthNum) {
 }
 
 function exportInventoryToCSV() {
-    let csv = 'Produkt,Kategorie,Sklad,Minimum,Jednotka,Nákupní cena,Celková hodnota\n';
+    let csv = 'Produkt,Kategorie,Sklad,Minimum,Jednotka,Nákupní cena,DPH,Celková hodnota\n';
     
     let totalValue = 0;
     let totalProducts = 0;
@@ -8137,7 +8140,8 @@ function exportInventoryToCSV() {
     products.forEach(product => {
         const category = productCategories.find(c => c.id === product.categoryId);
         const categoryName = category ? category.name : 'Bez kategorie';
-        const purchasePrice = product.purchasePrice || 0;
+        const purchasePrice = product.pricePurchase || 0;
+        const vatRate = product.vatRate || 21;
         const stockValue = product.stock * purchasePrice;
         
         totalValue += stockValue;
@@ -8147,7 +8151,7 @@ function exportInventoryToCSV() {
             lowStockCount++;
         }
         
-        csv += `"${product.name}","${categoryName}",${product.stock},${product.minStock},"${product.unit}",${purchasePrice},${stockValue}\n`;
+        csv += `"${product.name}","${categoryName}",${product.stock},${product.minStock},"${product.unit}",${purchasePrice},${vatRate}%,${stockValue}\n`;
     });
     
     // Přidat prázdný řádek a sumarizaci
@@ -8381,6 +8385,7 @@ function showInventoryModal() {
                         <th style="padding: 0.75rem; text-align: right; font-weight: 600;">Minimum</th>
                         <th style="padding: 0.75rem; text-align: left; font-weight: 600;">Jednotka</th>
                         <th style="padding: 0.75rem; text-align: right; font-weight: 600;">Nákupní cena</th>
+                        <th style="padding: 0.75rem; text-align: right; font-weight: 600;">DPH</th>
                         <th style="padding: 0.75rem; text-align: right; font-weight: 600;">Celková hodnota</th>
                     </tr>
                 </thead>
@@ -8401,6 +8406,8 @@ function showInventoryModal() {
             lowStockCount++;
         }
         
+        const vatRate = product.vatRate || 21;
+        
         html += `
             <tr style="border-bottom: 1px solid #f3f4f6; ${isLowStock ? 'background: #fef2f2;' : ''}">
                 <td style="padding: 0.75rem; font-weight: 600; color: ${isLowStock ? '#ef4444' : '#374151'};">${product.name}</td>
@@ -8409,6 +8416,7 @@ function showInventoryModal() {
                 <td style="padding: 0.75rem; text-align: right;">${product.minStock}</td>
                 <td style="padding: 0.75rem;">${product.unit}</td>
                 <td style="padding: 0.75rem; text-align: right;">${purchasePrice.toLocaleString('cs-CZ')} Kč</td>
+                <td style="padding: 0.75rem; text-align: right;">${vatRate}%</td>
                 <td style="padding: 0.75rem; text-align: right; font-weight: 600;">${stockValue.toLocaleString('cs-CZ')} Kč</td>
             </tr>
         `;
@@ -8416,7 +8424,7 @@ function showInventoryModal() {
     
     html += `
                     <tr style="background: #f0fdf4; border-top: 2px solid #10b981; font-weight: 700;">
-                        <td colspan="6" style="padding: 0.75rem;">CELKEM</td>
+                        <td colspan="7" style="padding: 0.75rem;">CELKEM</td>
                         <td style="padding: 0.75rem; text-align: right; color: #10b981; font-size: 1.125rem;">${totalValue.toLocaleString('cs-CZ')} Kč</td>
                     </tr>
                 </tbody>
@@ -9057,19 +9065,20 @@ function exportInventoryToCSV() {
 }
 
 function exportInventoryToExcel() {
-    let content = '<table><thead><tr><th>Název</th><th>Kategorie</th><th>Množství</th><th>Jednotka</th><th>Min. stav</th><th>Cena nákup</th><th>Cena prodej</th><th>Poznámka</th></tr></thead><tbody>';
+    let content = '<table><thead><tr><th>Název</th><th>Kategorie</th><th>Množství</th><th>Jednotka</th><th>Min. stav</th><th>Cena nákup</th><th>DPH</th><th>Cena prodej</th><th>Poznámka</th></tr></thead><tbody>';
     
     products.forEach(product => {
         const qty = product.stock !== undefined ? product.stock : (product.quantity || 0);
         const minQty = product.minStock !== undefined ? product.minStock : (product.minQuantity || 1);
         const purchasePrice = product.pricePurchase !== undefined ? product.pricePurchase : (product.purchasePrice || '');
         const salePrice = product.priceRetail !== undefined ? product.priceRetail : (product.priceSale || product.salePrice || '');
+        const vatRate = product.vatRate || 21;
         
         // Najít název kategorie
         const category = productCategories.find(c => c.id === product.categoryId);
         const categoryName = category ? category.name : '';
         
-        content += `<tr><td>${product.name}</td><td>${categoryName}</td><td>${qty}</td><td>${product.unit}</td><td>${minQty}</td><td>${purchasePrice}</td><td>${salePrice}</td><td>${product.description || product.note || ''}</td></tr>`;
+        content += `<tr><td>${product.name}</td><td>${categoryName}</td><td>${qty}</td><td>${product.unit}</td><td>${minQty}</td><td>${purchasePrice}</td><td>${vatRate}%</td><td>${salePrice}</td><td>${product.description || product.note || ''}</td></tr>`;
     });
     
     content += '</tbody></table>';
