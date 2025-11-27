@@ -359,8 +359,14 @@ function initNavigation() {
     
     navItems.forEach(item => {
         item.addEventListener('click', function(e) {
-            e.preventDefault();
             const pageName = this.getAttribute('data-page');
+            
+            // Pokud nemá data-page, je to externí odkaz - necháme defaultní chování
+            if (!pageName) {
+                return;
+            }
+            
+            e.preventDefault();
             
             // Aktualizovat aktivní menu
             navItems.forEach(nav => nav.classList.remove('active'));
@@ -376,7 +382,11 @@ function initNavigation() {
             document.querySelectorAll('.page').forEach(page => {
                 page.classList.remove('active');
             });
-            document.getElementById('page-' + pageName).classList.add('active');
+            
+            const targetPage = document.getElementById('page-' + pageName);
+            if (targetPage) {
+                targetPage.classList.add('active');
+            }
             
             // Inicializovat stránku dashboard
             if (pageName === 'dashboard') {
