@@ -3017,44 +3017,75 @@ function editProduct(productId) {
         const product = products.find(p => p.id === productId);
         if (!product) return;
         
-        // Zkontrolovat, jestli modal existuje
+        // Načíst všechny elementy dopředu
         const modal = document.getElementById('productModal');
+        const titleEl = document.getElementById('productModalTitle');
+        const idEl = document.getElementById('productId');
+        const nameEl = document.getElementById('productName');
+        const barcodeEl = document.getElementById('productBarcode');
+        const descEl = document.getElementById('productDescription');
+        const unitEl = document.getElementById('productUnit');
+        const pkgSizeEl = document.getElementById('productPackageSize');
+        const stockEl = document.getElementById('productStock');
+        const minStockEl = document.getElementById('productMinimalStock');
+        const purchasePriceEl = document.getElementById('productPurchasePrice');
+        const salePriceEl = document.getElementById('productSalePrice');
+        const vatEl = document.getElementById('productVatRate');
+        const forSaleEl = document.getElementById('productForSale');
+        const forWorkEl = document.getElementById('productForWork');
+        const categoryEl = document.getElementById('productCategoryId');
+        
+        // Zkontrolovat kritické elementy
         if (!modal) {
             console.error('productModal not found - modals.html may not be loaded yet');
             showNotification('Modal se načítá, zkuste to znovu za chvíli', 'warning');
             return;
         }
         
-        document.getElementById('productModalTitle').textContent = 'Upravit produkt';
-        document.getElementById('productId').value = product.id;
-        document.getElementById('productName').value = product.name;
-        document.getElementById('productBarcode').value = product.barcode || '';
-        document.getElementById('productDescription').value = product.description || '';
-        document.getElementById('productUnit').value = product.unit || 'ml';
-        document.getElementById('productPackageSize').value = product.packageSize || 1;
-        document.getElementById('productStock').value = (product.stock / (product.packageSize || 1)).toFixed(2);
-        document.getElementById('productStock').disabled = true; // Zakázat úpravu skladu
-        document.getElementById('productMinimalStock').value = (product.minStock / product.packageSize) || 0;
-        document.getElementById('productPurchasePrice').value = product.pricePurchase || '';
-        document.getElementById('productSalePrice').value = product.priceRetail || '';
-        document.getElementById('productVatRate').value = product.vatRate || 21;
-        document.getElementById('productForSale').checked = product.forSale || false;
-        document.getElementById('productForWork').checked = product.forWork !== false;
+        if (!titleEl || !nameEl || !vatEl) {
+            console.error('Missing elements in editProduct:', {
+                titleEl: !!titleEl,
+                nameEl: !!nameEl,
+                vatEl: !!vatEl
+            });
+            showNotification('Některé prvky formuláře nejsou dostupné', 'error');
+            return;
+        }
+        
+        // Nastavit hodnoty
+        titleEl.textContent = 'Upravit produkt';
+        if (idEl) idEl.value = product.id;
+        nameEl.value = product.name;
+        if (barcodeEl) barcodeEl.value = product.barcode || '';
+        if (descEl) descEl.value = product.description || '';
+        if (unitEl) unitEl.value = product.unit || 'ml';
+        if (pkgSizeEl) pkgSizeEl.value = product.packageSize || 1;
+        if (stockEl) {
+            stockEl.value = (product.stock / (product.packageSize || 1)).toFixed(2);
+            stockEl.disabled = true; // Zakázat úpravu skladu
+        }
+        if (minStockEl) minStockEl.value = (product.minStock / product.packageSize) || 0;
+        if (purchasePriceEl) purchasePriceEl.value = product.pricePurchase || '';
+        if (salePriceEl) salePriceEl.value = product.priceRetail || '';
+        vatEl.value = product.vatRate || 21;
+        if (forSaleEl) forSaleEl.checked = product.forSale || false;
+        if (forWorkEl) forWorkEl.checked = product.forWork !== false;
         
         // Naplnit dropdown kategorií
-        const categorySelect = document.getElementById('productCategoryId');
-        categorySelect.innerHTML = '<option value="">-- Vyberte kategorii --</option>';
-        productCategories.forEach(cat => {
-            const option = document.createElement('option');
-            option.value = cat.id;
-            option.textContent = cat.name;
-            if (cat.id === product.categoryId) {
-                option.selected = true;
-            }
-            categorySelect.appendChild(option);
-        });
+        if (categoryEl) {
+            categoryEl.innerHTML = '<option value="">-- Vyberte kategorii --</option>';
+            productCategories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat.id;
+                option.textContent = cat.name;
+                if (cat.id === product.categoryId) {
+                    option.selected = true;
+                }
+                categoryEl.appendChild(option);
+            });
+        }
         
-        document.getElementById('productModal').classList.add('show');
+        modal.classList.add('show');
     } catch (error) {
         console.error('Error editing product:', error);
         showNotification('Chyba při editaci produktu: ' + error.message, 'error');
