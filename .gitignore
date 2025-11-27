@@ -1,0 +1,23 @@
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Backup files
+*.bak
+*~
+
+# Temporary files
+tmp/
+temp/

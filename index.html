@@ -1,0 +1,1850 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HairBook - Kadeřnictví</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        // Kontrola přihlášení
+        window.addEventListener('DOMContentLoaded', function() {
+            const isLoggedIn = sessionStorage.getItem('hairbook_logged_in') || localStorage.getItem('hairbook_remember');
+            
+            if (!isLoggedIn) {
+                window.location.href = 'login.html';
+            }
+            
+            // Načíst modální okna
+            fetch('modals.html')
+                .then(response => response.text())
+                .then(html => {
+                    document.body.insertAdjacentHTML('beforeend', html);
+                });
+        });
+    </script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Levé menu -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <i class="fas fa-cut"></i>
+                <h1>HairBook</h1>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-page="dashboard">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-page="clients">
+                    <i class="fas fa-users"></i>
+                    <span>Klienti</span>
+                </a>
+                <a href="#" class="nav-item" data-page="products">
+                    <i class="fas fa-box"></i>
+                    <span>Produkty</span>
+                    <span id="lowStockBadge" class="nav-badge" style="display: none;">0</span>
+                </a>
+                <a href="#" class="nav-item" data-page="services">
+                    <i class="fas fa-scissors"></i>
+                    <span>Služby</span>
+                </a>
+                
+                <!-- Prodej - sekce -->
+                <div class="nav-group">
+                    <div class="nav-group-header" onclick="toggleNavGroup(this)">
+                        <i class="fas fa-cash-register"></i>
+                        <span>Prodej</span>
+                        <i class="fas fa-chevron-down nav-group-arrow"></i>
+                    </div>
+                    <div class="nav-group-items">
+                        <a href="#" class="nav-item nav-subitem" data-page="sales">
+                            <i class="fas fa-shopping-bag"></i>
+                            <span>Prodej zboží</span>
+                        </a>
+                        <a href="#" class="nav-item nav-subitem" data-page="sales-history">
+                            <i class="fas fa-history"></i>
+                            <span>Historie prodejů</span>
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Výdej materiálu - sekce -->
+                <div class="nav-group">
+                    <div class="nav-group-header" onclick="toggleNavGroup(this)">
+                        <i class="fas fa-hand-holding-heart"></i>
+                        <span>Výdej materiálu</span>
+                        <i class="fas fa-chevron-down nav-group-arrow"></i>
+                    </div>
+                    <div class="nav-group-items">
+                        <a href="#" class="nav-item nav-subitem" data-page="material-issue">
+                            <i class="fas fa-hand-sparkles"></i>
+                            <span>Nový výdej</span>
+                        </a>
+                        <a href="#" class="nav-item nav-subitem" data-page="issue-history">
+                            <i class="fas fa-history"></i>
+                            <span>Historie výdejů</span>
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Příjem zboží - sekce -->
+                <div class="nav-group">
+                    <div class="nav-group-header" onclick="toggleNavGroup(this)">
+                        <i class="fas fa-truck-loading"></i>
+                        <span>Příjem zboží</span>
+                        <i class="fas fa-chevron-down nav-group-arrow"></i>
+                    </div>
+                    <div class="nav-group-items">
+                        <a href="#" class="nav-item nav-subitem" data-page="stock-receipt">
+                            <i class="fas fa-dolly"></i>
+                            <span>Nový příjem</span>
+                        </a>
+                        <a href="#" class="nav-item nav-subitem" data-page="receipt-history">
+                            <i class="fas fa-history"></i>
+                            <span>Historie příjmů</span>
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Objednávky - sekce -->
+                <div class="nav-group">
+                    <div class="nav-group-header" onclick="toggleNavGroup(this)">
+                        <i class="fas fa-shopping-cart"></i>
+                        <span>Objednávky</span>
+                        <i class="fas fa-chevron-down nav-group-arrow"></i>
+                    </div>
+                    <div class="nav-group-items">
+                        <a href="#" class="nav-item nav-subitem" data-page="order">
+                            <i class="fas fa-cart-plus"></i>
+                            <span>Nová objednávka</span>
+                        </a>
+                        <a href="#" class="nav-item nav-subitem" data-page="order-history">
+                            <i class="fas fa-clipboard-list"></i>
+                            <span>Historie objednávek</span>
+                        </a>
+                    </div>
+                </div>
+                
+                <a href="#" class="nav-item" data-page="accounting">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                    <span>Účetnictví</span>
+                </a>
+                <a href="#" class="nav-item" data-page="settings">
+                    <i class="fas fa-cog"></i>
+                    <span>Nastavení</span>
+                </a>
+            </nav>
+            <div style="padding: 1rem; border-top: 1px solid rgba(255,255,255,0.1); margin-top: auto;">
+                <button onclick="logout()" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Odhlásit se</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Hlavní obsah -->
+        <main class="main-content">
+            <!-- Stránka Dashboard -->
+            <div id="page-dashboard" class="page active">
+                <div class="page-header">
+                    <h2><i class="fas fa-chart-line"></i> Dashboard</h2>
+                    <div style="font-size: 0.875rem; color: #6b7280;" id="dashboardDate"></div>
+                </div>
+
+                <div style="padding: 1rem;">
+                <!-- Statistiky -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; margin-top: 0.5rem;">
+                    <!-- Dnešní tržby -->
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 0.75rem; padding: 1rem; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                            <div>
+                                <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Dnešní tržby</div>
+                                <div style="font-size: 2rem; font-weight: 700;" id="todayRevenue">0 Kč</div>
+                            </div>
+                            <div style="width: 48px; height: 48px; background: rgba(255,255,255,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                                <i class="fas fa-coins"></i>
+                            </div>
+                        </div>
+                        <div style="font-size: 0.75rem; opacity: 0.8;" id="todayRevenueChange"></div>
+                    </div>
+
+                    <!-- Dnešní návštěvy -->
+                    <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 0.75rem; padding: 1rem; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                            <div>
+                                <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Dnešní návštěvy</div>
+                                <div style="font-size: 2rem; font-weight: 700;" id="todayVisits">0</div>
+                            </div>
+                            <div style="width: 48px; height: 48px; background: rgba(255,255,255,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                                <i class="fas fa-calendar-check"></i>
+                            </div>
+                        </div>
+                        <div style="font-size: 0.75rem; opacity: 0.8;" id="todayVisitsInfo"></div>
+                    </div>
+
+                    <!-- Celkem klientů -->
+                    <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); border-radius: 0.75rem; padding: 1rem; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                            <div>
+                                <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Celkem klientů</div>
+                                <div style="font-size: 2rem; font-weight: 700;" id="totalClients">0</div>
+                            </div>
+                            <div style="width: 48px; height: 48px; background: rgba(255,255,255,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                                <i class="fas fa-users"></i>
+                            </div>
+                        </div>
+                        <div style="font-size: 0.75rem; opacity: 0.8;" id="activeClientsInfo"></div>
+                    </div>
+
+                    <!-- Produkty pod minimem -->
+                    <div style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); border-radius: 0.75rem; padding: 1rem; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                            <div>
+                                <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Produkty pod minimem</div>
+                                <div style="font-size: 2rem; font-weight: 700;" id="lowStockProducts">0</div>
+                            </div>
+                            <div style="width: 48px; height: 48px; background: rgba(255,255,255,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                        </div>
+                        <div style="font-size: 0.75rem; opacity: 0.8;">Nutné objednat</div>
+                    </div>
+                </div>
+
+                <!-- Grafy a tabulky -->
+                <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                    <!-- Týdenní přehled -->
+                    <div style="background: white; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <h3 style="margin: 0 0 1.5rem 0; display: flex; align-items: center; gap: 0.5rem; font-size: 1.125rem;">
+                            <i class="fas fa-chart-bar" style="color: #6366f1;"></i>
+                            Týdenní přehled tržeb
+                        </h3>
+                        <div id="weeklyChart" style="height: 200px;"></div>
+                    </div>
+
+                    <!-- Top služby -->
+                    <div style="background: white; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <h3 style="margin: 0 0 1rem 0; display: flex; align-items: center; gap: 0.5rem; font-size: 1rem;">
+                            <i class="fas fa-star" style="color: #f59e0b;"></i>
+                            Nejoblíbenější služby
+                        </h3>
+                        <div id="topServices"></div>
+                    </div>
+                </div>
+
+                <!-- Poslední návštěvy a upozornění -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
+                    <!-- Poslední návštěvy -->
+                    <div style="background: white; border-radius: 0.75rem; padding: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; flex-direction: column; max-height: 280px;">
+                        <h3 style="margin: 0 0 0.75rem 0; display: flex; align-items: center; gap: 0.5rem; font-size: 1rem; flex-shrink: 0;">
+                            <i class="fas fa-clock" style="color: #10b981;"></i>
+                            Poslední návštěvy
+                        </h3>
+                        <div id="recentVisits" style="overflow-y: auto; flex: 1;"></div>
+                    </div>
+
+                    <!-- Upozornění -->
+                    <div style="background: white; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; flex-direction: column; max-height: 400px;">
+                        <h3 style="margin: 0 0 0.75rem 0; display: flex; align-items: center; gap: 0.5rem; font-size: 1rem; flex-shrink: 0;">
+                            <i class="fas fa-bell" style="color: #ef4444;"></i>
+                            Upozornění
+                        </h3>
+                        <div id="alerts" style="overflow-y: auto; flex: 1;"></div>
+                    </div>
+                </div>
+                </div>
+            </div>
+
+            <!-- Stránka Klienti -->
+            <div id="page-clients" class="page">
+                <div class="page-header">
+                    <h2>Klienti</h2>
+                    <button class="btn btn-primary" onclick="addNewClient()">
+                        <i class="fas fa-plus"></i> Nový klient
+                    </button>
+                </div>
+                
+                <div class="split-view">
+                    <!-- Levá strana - skupiny a seznam klientů -->
+                    <div class="list-panel" style="display: flex; flex-direction: row; gap: 1rem;">
+                        <!-- Skupiny klientů (levý sloupec) -->
+                        <div style="width: 200px; flex-shrink: 0;">
+                            <div class="category-list" id="clientGroupList">
+                                <!-- Skupiny klientů -->
+                            </div>
+                        </div>
+                        
+                        <!-- Seznam klientů (pravý sloupec) -->
+                        <div style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
+                            <div class="search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" placeholder="Hledat klienta..." id="clientSearch">
+                            </div>
+                            <div class="client-list" id="clientList">
+                                <!-- Klienti budou přidáni přes JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detail klienta (pravá strana) -->
+                    <div class="detail-panel">
+                        <div id="clientDetail" class="client-detail">
+                            <div class="empty-state">
+                                <i class="fas fa-user-circle"></i>
+                                <p>Vyberte klienta ze seznamu</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stránka Produkty -->
+            <div id="page-products" class="page">
+                <div class="page-header">
+                    <h2>Produkty a Materiály</h2>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-secondary" id="entryModeBtn" onclick="toggleEntryMode()" style="display: none;">
+                            <i class="fas fa-rocket"></i> Režim pořizování
+                        </button>
+                        <button class="btn btn-warning" id="filterLowStockBtn" onclick="toggleLowStockFilter()" style="display: none;">
+                            <i class="fas fa-exclamation-triangle"></i> <span id="filterLowStockText">Zobrazit pod minimem</span>
+                        </button>
+                        <button class="btn btn-primary" onclick="addNewProduct()">
+                            <i class="fas fa-plus"></i> Nový produkt
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="split-view">
+                    <!-- Kategorie (úplně vlevo) -->
+                    <div class="category-panel">
+                        <div class="category-header">
+                            <h3>Kategorie</h3>
+                            <button class="btn-icon" onclick="addNewCategory()" title="Přidat kategorii">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div class="category-list" id="categoryList">
+                            <!-- Kategorie budou přidány přes JavaScript -->
+                        </div>
+                    </div>
+                    
+                    <!-- Seznam produktů (prostřední) -->
+                    <div class="list-panel" style="display: flex; flex-direction: column; width: 400px;">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" placeholder="Hledat produkt..." id="productSearch">
+                        </div>
+                        <div class="client-list" id="productsList">
+                            <!-- Produkty budou přidány přes JavaScript -->
+                        </div>
+                    </div>
+
+                    <!-- Detail produktu (pravá strana) -->
+                    <div class="detail-panel">
+                        <div id="productDetail" class="client-detail">
+                            <div class="empty-state">
+                                <i class="fas fa-box"></i>
+                                <p>Vyberte produkt ze seznamu</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stránka Služby -->
+            <div id="page-services" class="page">
+                <div class="page-header">
+                    <h2>Služby</h2>
+                    <button class="btn btn-primary" onclick="addNewService()">
+                        <i class="fas fa-plus"></i> Nová služba
+                    </button>
+                </div>
+                <div class="services-list" id="servicesList">
+                    <!-- Služby budou přidány přes JavaScript -->
+                </div>
+            </div>
+
+            <!-- Stránka Nová návštěva (POS styl) -->
+            <div id="page-new-visit" class="page">
+                <div class="page-header">
+                    <button class="btn btn-secondary" onclick="cancelNewVisit()">
+                        <i class="fas fa-arrow-left"></i> Zpět
+                    </button>
+                    <h2><span id="visitTitle">Nová návštěva</span> - <span id="visitClientName"></span></h2>
+                    <div style="display: flex; gap: 0.75rem;">
+                        <button class="btn btn-primary" onclick="saveVisit(false)" id="btnSaveOpen">
+                            <i class="fas fa-save"></i> Uložit návštěvu
+                        </button>
+                        <button class="btn btn-success" onclick="saveVisit(true)" id="btnSaveClose">
+                            <i class="fas fa-check-circle"></i> Uložit a uzavřít + odepsat materiál
+                        </button>
+                    </div>
+                </div>
+
+                <div class="pos-layout">
+                    <!-- Levá strana - Seznam služeb -->
+                    <div class="pos-services">
+                        <div class="pos-section-header">
+                            <h3>Služby</h3>
+                            <button class="btn-icon" onclick="addNewServiceInPos()" title="Přidat službu">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" placeholder="Hledat službu..." id="serviceSearch">
+                        </div>
+                        <div class="service-rows" id="serviceRows">
+                            <!-- Služby v řádkovém formátu -->
+                        </div>
+                    </div>
+
+                    <!-- Střední část - Vybrané služby -->
+                    <div class="pos-selected">
+                        <h3>Vybrané služby</h3>
+                        <div class="selected-services" id="selectedServices">
+                            <div class="empty-state">
+                                <i class="fas fa-hand-pointer"></i>
+                                <p>Vyberte službu ze seznamu</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pravá strana - Materiály (karty) -->
+                    <div class="pos-materials">
+                        <h3>Materiály</h3>
+                        <div class="material-categories" id="materialCategories">
+                            <!-- Kategorie materiálů -->
+                        </div>
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" placeholder="Hledat materiál..." id="materialSearch">
+                        </div>
+                        <div class="material-cards" id="materialCards">
+                            <!-- Materiály v kartovém formátu -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stránka Prodej -->
+            <div id="page-sales" class="page">
+                <div class="page-header" style="flex-shrink: 0;">
+                    <h2><i class="fas fa-shopping-bag"></i> Prodej zboží</h2>
+                    <button class="btn btn-success" onclick="completeSale()">
+                        <i class="fas fa-check"></i> Dokončit prodej
+                    </button>
+                </div>
+
+                <div class="sales-container" style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; flex: 1; padding: 1rem; overflow: hidden;">
+                    <!-- Levá strana - Produkty k prodeji -->
+                    <div style="display: flex; flex-direction: column; gap: 1rem; overflow: hidden;">
+                        <div class="search-box" style="flex-shrink: 0;">
+                            <i class="fas fa-search"></i>
+                            <input type="text" placeholder="Hledat produkt na prodej..." id="salesProductSearch" oninput="filterSalesProducts()">
+                        </div>
+
+                        <div id="salesProductGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; overflow-y: auto; padding: 0.5rem; flex: 1; align-content: start;">
+                            <!-- Produkty na prodej -->
+                        </div>
+                    </div>
+
+                    <!-- Pravá strana - Košík -->
+                    <div style="background: white; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden;">
+                        <h3 style="margin: 0 0 1rem 0; display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0;">
+                            <i class="fas fa-shopping-cart"></i> Košík
+                        </h3>
+                        
+                        <div class="form-group" style="margin-bottom: 1rem; flex-shrink: 0;">
+                            <label>Klient (nepovinné)</label>
+                            <div class="autocomplete-wrapper">
+                                <input type="text" 
+                                       id="salesClientSearch" 
+                                       placeholder="Začněte psát jméno klienta..." 
+                                       autocomplete="off"
+                                       oninput="filterSalesClientSuggestions()"
+                                       onfocus="showSalesClientSuggestions()"
+                                       onkeydown="handleSalesClientKeyDown(event)">
+                                <div id="salesClientSuggestions" class="autocomplete-suggestions"></div>
+                            </div>
+                            <input type="hidden" id="salesClientId">
+                        </div>
+                        
+                        <div id="salesCart" style="flex: 1; overflow-y: auto; margin-bottom: 1rem; min-height: 0;">
+                            <div class="empty-state">
+                                <i class="fas fa-shopping-cart"></i>
+                                <p>Košík je prázdný</p>
+                            </div>
+                        </div>
+
+                        <div style="border-top: 2px solid #e5e7eb; padding-top: 1rem; flex-shrink: 0;">
+                            <div class="form-group" style="margin-bottom: 1rem;">
+                                <label>Jméno zákazníka (nepovinné)</label>
+                                <input type="text" id="salesCustomerName" placeholder="např. Jana Nováková">
+                            </div>
+                            
+                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem;">
+                                <span>Celkem:</span>
+                                <span id="salesTotal" style="color: var(--primary-color);">0 Kč</span>
+                            </div>
+
+                            <button class="btn btn-success" onclick="completeSale()" style="width: 100%; font-size: 1.125rem; padding: 1rem;">
+                                <i class="fas fa-check-circle"></i> Dokončit prodej
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stránka Příjem zboží -->
+            <div id="page-stock-receipt" class="page">
+                <div class="page-header">
+                    <h2><i class="fas fa-truck-loading"></i> Příjem zboží</h2>
+                    <button class="btn btn-success" onclick="saveStockReceipt()">
+                        <i class="fas fa-check"></i> Uložit příjem
+                    </button>
+                </div>
+                
+                <div class="stock-receipt-container">
+                    <!-- Rychlé zadávání produktů -->
+                    <div class="stock-receipt-input">
+                        <h3>Rychlé zadání příjmu</h3>
+                        <div class="receipt-form">
+                            <div class="form-group">
+                                <label>Produkt</label>
+                                <div class="autocomplete-wrapper">
+                                    <input type="text" 
+                                           id="receiptProductSearch" 
+                                           placeholder="Začněte psát název produktu..." 
+                                           autocomplete="off"
+                                           oninput="filterProductSuggestions()"
+                                           onfocus="showProductSuggestions()"
+                                           onkeydown="handleProductKeyDown(event)">
+                                    <div id="productSuggestions" class="autocomplete-suggestions"></div>
+                                </div>
+                                <input type="hidden" id="receiptProduct">
+                                <button class="btn btn-secondary" style="margin-top: 0.5rem; width: 100%;" onclick="quickAddProductInReceipt()">
+                                    <i class="fas fa-plus-circle"></i> Přidat nový produkt
+                                </button>
+                            </div>
+                            <div class="form-group">
+                                <label>Množství</label>
+                                <input type="number" id="receiptQuantity" placeholder="Množství" step="0.01" onkeydown="if(event.key==='Enter') document.getElementById('receiptNote').focus()">
+                            </div>
+                            <div class="form-group">
+                                <label>Jednotka</label>
+                                <select id="receiptUnit" onkeydown="if(event.key==='Enter') document.getElementById('receiptNote').focus()">
+                                    <option value="">Vyberte jednotku...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Poznámka (nepovinné)</label>
+                                <input type="text" id="receiptNote" placeholder="např. Dodavatel XY, Faktura 123..." onkeydown="if(event.key==='Enter') addToReceipt()">
+                            </div>
+                            <button class="btn btn-primary" onclick="addToReceipt()">
+                                <i class="fas fa-plus"></i> Přidat
+                            </button>
+                        </div>
+                        
+                        <!-- Info o produktu -->
+                        <div id="receiptProductInfo" class="product-info-box" style="display: none;">
+                            <h4>Informace o produktu</h4>
+                            <div class="info-row">
+                                <span class="label">Aktuální stav:</span>
+                                <span id="infoCurrentStock"></span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Minimální zásoba:</span>
+                                <span id="infoMinStock"></span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Stav po příjmu:</span>
+                                <span id="infoNewStock" style="font-weight: 600; color: var(--success);"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tabulka přijatých položek -->
+                    <div class="stock-receipt-list">
+                        <h3>Položky k příjmu</h3>
+                        <div class="receipt-table-container">
+                            <table class="receipt-table">
+                                <thead>
+                                    <tr>
+                                        <th>Produkt</th>
+                                        <th>Množství</th>
+                                        <th>Jednotka</th>
+                                        <th>Poznámka</th>
+                                        <th>Akce</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="receiptTableBody">
+                                    <tr class="empty-row">
+                                        <td colspan="5" style="text-align: center; color: var(--text-light); padding: 2rem;">
+                                            <i class="fas fa-inbox" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
+                                            Zatím žádné položky
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stránka Historie příjmů -->
+            <div id="page-receipt-history" class="page">
+                <div class="page-header" style="flex-shrink: 0;">
+                    <h2><i class="fas fa-history"></i> Historie příjmů zboží</h2>
+                </div>
+
+                <div style="flex-shrink: 0; padding: 1rem; padding-bottom: 0; background: var(--bg-primary);">
+                    <!-- Statistiky -->
+                    <div class="card" style="margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div class="card-body" style="display: flex; gap: 2rem; align-items: center; flex-wrap: wrap; padding: 1rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <div style="background: #E3F2FD; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-list" style="color: #2196F3;"></i>
+                                </div>
+                                <div>
+                                    <div style="font-size: 0.75rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px;">Příjmů</div>
+                                    <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);"><span id="receiptStatsCount">0</span></div>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <div style="background: #E8F5E9; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-box" style="color: #4CAF50;"></i>
+                                </div>
+                                <div>
+                                    <div style="font-size: 0.75rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px;">Položek</div>
+                                    <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);"><span id="receiptStatsItems">0</span></div>
+                                </div>
+                            </div>
+                            <div style="margin-left: auto;">
+                                <button onclick="exportReceiptHistoryToCSV()" class="btn btn-secondary" style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <i class="fas fa-download"></i> <span>Export CSV</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filtr -->
+                    <div class="card" style="margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div class="card-body" style="padding: 1rem;">
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                                <button onclick="filterReceiptByMonth('current')" class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    <i class="fas fa-calendar-day"></i> Tento měsíc
+                                </button>
+                                <button onclick="filterReceiptByMonth('last')" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    Minulý měsíc
+                                </button>
+                                <button onclick="filterReceiptByMonth('last3')" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    Poslední 3 měsíce
+                                </button>
+                                <button onclick="filterReceiptByMonth('last6')" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    Posledních 6 měsíců
+                                </button>
+                                <button onclick="filterReceiptByMonth('year')" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    Letošní rok
+                                </button>
+                                <select id="receiptMonthSelect" onchange="filterReceiptBySpecificMonth()" class="form-control" style="width: auto; padding: 0.5rem; font-size: 0.875rem;">
+                                    <option value="">Vybrat měsíc...</option>
+                                </select>
+                                <button onclick="filterReceiptByMonth('all')" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem; margin-left: auto;">
+                                    <i class="fas fa-list"></i> Vše
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scrollovatelný seznam -->
+                <div style="flex: 1; overflow-y: auto; padding: 0 1rem 1rem 1rem;">
+                    <div class="card" style="box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div class="card-body" style="padding: 0;">
+                            <div id="receiptHistoryList">
+                                <!-- Seznam příjemek bude zde -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stránka Výdej materiálu -->
+            <div id="page-material-issue" class="page">
+                <div class="page-header" style="flex-shrink: 0;">
+                    <h2><i class="fas fa-hand-sparkles"></i> Výdej materiálu</h2>
+                </div>
+
+                <div class="sales-container" style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; flex: 1; padding: 1rem; overflow: hidden;">
+                    <!-- Levá strana - Materiály pro práci -->
+                    <div style="display: flex; flex-direction: column; gap: 1rem; overflow: hidden;">
+                        <div class="search-box" style="flex-shrink: 0;">
+                            <i class="fas fa-search"></i>
+                            <input type="text" placeholder="Hledat materiál..." id="issueSearchInput" oninput="filterIssueProducts()">
+                        </div>
+
+                        <div id="issueProductsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; overflow-y: auto; padding: 0.5rem; flex: 1; align-content: start;">
+                            <!-- Materiály pro výdej -->
+                        </div>
+                    </div>
+
+                    <!-- Pravá strana - Výdejka -->
+                    <div style="background: white; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden;">
+                        <h3 style="margin: 0 0 1rem 0; display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0;">
+                            <i class="fas fa-clipboard-list"></i> Výdejka
+                        </h3>
+                        
+                        <div style="flex: 1; overflow-y: auto; margin-bottom: 1rem; min-height: 0;">
+                            <div id="issueCartEmpty" class="empty-state">
+                                <i class="fas fa-clipboard-list"></i>
+                                <p>Výdejka je prázdná</p>
+                            </div>
+                            <div id="issueCartItems" style="display: none;">
+                                <!-- Položky výdejky -->
+                            </div>
+                        </div>
+
+                        <div style="border-top: 2px solid #e5e7eb; padding-top: 1rem; flex-shrink: 0;">
+                            <div class="form-group" style="margin-bottom: 1rem;">
+                                <label>Poznámka k výdeji</label>
+                                <textarea id="issueNote" rows="3" placeholder="např. Použito při návštěvě klienta..." style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; resize: vertical;"></textarea>
+                            </div>
+                            <button id="completeIssueBtn" class="btn btn-success w-100" onclick="completeMaterialIssue()">
+                                <i class="fas fa-check"></i> Dokončit výdej
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stránka Historie výdejů -->
+            <div id="page-issue-history" class="page">
+                <div class="page-header" style="flex-shrink: 0;">
+                    <h2><i class="fas fa-hand-sparkles"></i> Historie výdejů</h2>
+                </div>
+
+                <div style="flex-shrink: 0; padding: 1rem; padding-bottom: 0; background: var(--bg-primary);">
+                    <!-- Statistiky -->
+                    <div class="card" style="margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div class="card-body" style="display: flex; gap: 2rem; align-items: center; flex-wrap: wrap; padding: 1rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <div style="background: #F3E5F5; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-list" style="color: #a855f7;"></i>
+                                </div>
+                                <div>
+                                    <div style="font-size: 0.75rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px;">Výdejů</div>
+                                    <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);"><span id="issueStatsCount">0</span></div>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <div style="background: #E8F5E9; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-box" style="color: #4CAF50;"></i>
+                                </div>
+                                <div>
+                                    <div style="font-size: 0.75rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px;">Položek</div>
+                                    <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);"><span id="issueStatsItems">0</span></div>
+                                </div>
+                            </div>
+                            <div style="margin-left: auto;">
+                                <button onclick="exportIssueHistoryToCSV()" class="btn btn-secondary" style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <i class="fas fa-download"></i> <span>Export CSV</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filtr -->
+                    <div class="card" style="margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div class="card-body" style="padding: 1rem;">
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                                <button onclick="filterIssueByMonth('current')" class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    <i class="fas fa-calendar-day"></i> Tento měsíc
+                                </button>
+                                <button onclick="filterIssueByMonth('last')" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    Minulý měsíc
+                                </button>
+                                <button onclick="filterIssueByMonth('last3')" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    Poslední 3 měsíce
+                                </button>
+                                <button onclick="filterIssueByMonth('last6')" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    Posledních 6 měsíců
+                                </button>
+                                <button onclick="filterIssueByMonth('year')" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    Letošní rok
+                                </button>
+                                <select id="issueMonthSelect" onchange="filterIssueBySpecificMonth()" class="form-control" style="width: auto; padding: 0.5rem; font-size: 0.875rem;">
+                                    <option value="">Vybrat měsíc...</option>
+                                </select>
+                                <button onclick="filterIssueByMonth('all')" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem; margin-left: auto;">
+                                    <i class="fas fa-list"></i> Vše
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scrollovatelný seznam -->
+                <div style="flex: 1; overflow-y: auto; padding: 0 1rem 1rem 1rem;">
+                    <div id="issueHistoryList" style="display: grid; gap: 1rem;">
+                        <!-- Historie výdejů -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stránka Historie prodejů -->
+            <div id="page-sales-history" class="page">
+                <div class="page-header" style="flex-shrink: 0;">
+                    <h2><i class="fas fa-cash-register"></i> Historie prodejů</h2>
+                </div>
+
+                <div style="flex-shrink: 0; padding: 1rem; padding-bottom: 0; background: var(--bg-primary);">
+                    <!-- Statistiky -->
+                    <div class="card" style="margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div class="card-body" style="display: flex; gap: 2rem; align-items: center; flex-wrap: wrap; padding: 1rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <div style="background: #E3F2FD; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-list" style="color: #2196F3;"></i>
+                                </div>
+                                <div>
+                                    <div style="font-size: 0.75rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px;">Prodejů</div>
+                                    <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);"><span id="salesStatsCount">0</span></div>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <div style="background: #E8F5E9; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-box" style="color: #4CAF50;"></i>
+                                </div>
+                                <div>
+                                    <div style="font-size: 0.75rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px;">Položek</div>
+                                    <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);"><span id="salesStatsItems">0</span></div>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <div style="background: #FFF3E0; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-coins" style="color: #FF9800;"></i>
+                                </div>
+                                <div>
+                                    <div style="font-size: 0.75rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px;">Celkem</div>
+                                    <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);"><span id="salesStatsTotal">0</span> Kč</div>
+                                </div>
+                            </div>
+                            <div style="margin-left: auto;">
+                                <button onclick="exportSalesHistoryToCSV()" class="btn btn-secondary" style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <i class="fas fa-download"></i> <span>Export CSV</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filtr -->
+                    <div class="card" style="margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div class="card-body" style="padding: 1rem;">
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                                <button onclick="filterSalesByMonth('current')" class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    <i class="fas fa-calendar-day"></i> Tento měsíc
+                                </button>
+                                <button onclick="filterSalesByMonth('last')" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    Minulý měsíc
+                                </button>
+                                <button onclick="filterSalesByMonth('last3')" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    Poslední 3 měsíce
+                                </button>
+                                <button onclick="filterSalesByMonth('last6')" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    Posledních 6 měsíců
+                                </button>
+                                <button onclick="filterSalesByMonth('year')" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    Letošní rok
+                                </button>
+                                <select id="salesMonthSelect" onchange="filterSalesBySpecificMonth()" class="form-control" style="width: auto; padding: 0.5rem; font-size: 0.875rem;">
+                                    <option value="">Vybrat měsíc...</option>
+                                </select>
+                                <button onclick="filterSalesByMonth('all')" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem; margin-left: auto;">
+                                    <i class="fas fa-list"></i> Vše
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scrollovatelný seznam -->
+                <div style="flex: 1; overflow-y: auto; padding: 0 1rem 1rem 1rem;">
+                    <div class="card" style="box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div class="card-body" style="padding: 0;">
+                            <div id="salesHistoryList">
+                                <!-- Seznam prodejů bude zde -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stránka Objednávka zboží -->
+            <div id="page-order" class="page">
+                <div class="page-header">
+                    <h2><i class="fas fa-shopping-cart"></i> Objednávka zboží</h2>
+                    <div style="display: flex; gap: 0.75rem;">
+                        <button class="btn btn-secondary" onclick="generateOrderFromLowStock()">
+                            <i class="fas fa-magic"></i> Doplnit produkty pod minimem
+                        </button>
+                        <button class="btn btn-success" onclick="exportOrder()">
+                            <i class="fas fa-save"></i> Uložit
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="order-container">
+                    <!-- Přidat produkt do objednávky -->
+                    <div class="order-input">
+                        <h3>Přidat do objednávky</h3>
+                        <div class="receipt-form">
+                            <div class="form-group">
+                                <label>Produkt</label>
+                                <div class="autocomplete-wrapper">
+                                    <input type="text" 
+                                           id="orderProductSearch" 
+                                           placeholder="Začněte psát název produktu..." 
+                                           autocomplete="off"
+                                           oninput="filterOrderProductSuggestions()"
+                                           onfocus="showOrderProductSuggestions()"
+                                           onkeydown="handleOrderProductKeyDown(event)">
+                                    <div id="orderProductSuggestions" class="autocomplete-suggestions"></div>
+                                </div>
+                                <input type="hidden" id="orderProduct">
+                            </div>
+                            <div class="form-group">
+                                <label>Množství k objednání</label>
+                                <input type="number" id="orderQuantity" placeholder="Množství" step="0.01" onkeydown="if(event.key==='Enter') addToOrder()">
+                            </div>
+                            <div class="form-group">
+                                <label>Jednotka</label>
+                                <select id="orderUnit" onkeydown="if(event.key==='Enter') addToOrder()">
+                                    <option value="">Vyberte jednotku...</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-primary" onclick="addToOrder()">
+                                <i class="fas fa-plus"></i> Přidat
+                            </button>
+                        </div>
+                        
+                        <!-- Info o produktu -->
+                        <div id="orderProductInfo" class="product-info-box" style="display: none; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                            <h4>Informace o produktu</h4>
+                            <div class="info-row">
+                                <span class="label">Aktuální stav:</span>
+                                <span id="orderInfoCurrentStock"></span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Minimální zásoba:</span>
+                                <span id="orderInfoMinStock"></span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Chybí do minima:</span>
+                                <span id="orderInfoMissing" style="font-weight: 600;"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tabulka objednávky -->
+                    <div class="order-list">
+                        <h3>Objednávka</h3>
+                        <div class="receipt-table-container">
+                            <table class="receipt-table">
+                                <thead>
+                                    <tr>
+                                        <th>Produkt</th>
+                                        <th>Kategorie</th>
+                                        <th>Aktuální stav</th>
+                                        <th>Objednat</th>
+                                        <th>Jednotka</th>
+                                        <th>Akce</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="orderTableBody">
+                                    <tr class="empty-row">
+                                        <td colspan="6" style="text-align: center; color: var(--text-light); padding: 2rem;">
+                                            <i class="fas fa-shopping-cart" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
+                                            Žádné produkty v objednávce<br>
+                                            <small>Klikněte na "Doplnit produkty pod minimem" nebo přidejte ručně</small>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stránka Účetnictví -->
+            <div id="page-accounting" class="page">
+                <div class="page-header">
+                    <h2><i class="fas fa-file-invoice-dollar"></i> Účetnictví a Reporty</h2>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <select id="accountingYear" style="padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem;">
+                            <!-- Roky budou přidány dynamicky -->
+                        </select>
+                        <select id="accountingMonth" style="padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem;">
+                            <option value="">Celý rok</option>
+                            <option value="1">Leden</option>
+                            <option value="2">Úmor</option>
+                            <option value="3">Březen</option>
+                            <option value="4">Duben</option>
+                            <option value="5">Květen</option>
+                            <option value="6">Červen</option>
+                            <option value="7">Červenec</option>
+                            <option value="8">Srpen</option>
+                            <option value="9">Září</option>
+                            <option value="10">Říjen</option>
+                            <option value="11">Listopad</option>
+                            <option value="12">Prosinec</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="generateAccountingReport()">
+                            <i class="fas fa-sync"></i> Aktualizovat
+                        </button>
+                    </div>
+                </div>
+
+                <div style="display: flex; height: calc(100% - 80px);">
+                    <!-- Levé menu účetnictví -->
+                    <div style="width: 250px; background: var(--bg-white); border-right: 1px solid var(--border-color); padding: 1rem; overflow-y: auto;">
+                        <nav style="display: flex; flex-direction: column; gap: 0.5rem;">
+                            <a href="#" onclick="showAccountingSection('overview'); return false;" 
+                               class="accounting-nav-item active" data-section="overview"
+                               style="padding: 0.75rem 1rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: var(--text-dark); transition: all 0.2s;">
+                                <i class="fas fa-chart-line" style="width: 20px;"></i>
+                                <span>Přehled tržeb</span>
+                            </a>
+                            <a href="#" onclick="showAccountingSection('inventory'); return false;" 
+                               class="accounting-nav-item" data-section="inventory"
+                               style="padding: 0.75rem 1rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: var(--text-dark); transition: all 0.2s;">
+                                <i class="fas fa-warehouse" style="width: 20px;"></i>
+                                <span>Inventura skladu</span>
+                            </a>
+                            <a href="#" onclick="showAccountingSection('comparison'); return false;" 
+                               class="accounting-nav-item" data-section="comparison"
+                               style="padding: 0.75rem 1rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: var(--text-dark); transition: all 0.2s;">
+                                <i class="fas fa-exchange-alt" style="width: 20px;"></i>
+                                <span>Porovnání období</span>
+                            </a>
+                            <a href="#" onclick="showAccountingSection('top-items'); return false;" 
+                               class="accounting-nav-item" data-section="top-items"
+                               style="padding: 0.75rem 1rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: var(--text-dark); transition: all 0.2s;">
+                                <i class="fas fa-trophy" style="width: 20px;"></i>
+                                <span>Top produkty a služby</span>
+                            </a>
+                            <a href="#" onclick="showAccountingSection('costs'); return false;" 
+                               class="accounting-nav-item" data-section="costs"
+                               style="padding: 0.75rem 1rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: var(--text-dark); transition: all 0.2s;">
+                                <i class="fas fa-coins" style="width: 20px;"></i>
+                                <span>Náklady a zisk</span>
+                            </a>
+                            <a href="#" onclick="showAccountingSection('clients-stats'); return false;" 
+                               class="accounting-nav-item" data-section="clients-stats"
+                               style="padding: 0.75rem 1rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: var(--text-dark); transition: all 0.2s;">
+                                <i class="fas fa-users" style="width: 20px;"></i>
+                                <span>Statistiky klientů</span>
+                            </a>
+                            <a href="#" onclick="showAccountingSection('export'); return false;" 
+                               class="accounting-nav-item" data-section="export"
+                               style="padding: 0.75rem 1rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: var(--text-dark); transition: all 0.2s;">
+                                <i class="fas fa-file-export" style="width: 20px;"></i>
+                                <span>Exporty</span>
+                            </a>
+                        </nav>
+                    </div>
+
+                    <!-- Obsah účetnictví -->
+                    <div style="flex: 1; padding: 1.5rem; overflow-y: auto;">
+                        <!-- Sekce: Přehled tržeb -->
+                        <div id="accounting-section-overview" class="accounting-section" style="display: block;">
+                            <div style="background: white; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 1.5rem;">
+                                <h3 style="margin: 0 0 1.5rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                                    <i class="fas fa-chart-line" style="color: #6366f1;"></i>
+                                    Přehled tržeb
+                                </h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 0.5rem; padding: 1rem; color: white;">
+                                <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Celkové tržby</div>
+                                <div style="font-size: 1.75rem; font-weight: 700;" id="totalRevenue">0 Kč</div>
+                            </div>
+                            <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 0.5rem; padding: 1rem; color: white;">
+                                <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Tržby ze služeb</div>
+                                <div style="font-size: 1.75rem; font-weight: 700;" id="serviceRevenue">0 Kč</div>
+                            </div>
+                            <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); border-radius: 0.5rem; padding: 1rem; color: white;">
+                                <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Tržby z prodeje</div>
+                                <div style="font-size: 1.75rem; font-weight: 700;" id="productSalesRevenue">0 Kč</div>
+                            </div>
+                            <div style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); border-radius: 0.5rem; padding: 1rem; color: white;">
+                                <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Počet návštěv</div>
+                                <div style="font-size: 1.75rem; font-weight: 700;" id="totalVisitsCount">0</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 1.5rem; text-align: center;">
+                            <button class="btn btn-primary" onclick="showRevenueModal()" style="min-width: 200px;">
+                                <i class="fas fa-eye"></i> Zobrazit detailní přehled tržeb
+                            </button>
+                        </div>
+                    </div>
+                        </div>
+
+                        <!-- Sekce: Inventura skladu -->
+                        <div id="accounting-section-inventory" class="accounting-section" style="display: none;">
+                            <!-- Inventura skladu -->
+                    <div style="background: white; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 1.5rem;">
+                        <h3 style="margin: 0 0 1.5rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                            <i class="fas fa-warehouse" style="color: #10b981;"></i>
+                            Stav skladu
+                        </h3>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+                            <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 0.5rem; padding: 1rem; color: white;">
+                                <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Celková hodnota skladu</div>
+                                <div style="font-size: 1.75rem; font-weight: 700;" id="totalInventoryValue">0 Kč</div>
+                            </div>
+                            <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border-radius: 0.5rem; padding: 1rem; color: white;">
+                                <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Počet produktů</div>
+                                <div style="font-size: 1.75rem; font-weight: 700;" id="totalProductsCount">0</div>
+                            </div>
+                            <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-radius: 0.5rem; padding: 1rem; color: white;">
+                                <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Produkty s nízkým stavem</div>
+                                <div style="font-size: 1.75rem; font-weight: 700;" id="lowStockCount">0</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 1.5rem; text-align: center;">
+                            <button class="btn btn-primary" onclick="showInventoryModal()" style="min-width: 200px;">
+                                <i class="fas fa-eye"></i> Zobrazit detailní inventuru
+                            </button>
+                        </div>
+                        </div>
+                        </div>
+
+                        <!-- Sekce: Porovnání období -->
+                        <div id="accounting-section-comparison" class="accounting-section" style="display: none; min-height: 400px;">
+                            <div style="background: white; border-radius: 0.75rem; padding: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 1.5rem;">
+                                <h3 style="margin: 0 0 1.5rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                                    <i class="fas fa-exchange-alt" style="color: #6366f1;"></i>
+                                    Porovnání období
+                                </h3>
+                                
+                                <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem;">
+                                    <select id="comparisonPeriod" onchange="generateComparison()" class="form-control" style="max-width: 200px;">
+                                        <option value="month">Měsíc vs Měsíc</option>
+                                        <option value="year">Rok vs Rok</option>
+                                        <option value="quarter">Čtvrtletí</option>
+                                    </select>
+                                    <button class="btn btn-primary" onclick="generateComparison()">
+                                        <i class="fas fa-sync"></i> Aktualizovat
+                                    </button>
+                                </div>
+                                
+                                <div id="comparisonResults" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;">
+                                    <div style="text-align: center; padding: 2rem; color: #9ca3af;">Načítání dat...</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sekce: Top produkty a služby -->
+                        <div id="accounting-section-top-items" class="accounting-section" style="display: none; min-height: 400px; background: #f0f0f0; padding: 1.5rem;">
+                            <h3 style="margin: 0 0 1.5rem 0; display: flex; align-items: center; gap: 0.5rem; background: #6366f1; color: white; padding: 1.5rem; border-radius: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                <i class="fas fa-trophy"></i>
+                                Top produkty a služby
+                            </h3>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+                                <!-- Top služby -->
+                                <div style="background: white; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 2px solid #f093fb;">
+                                    <h4 style="margin: 0 0 1rem 0; display: flex; align-items: center; gap: 0.5rem; color: #f093fb; font-size: 1.1rem; font-weight: bold;">
+                                        <i class="fas fa-cut"></i> Nejoblíbenější služby
+                                    </h4>
+                                    <table id="topServicesTable" style="width: 100%; border-collapse: collapse;">
+                                        <thead>
+                                            <tr style="background: #f093fb; color: white; border-bottom: 2px solid #e5e7eb;">
+                                                <th style="padding: 0.75rem; text-align: left;">Služba</th>
+                                                <th style="padding: 0.75rem; text-align: right;">Počet</th>
+                                                <th style="padding: 0.75rem; text-align: right;">Tržby</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody style="color: #000; font-size: 0.95rem;">
+                                            <tr><td colspan="3" style="padding: 1rem; text-align: center; color: #000; font-weight: bold;">Načítání...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <!-- Top produkty -->
+                                <div style="background: white; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 2px solid #4facfe;">
+                                    <h4 style="margin: 0 0 1rem 0; display: flex; align-items: center; gap: 0.5rem; color: #4facfe; font-size: 1.1rem; font-weight: bold;">
+                                        <i class="fas fa-shopping-cart"></i> Nejprodávanější produkty
+                                    </h4>
+                                    <table id="topProductsTable" style="width: 100%; border-collapse: collapse;">
+                                        <thead>
+                                            <tr style="background: #4facfe; color: white; border-bottom: 2px solid #e5e7eb;">
+                                                <th style="padding: 0.75rem; text-align: left;">Produkt</th>
+                                                <th style="padding: 0.75rem; text-align: right;">Počet</th>
+                                                <th style="padding: 0.75rem; text-align: right;">Tržby</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody style="color: #000; font-size: 0.95rem;">
+                                            <tr><td colspan="3" style="padding: 1rem; text-align: center; color: #000; font-weight: bold;">Načítání...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            
+                            <!-- Top klienti -->
+                            <div style="background: white; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 2px solid #667eea;">
+                                <h4 style="margin: 0 0 1rem 0; display: flex; align-items: center; gap: 0.5rem; color: #667eea; font-size: 1.1rem; font-weight: bold;">
+                                    <i class="fas fa-star"></i> Nejvýnosnější klienti
+                                </h4>
+                                <table id="topClientsTable" style="width: 100%; border-collapse: collapse;">
+                                    <thead>
+                                        <tr style="background: #667eea; color: white; border-bottom: 2px solid #e5e7eb;">
+                                            <th style="padding: 0.75rem; text-align: left;">Klient</th>
+                                            <th style="padding: 0.75rem; text-align: right;">Počet návštěv</th>
+                                            <th style="padding: 0.75rem; text-align: right;">Celková útrata</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody style="color: #000; font-size: 0.95rem;">
+                                        <tr><td colspan="3" style="padding: 1rem; text-align: center; color: #000; font-weight: bold;">Načítání...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Sekce: Náklady a zisk -->
+                        <div id="accounting-section-costs" class="accounting-section" style="display: none; min-height: 400px;">
+                            <h3 style="margin: 0 0 1.5rem 0; display: flex; align-items: center; gap: 0.5rem; background: white; padding: 1.5rem; border-radius: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                <i class="fas fa-coins" style="color: #6366f1;"></i>
+                                Náklady a zisk
+                            </h3>
+                            
+                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+                                <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 0.5rem; padding: 1rem; color: white;">
+                                    <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Tržby celkem</div>
+                                    <div style="font-size: 1.5rem; font-weight: 700;" id="costsRevenue">0 Kč</div>
+                                </div>
+                                <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); border-radius: 0.5rem; padding: 1rem; color: white;">
+                                    <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Náklady</div>
+                                    <div style="font-size: 1.5rem; font-weight: 700;" id="costsPurchases">0 Kč</div>
+                                </div>
+                                <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-radius: 0.5rem; padding: 1rem; color: white;">
+                                    <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Výdeje materiálu</div>
+                                    <div style="font-size: 1.5rem; font-weight: 700;" id="costsIssues">0 Kč</div>
+                                </div>
+                                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 0.5rem; padding: 1rem; color: white;">
+                                    <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Zisk</div>
+                                    <div style="font-size: 1.5rem; font-weight: 700;" id="costsProfit">0 Kč</div>
+                                </div>
+                            </div>
+                            
+                            <div style="background: white; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 1.5rem;">
+                                <h4 style="margin: 0 0 1rem 0;">Marže na produktech</h4>
+                                <table id="productMarginsTable" style="width: 100%; border-collapse: collapse;">
+                                    <thead>
+                                        <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                                            <th style="padding: 0.75rem; text-align: left;">Produkt</th>
+                                            <th style="padding: 0.75rem; text-align: right;">Nákupní cena</th>
+                                            <th style="padding: 0.75rem; text-align: right;">Prodejní cena</th>
+                                            <th style="padding: 0.75rem; text-align: right;">Marže</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr><td colspan="4" style="padding: 1rem; text-align: center; color: #9ca3af;">Načítání...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div style="background: white; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                <h4 style="margin: 0 0 1rem 0;">Rozložení nákladů</h4>
+                                <div id="costsBreakdown"></div>
+                            </div>
+                        </div>
+
+                        <!-- Sekce: Statistiky klientů -->
+                        <div id="accounting-section-clients-stats" class="accounting-section" style="display: none; min-height: 400px;">
+                            <h3 style="margin: 0 0 1.5rem 0; display: flex; align-items: center; gap: 0.5rem; background: white; padding: 1.5rem; border-radius: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                <i class="fas fa-users" style="color: #6366f1;"></i>
+                                Statistiky klientů
+                            </h3>
+                            
+                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+                                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 0.5rem; padding: 1rem; color: white;">
+                                    <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Celkem klientů</div>
+                                    <div style="font-size: 1.5rem; font-weight: 700;" id="statsTotalClients">0</div>
+                                </div>
+                                <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 0.5rem; padding: 1rem; color: white;">
+                                    <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Aktivní klienti</div>
+                                    <div style="font-size: 1.5rem; font-weight: 700;" id="statsActiveClients">0</div>
+                                </div>
+                                <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-radius: 0.5rem; padding: 1rem; color: white;">
+                                    <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Průměrná útrata</div>
+                                    <div style="font-size: 1.5rem; font-weight: 700;" id="statsAvgSpending">0 Kč</div>
+                                </div>
+                                <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border-radius: 0.5rem; padding: 1rem; color: white;">
+                                    <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Noví klienti (měsíc)</div>
+                                    <div style="font-size: 1.5rem; font-weight: 700;" id="statsNewClients">0</div>
+                                </div>
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+                                <div style="background: white; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                    <h4 style="margin: 0 0 1rem 0;">Nejčastější dny návštěv</h4>
+                                    <div id="visitDaysChart"></div>
+                                </div>
+                                <div style="background: white; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                    <h4 style="margin: 0 0 1rem 0;">Nejčastější hodiny</h4>
+                                    <div id="visitHoursChart"></div>
+                                </div>
+                            </div>
+                            
+                            <div style="background: white; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                <h4 style="margin: 0 0 1rem 0;">Neaktivní klienti (3+ měsíce bez návštěvy)</h4>
+                                <table id="inactiveClientsTable" style="width: 100%; border-collapse: collapse;">
+                                    <thead>
+                                        <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                                            <th style="padding: 0.75rem; text-align: left;">Klient</th>
+                                            <th style="padding: 0.75rem; text-align: left;">Poslední návštěva</th>
+                                            <th style="padding: 0.75rem; text-align: left;">Kontakt</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr><td colspan="3" style="padding: 1rem; text-align: center; color: #9ca3af;">Načítání...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Sekce: Exporty -->
+                        <div id="accounting-section-export" class="accounting-section" style="display: none; min-height: 400px;">
+                            <h3 style="background: white; padding: 1.5rem; border-radius: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                                <i class="fas fa-file-export" style="color: #6366f1;"></i>
+                                Exporty pro účetnictví
+                            </h3>
+                            <div style="background: white; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 1.5rem;">
+                                <h4 style="margin: 0 0 1rem 0; font-size: 1rem; color: var(--text-dark);">Export tržeb</h4>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+                                    <button class="btn btn-primary" onclick="exportRevenueToCSV()" style="padding: 1rem; font-size: 0.875rem; width: 100%;">
+                                        <i class="fas fa-file-csv"></i> Tržby do CSV
+                                    </button>
+                                    <button class="btn btn-primary" onclick="exportRevenueToExcel()" style="padding: 1rem; font-size: 0.875rem; width: 100%;">
+                                        <i class="fas fa-file-excel"></i> Tržby do Excel
+                                    </button>
+                                    <button class="btn btn-primary" onclick="exportRevenueDetailToCSV()" style="padding: 1rem; font-size: 0.875rem; width: 100%;">
+                                        <i class="fas fa-list"></i> Detailní tržby CSV
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div style="background: white; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 1.5rem;">
+                                <h4 style="margin: 0 0 1rem 0; font-size: 1rem; color: var(--text-dark);">Export skladu</h4>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+                                    <button class="btn btn-secondary" onclick="exportInventoryToCSV()" style="padding: 1rem; font-size: 0.875rem; width: 100%;">
+                                        <i class="fas fa-file-csv"></i> Inventura do CSV
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="exportInventoryToExcel()" style="padding: 1rem; font-size: 0.875rem; width: 100%;">
+                                        <i class="fas fa-file-excel"></i> Inventura do Excel
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="exportLowStockToCSV()" style="padding: 1rem; font-size: 0.875rem; width: 100%;">
+                                        <i class="fas fa-exclamation-triangle"></i> Nízké stavy CSV
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div style="background: white; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                <h4 style="margin: 0 0 1rem 0; font-size: 1rem; color: var(--text-dark);">Export klientů</h4>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+                                    <button class="btn" onclick="exportClientsToCSV()" style="padding: 1rem; font-size: 0.875rem; width: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+                                        <i class="fas fa-users"></i> Klienti do CSV
+                                    </button>
+                                    <button class="btn" onclick="exportClientVisitsToCSV()" style="padding: 1rem; font-size: 0.875rem; width: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+                                        <i class="fas fa-history"></i> Historie návštěv CSV
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stránka Historie objednávek -->
+            <div id="page-order-history" class="page">
+                <div class="page-header" style="flex-shrink: 0;">
+                    <h2><i class="fas fa-clipboard-list"></i> Historie objednávek</h2>
+                </div>
+
+                <div style="flex-shrink: 0; padding: 1rem; padding-bottom: 0; background: var(--bg-primary);">
+                    <!-- Statistiky -->
+                    <div class="card" style="margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div class="card-body" style="display: flex; gap: 2rem; align-items: center; flex-wrap: wrap; padding: 1rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <div style="background: #E3F2FD; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-list" style="color: #2196F3;"></i>
+                                </div>
+                                <div>
+                                    <div style="font-size: 0.75rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px;">Objednávek</div>
+                                    <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);"><span id="orderStatsCount">0</span></div>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <div style="background: #E8F5E9; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-box" style="color: #4CAF50;"></i>
+                                </div>
+                                <div>
+                                    <div style="font-size: 0.75rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px;">Položek</div>
+                                    <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);"><span id="orderStatsItems">0</span></div>
+                                </div>
+                            </div>
+                            <div style="margin-left: auto;">
+                                <button onclick="exportOrderHistoryToCSV()" class="btn btn-secondary" style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <i class="fas fa-download"></i> <span>Export CSV</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filtr -->
+                    <div class="card" style="margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div class="card-body" style="padding: 1rem;">
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                                <button onclick="filterOrderByMonth('current')" class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    <i class="fas fa-calendar-day"></i> Tento měsíc
+                                </button>
+                                <button onclick="filterOrderByMonth('last')" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    Minulý měsíc
+                                </button>
+                                <button onclick="filterOrderByMonth('last3')" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    Poslední 3 měsíce
+                                </button>
+                                <button onclick="filterOrderByMonth('last6')" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    Posledních 6 měsíců
+                                </button>
+                                <button onclick="filterOrderByMonth('year')" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    Letošní rok
+                                </button>
+                                <select id="orderMonthSelect" onchange="filterOrderBySpecificMonth()" class="form-control" style="width: auto; padding: 0.5rem; font-size: 0.875rem;">
+                                    <option value="">Vybrat měsíc...</option>
+                                </select>
+                                <button onclick="filterOrderByMonth('all')" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem; margin-left: auto;">
+                                    <i class="fas fa-list"></i> Vše
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scrollovatelný seznam -->
+                <div style="flex: 1; overflow-y: auto; padding: 0 1rem 1rem 1rem;">
+                    <div class="card" style="box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div class="card-body" style="padding: 0;">
+                            <div id="orderHistoryList">
+                                <!-- Seznam objednávek bude zde -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stránka Nastavení -->
+            <div id="page-settings" class="page">
+                <div class="page-header">
+                    <h2><i class="fas fa-cog"></i> Nastavení</h2>
+                </div>
+
+                <div style="display: flex; height: calc(100vh - 140px); background: #f9fafb;">
+                    <!-- Levé menu -->
+                    <div style="width: 280px; background: white; border-right: 1px solid #e5e7eb; padding: 1.5rem 0; overflow-y: auto;">
+                        <nav style="display: flex; flex-direction: column; gap: 0.25rem; padding: 0 1rem;">
+                            <a href="#" onclick="showSettingsSection('salon'); return false;" 
+                               class="settings-nav-item active" data-section="salon"
+                               style="padding: 0.75rem 1rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: var(--text-dark); transition: all 0.2s;">
+                                <i class="fas fa-store" style="width: 20px;"></i>
+                                <span>Informace o salonu</span>
+                            </a>
+                            <a href="#" onclick="showSettingsSection('security'); return false;" 
+                               class="settings-nav-item" data-section="security"
+                               style="padding: 0.75rem 1rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: var(--text-dark); transition: all 0.2s;">
+                                <i class="fas fa-shield-alt" style="width: 20px;"></i>
+                                <span>Bezpečnost</span>
+                            </a>
+                            <a href="#" onclick="showSettingsSection('backup'); return false;" 
+                               class="settings-nav-item" data-section="backup"
+                               style="padding: 0.75rem 1rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: var(--text-dark); transition: all 0.2s;">
+                                <i class="fas fa-database" style="width: 20px;"></i>
+                                <span>Záloha dat</span>
+                            </a>
+                            <a href="#" onclick="showSettingsSection('about'); return false;" 
+                               class="settings-nav-item" data-section="about"
+                               style="padding: 0.75rem 1rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: var(--text-dark); transition: all 0.2s;">
+                                <i class="fas fa-info-circle" style="width: 20px;"></i>
+                                <span>O aplikaci</span>
+                            </a>
+                        </nav>
+                    </div>
+
+                    <!-- Obsah nastavení -->
+                    <div style="flex: 1; padding: 1.5rem; overflow-y: auto;">
+                        <!-- Sekce: Informace o salonu -->
+                        <div id="settings-section-salon" class="settings-section" style="display: block;">
+                    <div style="background: white; border-radius: 1rem; padding: 2.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); margin-bottom: 1rem;">
+                        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid #f3f4f6;">
+                            <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.5rem;">
+                                <i class="fas fa-store"></i>
+                            </div>
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.5rem; color: #111827;">Informace o salonu</h3>
+                                <p style="margin: 0.25rem 0 0 0; font-size: 0.875rem; color: #6b7280;">Tyto údaje se zobrazí na účtenkách</p>
+                            </div>
+                        </div>
+                        
+                        <form onsubmit="saveSettings(event)">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                                <div class="form-group" style="grid-column: 1 / -1;">
+                                    <label for="salonName" style="font-weight: 600; color: #374151; margin-bottom: 0.5rem; display: block;">
+                                        <i class="fas fa-star" style="color: #ef4444; font-size: 0.5rem; margin-right: 0.25rem;"></i>
+                                        Název salonu
+                                    </label>
+                                    <input type="text" id="salonName" required placeholder="např. HairBook Salon" 
+                                           style="width: 100%; padding: 0.75rem 1rem; border: 2px solid #e5e7eb; border-radius: 0.5rem; font-size: 1rem; transition: all 0.2s;"
+                                           onfocus="this.style.borderColor='#6366f1'; this.style.boxShadow='0 0 0 3px rgba(99,102,241,0.1)'"
+                                           onblur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'">
+                                </div>
+
+                                <div class="form-group" style="grid-column: 1 / -1;">
+                                    <label for="salonAddress" style="font-weight: 600; color: #374151; margin-bottom: 0.5rem; display: block;">
+                                        <i class="fas fa-map-marker-alt" style="color: #6366f1; margin-right: 0.5rem;"></i>
+                                        Adresa
+                                    </label>
+                                    <input type="text" id="salonAddress" placeholder="např. Hlavní 123, Praha 1"
+                                           style="width: 100%; padding: 0.75rem 1rem; border: 2px solid #e5e7eb; border-radius: 0.5rem; font-size: 1rem; transition: all 0.2s;"
+                                           onfocus="this.style.borderColor='#6366f1'; this.style.boxShadow='0 0 0 3px rgba(99,102,241,0.1)'"
+                                           onblur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="salonPhone" style="font-weight: 600; color: #374151; margin-bottom: 0.5rem; display: block;">
+                                        <i class="fas fa-phone" style="color: #10b981; margin-right: 0.5rem;"></i>
+                                        Telefon
+                                    </label>
+                                    <input type="tel" id="salonPhone" placeholder="např. +420 123 456 789"
+                                           style="width: 100%; padding: 0.75rem 1rem; border: 2px solid #e5e7eb; border-radius: 0.5rem; font-size: 1rem; transition: all 0.2s;"
+                                           onfocus="this.style.borderColor='#6366f1'; this.style.boxShadow='0 0 0 3px rgba(99,102,241,0.1)'"
+                                           onblur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="salonEmail" style="font-weight: 600; color: #374151; margin-bottom: 0.5rem; display: block;">
+                                        <i class="fas fa-envelope" style="color: #f59e0b; margin-right: 0.5rem;"></i>
+                                        Email
+                                    </label>
+                                    <input type="email" id="salonEmail" placeholder="např. info@hairbook.cz"
+                                           style="width: 100%; padding: 0.75rem 1rem; border: 2px solid #e5e7eb; border-radius: 0.5rem; font-size: 1rem; transition: all 0.2s;"
+                                           onfocus="this.style.borderColor='#6366f1'; this.style.boxShadow='0 0 0 3px rgba(99,102,241,0.1)'"
+                                           onblur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="salonWeb" style="font-weight: 600; color: #374151; margin-bottom: 0.5rem; display: block;">
+                                        <i class="fas fa-globe" style="color: #3b82f6; margin-right: 0.5rem;"></i>
+                                        Web
+                                    </label>
+                                    <input type="url" id="salonWeb" placeholder="např. www.hairbook.cz"
+                                           style="width: 100%; padding: 0.75rem 1rem; border: 2px solid #e5e7eb; border-radius: 0.5rem; font-size: 1rem; transition: all 0.2s;"
+                                           onfocus="this.style.borderColor='#6366f1'; this.style.boxShadow='0 0 0 3px rgba(99,102,241,0.1)'"
+                                           onblur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="salonICO" style="font-weight: 600; color: #374151; margin-bottom: 0.5rem; display: block;">
+                                        <i class="fas fa-id-card" style="color: #8b5cf6; margin-right: 0.5rem;"></i>
+                                        IČO
+                                    </label>
+                                    <input type="text" id="salonICO" placeholder="např. 12345678"
+                                           style="width: 100%; padding: 0.75rem 1rem; border: 2px solid #e5e7eb; border-radius: 0.5rem; font-size: 1rem; transition: all 0.2s;"
+                                           onfocus="this.style.borderColor='#6366f1'; this.style.boxShadow='0 0 0 3px rgba(99,102,241,0.1)'"
+                                           onblur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="salonDIC" style="font-weight: 600; color: #374151; margin-bottom: 0.5rem; display: block;">
+                                        <i class="fas fa-file-invoice" style="color: #ec4899; margin-right: 0.5rem;"></i>
+                                        DIČ
+                                    </label>
+                                    <input type="text" id="salonDIC" placeholder="např. CZ12345678"
+                                           style="width: 100%; padding: 0.75rem 1rem; border: 2px solid #e5e7eb; border-radius: 0.5rem; font-size: 1rem; transition: all 0.2s;"
+                                           onfocus="this.style.borderColor='#6366f1'; this.style.boxShadow='0 0 0 3px rgba(99,102,241,0.1)'"
+                                           onblur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'">
+                                </div>
+
+                                <div class="form-group" style="grid-column: 1 / -1;">
+                                    <label for="receiptFooter" style="font-weight: 600; color: #374151; margin-bottom: 0.5rem; display: block;">
+                                        <i class="fas fa-comment-dots" style="color: #14b8a6; margin-right: 0.5rem;"></i>
+                                        Patička účtenky
+                                    </label>
+                                    <textarea id="receiptFooter" rows="3" placeholder="např. Děkujeme za Vaši návštěvu!"
+                                              style="width: 100%; padding: 0.75rem 1rem; border: 2px solid #e5e7eb; border-radius: 0.5rem; font-size: 1rem; resize: vertical; transition: all 0.2s; font-family: inherit;"
+                                              onfocus="this.style.borderColor='#6366f1'; this.style.boxShadow='0 0 0 3px rgba(99,102,241,0.1)'"
+                                              onblur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'"></textarea>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem; padding-top: 2rem; border-top: 2px solid #f3f4f6;">
+                                <button type="submit" class="btn btn-primary" style="padding: 0.875rem 2rem; font-size: 1rem; font-weight: 600;">
+                                    <i class="fas fa-save"></i> Uložit nastavení
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                        </div>
+
+                        <!-- Sekce: Bezpečnost -->
+                        <div id="settings-section-security" class="settings-section" style="display: none;">
+                    <div style="background: white; border-radius: 1rem; padding: 2.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);">
+                        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid #f3f4f6;">
+                            <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.5rem;">
+                                <i class="fas fa-shield-alt"></i>
+                            </div>
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.5rem; color: #111827;">Bezpečnost</h3>
+                                <p style="margin: 0.25rem 0 0 0; font-size: 0.875rem; color: #6b7280;">Změna přístupového hesla</p>
+                            </div>
+                        </div>
+                        
+                        <form onsubmit="changePassword(event)">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 800px;">
+                                <div class="form-group">
+                                    <label for="currentPassword" style="font-weight: 600; color: #374151; margin-bottom: 0.5rem; display: block;">
+                                        <i class="fas fa-lock" style="color: #6b7280; margin-right: 0.5rem;"></i>
+                                        Současné heslo
+                                    </label>
+                                    <input type="password" id="currentPassword" required placeholder="Zadejte současné heslo"
+                                           style="width: 100%; padding: 0.75rem 1rem; border: 2px solid #e5e7eb; border-radius: 0.5rem; font-size: 1rem; transition: all 0.2s;"
+                                           onfocus="this.style.borderColor='#6366f1'; this.style.boxShadow='0 0 0 3px rgba(99,102,241,0.1)'"
+                                           onblur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="newPassword" style="font-weight: 600; color: #374151; margin-bottom: 0.5rem; display: block;">
+                                        <i class="fas fa-key" style="color: #10b981; margin-right: 0.5rem;"></i>
+                                        Nové heslo
+                                    </label>
+                                    <input type="password" id="newPassword" required placeholder="Zadejte nové heslo (min. 4 znaky)"
+                                           minlength="4"
+                                           style="width: 100%; padding: 0.75rem 1rem; border: 2px solid #e5e7eb; border-radius: 0.5rem; font-size: 1rem; transition: all 0.2s;"
+                                           onfocus="this.style.borderColor='#6366f1'; this.style.boxShadow='0 0 0 3px rgba(99,102,241,0.1)'"
+                                           onblur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'">
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 1rem; justify-content: flex-start; margin-top: 2rem;">
+                                <button type="submit" class="btn btn-primary" style="padding: 0.875rem 2rem; font-size: 1rem; font-weight: 600;">
+                                    <i class="fas fa-key"></i> Změnit heslo
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                        </div>
+
+                        <!-- Sekce: Záloha dat -->
+                        <div id="settings-section-backup" class="settings-section" style="display: none;">
+                            <div style="background: white; border-radius: 1rem; padding: 2.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);">
+                                <h3 style="margin: 0 0 1.5rem 0; font-size: 1.5rem; color: #111827;">
+                                    <i class="fas fa-database" style="color: #6366f1; margin-right: 0.5rem;"></i>
+                                    Záloha dat
+                                </h3>
+                                <p style="color: #6b7280; margin-bottom: 2rem;">Exportujte všechna data aplikace do záložního souboru nebo obnovte data ze zálohy.</p>
+                                
+                                <!-- Export dat -->
+                                <div style="background: #f0fdf4; border: 2px solid #86efac; border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1.5rem;">
+                                    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+                                        <div style="width: 48px; height: 48px; background: #22c55e; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white;">
+                                            <i class="fas fa-download" style="font-size: 1.25rem;"></i>
+                                        </div>
+                                        <div>
+                                            <h4 style="margin: 0; font-size: 1.125rem; color: #166534;">Export zálohy</h4>
+                                            <p style="margin: 0.25rem 0 0 0; font-size: 0.875rem; color: #15803d;">Stáhněte všechna data v JSON formátu</p>
+                                        </div>
+                                    </div>
+                                    <button onclick="exportBackup()" class="btn btn-primary" style="background: #22c55e; border-color: #22c55e;">
+                                        <i class="fas fa-download"></i> Stáhnout zálohu
+                                    </button>
+                                </div>
+                                
+                                <!-- Import dat -->
+                                <div style="background: #fef3c7; border: 2px solid #fcd34d; border-radius: 0.75rem; padding: 1.5rem;">
+                                    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+                                        <div style="width: 48px; height: 48px; background: #eab308; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white;">
+                                            <i class="fas fa-upload" style="font-size: 1.25rem;"></i>
+                                        </div>
+                                        <div>
+                                            <h4 style="margin: 0; font-size: 1.125rem; color: #854d0e;">Import zálohy</h4>
+                                            <p style="margin: 0.25rem 0 0 0; font-size: 0.875rem; color: #a16207;">Nahrajte záložní soubor a obnovte data</p>
+                                        </div>
+                                    </div>
+                                    <input type="file" id="backupFileInput" accept=".json" style="display: none;" onchange="importBackup(event)">
+                                    <button onclick="document.getElementById('backupFileInput').click()" class="btn btn-primary" style="background: #eab308; border-color: #eab308;">
+                                        <i class="fas fa-upload"></i> Nahrát zálohu
+                                    </button>
+                                </div>
+                                
+                                <!-- Varování -->
+                                <div style="background: #fee2e2; border: 2px solid #fca5a5; border-radius: 0.75rem; padding: 1.5rem; margin-top: 1.5rem;">
+                                    <div style="display: flex; gap: 1rem;">
+                                        <i class="fas fa-exclamation-triangle" style="color: #dc2626; font-size: 1.5rem;"></i>
+                                        <div>
+                                            <h4 style="margin: 0 0 0.5rem 0; color: #991b1b; font-size: 1rem;">Důležité upozornění</h4>
+                                            <ul style="margin: 0; padding-left: 1.25rem; color: #b91c1c; font-size: 0.875rem;">
+                                                <li>Import zálohy přepíše všechna aktuální data</li>
+                                                <li>Před importem si vytvořte zálohu aktuálních dat</li>
+                                                <li>Importujte pouze soubory vytvořené touto aplikací</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Sekce: O aplikaci -->
+                        <div id="settings-section-about" class="settings-section" style="display: none;">
+                            <div style="background: white; border-radius: 1rem; padding: 2.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);">
+                                <div style="text-align: center; margin-bottom: 2rem;">
+                                    <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; color: white; font-size: 2.5rem; margin-bottom: 1rem;">
+                                        <i class="fas fa-cut"></i>
+                                    </div>
+                                    <h3 style="margin: 0 0 0.5rem 0; font-size: 2rem; color: #111827;">HairBook</h3>
+                                    <p style="margin: 0; color: #6b7280; font-size: 1.125rem;">Profesionální systém pro správu kadeřnictví</p>
+                                </div>
+                                
+                                <div style="background: #f9fafb; border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1.5rem;">
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                        <div>
+                                            <div style="font-size: 0.875rem; color: #6b7280; margin-bottom: 0.25rem;">Verze</div>
+                                            <div style="font-size: 1.125rem; font-weight: 600; color: #111827;">1.0.0</div>
+                                        </div>
+                                        <div>
+                                            <div style="font-size: 0.875rem; color: #6b7280; margin-bottom: 0.25rem;">Datum vydání</div>
+                                            <div style="font-size: 1.125rem; font-weight: 600; color: #111827;">27. 11. 2025</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div style="border-top: 2px solid #f3f4f6; padding-top: 1.5rem; margin-top: 1.5rem;">
+                                    <h4 style="margin: 0 0 1rem 0; color: #111827; font-size: 1.125rem;">
+                                        <i class="fas fa-star" style="color: #fbbf24; margin-right: 0.5rem;"></i>
+                                        Hlavní funkce
+                                    </h4>
+                                    <ul style="margin: 0; padding-left: 1.5rem; color: #6b7280; line-height: 1.75;">
+                                        <li>Správa klientů a jejich historie návštěv</li>
+                                        <li>Správa produktů a skladu</li>
+                                        <li>Přehled tržeb a účetnictví</li>
+                                        <li>Export dat do CSV a Excel</li>
+                                        <li>Záloha a obnovení dat</li>
+                                        <li>Tisk účtenek</li>
+                                    </ul>
+                                </div>
+                                
+                                <div style="border-top: 2px solid #f3f4f6; padding-top: 1.5rem; margin-top: 1.5rem;">
+                                    <h4 style="margin: 0 0 1rem 0; color: #111827; font-size: 1.125rem;">
+                                        <i class="fas fa-code" style="color: #6366f1; margin-right: 0.5rem;"></i>
+                                        Technologie
+                                    </h4>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                                        <span style="background: #ede9fe; color: #6366f1; padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600;">HTML5</span>
+                                        <span style="background: #dbeafe; color: #2563eb; padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600;">CSS3</span>
+                                        <span style="background: #fef3c7; color: #d97706; padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600;">JavaScript</span>
+                                        <span style="background: #ddd6fe; color: #7c3aed; padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600;">PHP</span>
+                                        <span style="background: #d1fae5; color: #059669; padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600;">SQLite</span>
+                                    </div>
+                                </div>
+                                
+                                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 0.75rem; padding: 1.5rem; margin-top: 1.5rem; text-align: center; color: white;">
+                                    <p style="margin: 0; font-size: 0.875rem; opacity: 0.9;">© 2025 HairBook. Všechna práva vyhrazena.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal pro náhled účtenky -->
+    <div id="receiptModal" class="modal">
+        <div class="modal-content" style="max-width: 420px;">
+            <div class="modal-header">
+                <h3 id="receiptModalTitle">Náhled účtenky</h3>
+                <button class="modal-close" onclick="closeReceiptModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div id="receiptContent" style="padding: 1.5rem; background: white; font-family: 'Courier New', monospace; max-height: 70vh; overflow-y: auto;">
+                <!-- Obsah účtenky -->
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeReceiptModal()">
+                    <i class="fas fa-times"></i> Zavřít
+                </button>
+                <button type="button" class="btn btn-primary" onclick="printReceiptFromModal()">
+                    <i class="fas fa-print"></i> Tisknout
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal pro náhled přehledu tržeb -->
+    <div id="revenueModal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3>Náhled přehledu tržeb</h3>
+                <button class="modal-close" onclick="closeRevenueModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div id="revenueContent" style="padding: 1.5rem; background: white; max-height: 70vh; overflow-y: auto;">
+                <!-- Obsah přehledu tržeb -->
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeRevenueModal()">
+                    <i class="fas fa-times"></i> Zavřít
+                </button>
+                <button type="button" class="btn btn-primary" onclick="exportRevenueToCSVFromModal()">
+                    <i class="fas fa-download"></i> Stáhnout CSV
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal pro náhled inventury -->
+    <div id="inventoryModal" class="modal">
+        <div class="modal-content" style="max-width: 1000px;">
+            <div class="modal-header">
+                <h3>Náhled inventury skladu</h3>
+                <button class="modal-close" onclick="closeInventoryModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div id="inventoryContent" style="padding: 1.5rem; background: white; max-height: 70vh; overflow-y: auto;">
+                <!-- Obsah inventury -->
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeInventoryModal()">
+                    <i class="fas fa-times"></i> Zavřít
+                </button>
+                <button type="button" class="btn btn-primary" onclick="exportInventoryToCSVFromModal()">
+                    <i class="fas fa-download"></i> Stáhnout CSV
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

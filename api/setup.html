@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HairBook - Migrace na SQLite</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        .container {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 1rem;
+        }
+        .step {
+            background: #f3f4f6;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid #667eea;
+        }
+        .step h3 {
+            color: #374151;
+            margin-bottom: 0.5rem;
+        }
+        button {
+            width: 100%;
+            padding: 1rem;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 0.5rem;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .result {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            display: none;
+        }
+        .result.success {
+            background: #d1fae5;
+            color: #065f46;
+            border-left: 4px solid #10b981;
+        }
+        .result.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border-left: 4px solid #ef4444;
+        }
+        .stats {
+            margin-top: 0.5rem;
+            font-size: 0.875rem;
+        }
+        .warning {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            color: #92400e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 HairBook - Migrace na SQLite</h1>
+        
+        <div class="warning">
+            <strong>⚠️ Důležité:</strong> Tato akce vytvoří novou databázi a přesune všechna data z localStorage. Proveď pouze jednou!
+        </div>
+        
+        <div class="step">
+            <h3>Krok 1: Inicializace databáze</h3>
+            <p>Vytvoří SQLite databázi a všechny tabulky.</p>
+            <button onclick="initDatabase()">Vytvořit databázi</button>
+        </div>
+        
+        <div class="step">
+            <h3>Krok 2: Migrace dat</h3>
+            <p>Přesune všechna data z localStorage do SQLite.</p>
+            <button id="migrateBtn" onclick="migrateData()" disabled>Migrovat data</button>
+        </div>
+        
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        let dbInitialized = false;
+
+        async function initDatabase() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            resultDiv.textContent = '⏳ Vytvářím databázi...';
+            
+            try {
+                const response = await fetch('init-db.php');
+                const text = await response.text();
+                
+                if (text.includes('✅')) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = '<strong>✅ Databáze úspěšně vytvořena!</strong><br>' + text.replace(/\n/g, '<br>');
+                    dbInitialized = true;
+                    document.getElementById('migrateBtn').disabled = false;
+                } else {
+                    throw new Error(text);
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = '<strong>❌ Chyba:</strong><br>' + error.message;
+            }
+        }
+
+        async function migrateData() {
+            if (!dbInitialized) {
+                alert('Nejdřív musíš inicializovat databázi (Krok 1)');
+                return;
+            }
+            
+            // Načíst data z localStorage
+            const localData = localStorage.getItem('hairbook_data');
+            if (!localData) {
+                alert('❌ Žádná data v localStorage nenalezena!');
+                return;
+            }
+            
+            const data = JSON.parse(localData);
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            resultDiv.textContent = '⏳ Migruji data...';
+            
+            try {
+                const response = await fetch('migrate.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <strong>✅ Data úspěšně migrována!</strong>
+                        <div class="stats">
+                            <div>👥 Klienti: ${result.stats.clients}</div>
+                            <div>📦 Produkty: ${result.stats.products}</div>
+                            <div>🏷️ Kategorie: ${result.stats.categories}</div>
+                            <div>✂️ Služby: ${result.stats.services}</div>
+                            <div>📅 Návštěvy: ${result.stats.visits}</div>
+                            <div>🛒 Nákupy: ${result.stats.purchases}</div>
+                            <div>📝 Poznámky: ${result.stats.notes}</div>
+                        </div>
+                        <br>
+                        <strong>🎉 Hotovo! Teď můžeš otevřít HairBook.</strong>
+                    `;
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = '<strong>❌ Chyba při migraci:</strong><br>' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
