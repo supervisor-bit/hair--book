@@ -40,15 +40,21 @@ jobs:
       
       - name: Build macOS
         if: matrix.os == 'macos-latest'
-        run: npm run build:mac
+        run: |
+          npm run build:mac
+          ls -lh dist/
       
       - name: Build Windows
         if: matrix.os == 'windows-latest'
-        run: npm run build:win
+        run: |
+          npm run build:win
+          dir dist
       
       - name: Build Linux
         if: matrix.os == 'ubuntu-latest'
-        run: npm run build:linux
+        run: |
+          npm run build:linux
+          ls -lh dist/
       
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
