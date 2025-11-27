@@ -578,47 +578,46 @@
                                     <i class="fas fa-plus-circle"></i> Přidat nový produkt
                                 </button>
                             </div>
-                            
-                            <!-- Info o produktu - hned pod výběrem produktu -->
-                            <div id="receiptProductInfo" class="product-info-box" style="display: none; margin-bottom: 1rem;">
-                                <h4 style="margin: 0 0 0.75rem 0; font-size: 0.875rem; color: #6b7280;">Informace o produktu</h4>
-                                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; font-size: 0.875rem;">
-                                    <div>
-                                        <div style="color: #9ca3af; margin-bottom: 0.25rem;">Aktuální stav:</div>
-                                        <div id="infoCurrentStock" style="font-weight: 600; color: #374151;"></div>
-                                    </div>
-                                    <div>
-                                        <div style="color: #9ca3af; margin-bottom: 0.25rem;">Minimální zásoba:</div>
-                                        <div id="infoMinStock" style="font-weight: 600; color: #f59e0b;"></div>
-                                    </div>
-                                    <div>
-                                        <div style="color: #9ca3af; margin-bottom: 0.25rem;">Stav po příjmu:</div>
-                                        <div id="infoNewStock" style="font-weight: 600; color: #10b981;"></div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="form-group">
+                            <div class="form-group" style="margin-bottom: 0.75rem;">
                                 <label>Množství</label>
                                 <input type="number" id="receiptQuantity" placeholder="Množství" step="0.01" onkeydown="if(event.key==='Enter') document.getElementById('receiptNote').focus()">
                             </div>
-                            <div class="form-group">
+                            <div class="form-group" style="margin-bottom: 0.75rem;">
                                 <label>Jednotka</label>
                                 <select id="receiptUnit" onkeydown="if(event.key==='Enter') document.getElementById('receiptPurchasePrice').focus()">
                                     <option value="">Vyberte jednotku...</option>
                                 </select>
                             </div>
-                            <div class="form-group">
+                            <div class="form-group" style="margin-bottom: 0.75rem;">
                                 <label>Nákupní cena (Kč/ks)</label>
                                 <input type="number" id="receiptPurchasePrice" placeholder="Nákupní cena" step="0.01" min="0" onkeydown="if(event.key==='Enter') document.getElementById('receiptNote').focus()">
                             </div>
-                            <div class="form-group">
+                            <div class="form-group" style="margin-bottom: 0.75rem;">
                                 <label>Poznámka (nepovinné)</label>
                                 <input type="text" id="receiptNote" placeholder="např. Dodavatel XY, Faktura 123..." onkeydown="if(event.key==='Enter') addToReceipt()">
                             </div>
-                            <button class="btn btn-primary" onclick="addToReceipt()">
+                            <button class="btn btn-primary" onclick="addToReceipt()" style="margin-bottom: 1rem;">
                                 <i class="fas fa-plus"></i> Přidat
                             </button>
+                            
+                            <!-- Info o produktu - dolů pod tlačítko -->
+                            <div id="receiptProductInfo" style="display: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 0.75rem; padding: 1rem; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                                <h4 style="margin: 0 0 0.75rem 0; font-size: 0.9rem; opacity: 0.9;">📊 Informace o produktu</h4>
+                                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; font-size: 0.875rem;">
+                                    <div>
+                                        <div style="opacity: 0.8; margin-bottom: 0.25rem; font-size: 0.75rem;">Aktuální stav:</div>
+                                        <div id="infoCurrentStock" style="font-weight: 700; font-size: 1.1rem;"></div>
+                                    </div>
+                                    <div>
+                                        <div style="opacity: 0.8; margin-bottom: 0.25rem; font-size: 0.75rem;">Minimální zásoba:</div>
+                                        <div id="infoMinStock" style="font-weight: 700; font-size: 1.1rem;"></div>
+                                    </div>
+                                    <div>
+                                        <div style="opacity: 0.8; margin-bottom: 0.25rem; font-size: 0.75rem;">Stav po příjmu:</div>
+                                        <div id="infoNewStock" style="font-weight: 700; font-size: 1.1rem;"></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
