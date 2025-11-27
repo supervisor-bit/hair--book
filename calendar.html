@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kalendář - HairBook</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="calendar.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Navigační lišta -->
+        <nav class="navbar">
+            <div class="navbar-brand">
+                <i class="fas fa-calendar-alt"></i>
+                <span>HairBook Kalendář</span>
+            </div>
+            <div class="navbar-actions">
+                <button class="btn btn-secondary" onclick="window.location.href='index.html'">
+                    <i class="fas fa-home"></i> Zpět na hlavní stránku
+                </button>
+                <button class="btn btn-primary" onclick="showNewAppointmentModal()">
+                    <i class="fas fa-plus"></i> Nová rezervace
+                </button>
+            </div>
+        </nav>
+
+        <!-- Hlavní obsah -->
+        <div class="calendar-container">
+            <!-- Navigace týdnů -->
+            <div class="calendar-header">
+                <button class="btn btn-secondary" onclick="changeWeek(-1)">
+                    <i class="fas fa-chevron-left"></i> Předchozí týden
+                </button>
+                <div class="current-week">
+                    <h2 id="weekTitle"></h2>
+                    <button class="btn btn-sm" onclick="goToToday()">Dnes</button>
+                </div>
+                <button class="btn btn-secondary" onclick="changeWeek(1)">
+                    Příští týden <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+
+            <!-- Týdenní kalendář -->
+            <div class="calendar-grid" id="calendarGrid">
+                <!-- Bude vygenerováno JavaScriptem -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal pro novou/editaci rezervace -->
+    <div id="appointmentModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3 id="appointmentModalTitle">Nová rezervace</h3>
+                <button class="modal-close" onclick="closeAppointmentModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form onsubmit="saveAppointment(event)">
+                <input type="hidden" id="appointmentId">
+                
+                <div class="form-group">
+                    <label>Klient *</label>
+                    <select id="appointmentClientId" required>
+                        <option value="">-- Vyberte klienta --</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Služba *</label>
+                    <select id="appointmentServiceId" required onchange="updateServiceDuration()">
+                        <option value="">-- Vyberte službu --</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Datum *</label>
+                        <input type="date" id="appointmentDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Čas *</label>
+                        <input type="time" id="appointmentTime" required step="900">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Trvání (minuty)</label>
+                    <input type="number" id="appointmentDuration" value="60" min="15" step="15">
+                </div>
+
+                <div class="form-group">
+                    <label>Poznámka</label>
+                    <textarea id="appointmentNote" rows="3" placeholder="Poznámka k rezervaci..."></textarea>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeAppointmentModal()">
+                        Zrušit
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Uložit
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal pro detail rezervace -->
+    <div id="appointmentDetailModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>Detail rezervace</h3>
+                <button class="modal-close" onclick="closeAppointmentDetailModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="appointmentDetailContent" style="padding: 1.5rem;">
+                <!-- Bude naplněno JavaScriptem -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeAppointmentDetailModal()">
+                    Zavřít
+                </button>
+                <button class="btn btn-primary" onclick="editCurrentAppointment()">
+                    <i class="fas fa-edit"></i> Upravit
+                </button>
+                <button class="btn btn-danger" onclick="deleteCurrentAppointment()">
+                    <i class="fas fa-trash"></i> Smazat
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="calendar.js"></script>
+</body>
+</html>
