@@ -29,11 +29,21 @@
                 const html = await response.text();
                 document.body.insertAdjacentHTML('beforeend', html);
                 
-                // Počkat na další frame, aby prohlížeč stihl parsovat DOM
-                await new Promise(resolve => requestAnimationFrame(resolve));
-                await new Promise(resolve => requestAnimationFrame(resolve));
+                // Počkat, až budou konkrétní elementy skutečně v DOM
+                let attempts = 0;
+                while (attempts < 50) {
+                    const testElement = document.getElementById('productVatRate');
+                    if (testElement) {
+                        console.log('✅ Modals loaded successfully - elements verified');
+                        break;
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 10));
+                    attempts++;
+                }
                 
-                console.log('✅ Modals loaded successfully');
+                if (attempts >= 50) {
+                    console.error('❌ Modals loaded but elements not found after 500ms');
+                }
                 
                 // Oznámit, že modaly jsou připravené
                 if (window.resolveModalsReady) {
