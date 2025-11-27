@@ -2947,86 +2947,96 @@ async function confirmDeleteCategory() {
 }
 
 function addNewProduct() {
-    // Zkontrolovat, jestli modal existuje
-    const modal = document.getElementById('productModal');
-    if (!modal) {
-        console.error('productModal not found - modals.html may not be loaded yet');
-        showNotification('Modal se načítá, zkuste to znovu za chvíli', 'warning');
-        return;
+    try {
+        // Zkontrolovat, jestli modal existuje
+        const modal = document.getElementById('productModal');
+        if (!modal) {
+            console.error('productModal not found - modals.html may not be loaded yet');
+            showNotification('Modal se načítá, zkuste to znovu za chvíli', 'warning');
+            return;
+        }
+        
+        document.getElementById('productModalTitle').textContent = 'Nový produkt';
+        document.getElementById('productId').value = '';
+        document.getElementById('productName').value = '';
+        document.getElementById('productBarcode').value = '';
+        document.getElementById('productDescription').value = '';
+        document.getElementById('productCategoryId').value = '';
+        document.getElementById('productUnit').value = 'ml';
+        document.getElementById('productPackageSize').value = '100';
+        document.getElementById('productStock').value = '0';
+        document.getElementById('productStock').disabled = false; // Povolit úpravu u nového produktu
+        document.getElementById('productMinimalStock').value = '0';
+        document.getElementById('productPurchasePrice').value = '';
+        document.getElementById('productSalePrice').value = '';
+        document.getElementById('productVatRate').value = '21';
+        document.getElementById('productForSale').checked = false;
+        document.getElementById('productForWork').checked = true;
+        
+        // Naplnit dropdown kategorií
+        const categorySelect = document.getElementById('productCategoryId');
+        categorySelect.innerHTML = '<option value="">-- Vyberte kategorii --</option>';
+        productCategories.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat.id;
+            option.textContent = cat.name;
+            categorySelect.appendChild(option);
+        });
+        
+        document.getElementById('productModal').classList.add('show');
+    } catch (error) {
+        console.error('Error opening product modal:', error);
+        showNotification('Chyba při otevírání modalu: ' + error.message, 'error');
     }
-    
-    document.getElementById('productModalTitle').textContent = 'Nový produkt';
-    document.getElementById('productId').value = '';
-    document.getElementById('productName').value = '';
-    document.getElementById('productBarcode').value = '';
-    document.getElementById('productDescription').value = '';
-    document.getElementById('productCategoryId').value = '';
-    document.getElementById('productUnit').value = 'ml';
-    document.getElementById('productPackageSize').value = '100';
-    document.getElementById('productStock').value = '0';
-    document.getElementById('productStock').disabled = false; // Povolit úpravu u nového produktu
-    document.getElementById('productMinimalStock').value = '0';
-    document.getElementById('productPurchasePrice').value = '';
-    document.getElementById('productSalePrice').value = '';
-    document.getElementById('productVatRate').value = '21';
-    document.getElementById('productForSale').checked = false;
-    document.getElementById('productForWork').checked = true;
-    
-    // Naplnit dropdown kategorií
-    const categorySelect = document.getElementById('productCategoryId');
-    categorySelect.innerHTML = '<option value="">-- Vyberte kategorii --</option>';
-    productCategories.forEach(cat => {
-        const option = document.createElement('option');
-        option.value = cat.id;
-        option.textContent = cat.name;
-        categorySelect.appendChild(option);
-    });
-    
-    document.getElementById('productModal').classList.add('show');
 }
 
 function editProduct(productId) {
-    const product = products.find(p => p.id === productId);
-    if (!product) return;
-    
-    // Zkontrolovat, jestli modal existuje
-    const modal = document.getElementById('productModal');
-    if (!modal) {
-        console.error('productModal not found - modals.html may not be loaded yet');
-        showNotification('Modal se načítá, zkuste to znovu za chvíli', 'warning');
-        return;
-    }
-    
-    document.getElementById('productModalTitle').textContent = 'Upravit produkt';
-    document.getElementById('productId').value = product.id;
-    document.getElementById('productName').value = product.name;
-    document.getElementById('productBarcode').value = product.barcode || '';
-    document.getElementById('productDescription').value = product.description || '';
-    document.getElementById('productUnit').value = product.unit || 'ml';
-    document.getElementById('productPackageSize').value = product.packageSize || 1;
-    document.getElementById('productStock').value = (product.stock / (product.packageSize || 1)).toFixed(2);
-    document.getElementById('productStock').disabled = true; // Zakázat úpravu skladu
-    document.getElementById('productMinimalStock').value = (product.minStock / product.packageSize) || 0;
-    document.getElementById('productPurchasePrice').value = product.pricePurchase || '';
-    document.getElementById('productSalePrice').value = product.priceRetail || '';
-    document.getElementById('productVatRate').value = product.vatRate || 21;
-    document.getElementById('productForSale').checked = product.forSale || false;
-    document.getElementById('productForWork').checked = product.forWork !== false;
-    
-    // Naplnit dropdown kategorií
-    const categorySelect = document.getElementById('productCategoryId');
-    categorySelect.innerHTML = '<option value="">-- Vyberte kategorii --</option>';
-    productCategories.forEach(cat => {
-        const option = document.createElement('option');
-        option.value = cat.id;
-        option.textContent = cat.name;
-        if (cat.id === product.categoryId) {
-            option.selected = true;
+    try {
+        const product = products.find(p => p.id === productId);
+        if (!product) return;
+        
+        // Zkontrolovat, jestli modal existuje
+        const modal = document.getElementById('productModal');
+        if (!modal) {
+            console.error('productModal not found - modals.html may not be loaded yet');
+            showNotification('Modal se načítá, zkuste to znovu za chvíli', 'warning');
+            return;
         }
-        categorySelect.appendChild(option);
-    });
-    
-    document.getElementById('productModal').classList.add('show');
+        
+        document.getElementById('productModalTitle').textContent = 'Upravit produkt';
+        document.getElementById('productId').value = product.id;
+        document.getElementById('productName').value = product.name;
+        document.getElementById('productBarcode').value = product.barcode || '';
+        document.getElementById('productDescription').value = product.description || '';
+        document.getElementById('productUnit').value = product.unit || 'ml';
+        document.getElementById('productPackageSize').value = product.packageSize || 1;
+        document.getElementById('productStock').value = (product.stock / (product.packageSize || 1)).toFixed(2);
+        document.getElementById('productStock').disabled = true; // Zakázat úpravu skladu
+        document.getElementById('productMinimalStock').value = (product.minStock / product.packageSize) || 0;
+        document.getElementById('productPurchasePrice').value = product.pricePurchase || '';
+        document.getElementById('productSalePrice').value = product.priceRetail || '';
+        document.getElementById('productVatRate').value = product.vatRate || 21;
+        document.getElementById('productForSale').checked = product.forSale || false;
+        document.getElementById('productForWork').checked = product.forWork !== false;
+        
+        // Naplnit dropdown kategorií
+        const categorySelect = document.getElementById('productCategoryId');
+        categorySelect.innerHTML = '<option value="">-- Vyberte kategorii --</option>';
+        productCategories.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat.id;
+            option.textContent = cat.name;
+            if (cat.id === product.categoryId) {
+                option.selected = true;
+            }
+            categorySelect.appendChild(option);
+        });
+        
+        document.getElementById('productModal').classList.add('show');
+    } catch (error) {
+        console.error('Error editing product:', error);
+        showNotification('Chyba při editaci produktu: ' + error.message, 'error');
+    }
 }
 
 function closeProductModal() {
