@@ -454,3 +454,10 @@ function showNotification(message, type = 'info') {
         setTimeout(() => notification.remove(), 300);
     }, 3000);
 }
+
+// Odhlášení
+function logout() {
+    sessionStorage.removeItem('hairbook_logged_in');
+    localStorage.removeItem('hairbook_remember');
+    window.location.href = 'login.html';
+}

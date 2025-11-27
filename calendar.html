@@ -6,28 +6,57 @@
     <title>Kalendář - HairBook</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="calendar.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <div class="app-container">
-        <!-- Navigační lišta -->
-        <nav class="navbar">
-            <div class="navbar-brand">
-                <i class="fas fa-calendar-alt"></i>
-                <span>HairBook Kalendář</span>
+        <!-- Levé menu -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <i class="fas fa-cut"></i>
+                <h1>HairBook</h1>
             </div>
-            <div class="navbar-actions">
-                <button class="btn btn-secondary" onclick="window.location.href='index.html'">
-                    <i class="fas fa-home"></i> Zpět na hlavní stránku
+            <nav class="sidebar-nav">
+                <a href="index.html" class="nav-item">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="index.html" class="nav-item">
+                    <i class="fas fa-users"></i>
+                    <span>Klienti</span>
+                </a>
+                <a href="index.html" class="nav-item">
+                    <i class="fas fa-box"></i>
+                    <span>Produkty</span>
+                </a>
+                <a href="index.html" class="nav-item">
+                    <i class="fas fa-scissors"></i>
+                    <span>Služby</span>
+                </a>
+                <a href="calendar.html" class="nav-item active">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>Kalendář</span>
+                </a>
+            </nav>
+            <div style="padding: 1rem; border-top: 1px solid rgba(255,255,255,0.1); margin-top: auto;">
+                <button onclick="logout()" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Odhlásit se</span>
                 </button>
+            </div>
+        </aside>
+
+        <!-- Hlavní obsah -->
+        <main class="main-content">
+            <div class="page-header" style="margin-bottom: 2rem;">
+                <h2><i class="fas fa-calendar-alt"></i> Kalendář rezervací</h2>
                 <button class="btn btn-primary" onclick="showNewAppointmentModal()">
                     <i class="fas fa-plus"></i> Nová rezervace
                 </button>
             </div>
-        </nav>
 
-        <!-- Hlavní obsah -->
-        <div class="calendar-container">
+            <div class="calendar-container">
             <!-- Navigace týdnů -->
             <div class="calendar-header">
                 <button class="btn btn-secondary" onclick="changeWeek(-1)">
@@ -47,6 +76,7 @@
                 <!-- Bude vygenerováno JavaScriptem -->
             </div>
         </div>
+        </main>
     </div>
 
     <!-- Modal pro novou/editaci rezervace -->
