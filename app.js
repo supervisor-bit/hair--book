@@ -2946,8 +2946,13 @@ async function confirmDeleteCategory() {
     }
 }
 
-function addNewProduct() {
+async function addNewProduct() {
     try {
+        // Počkat na načtení modalů
+        if (window.modalsReady) {
+            await window.modalsReady;
+        }
+        
         // Zkontrolovat, jestli modal existuje
         const modal = document.getElementById('productModal');
         if (!modal) {
@@ -3012,10 +3017,15 @@ function addNewProduct() {
     }
 }
 
-function editProduct(productId) {
+async function editProduct(productId) {
     try {
         const product = products.find(p => p.id === productId);
         if (!product) return;
+        
+        // Počkat na načtení modalů
+        if (window.modalsReady) {
+            await window.modalsReady;
+        }
         
         // Načíst všechny elementy dopředu
         const modal = document.getElementById('productModal');
