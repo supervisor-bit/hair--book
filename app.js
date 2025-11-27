@@ -2796,6 +2796,9 @@ function showProductDetail(product) {
                         ${product.stock < product.minStock ? '<i class="fas fa-exclamation-triangle" style="margin-left: 0.5rem;"></i>' : ''}
                     </span>
                     <span><i class="fas fa-layer-group"></i>Min. zásoba: <strong>${formatStockDisplay(product.minStock, product.unit, product.packageSize)}</strong></span>
+                    ${product.pricePurchase ? `<span><i class="fas fa-shopping-cart"></i>Nákupní cena: <strong>${product.pricePurchase.toLocaleString('cs-CZ')} Kč</strong></span>` : ''}
+                    ${product.priceRetail ? `<span><i class="fas fa-money-bill-wave"></i>Prodejní cena: <strong>${product.priceRetail.toLocaleString('cs-CZ')} Kč</strong></span>` : ''}
+                    ${product.vatRate ? `<span><i class="fas fa-percent"></i>DPH: <strong>${product.vatRate}%</strong></span>` : ''}
                 </div>
                 <div class="client-detail-actions">
                     <button class="btn btn-secondary" onclick="editProduct(${product.id})">
