@@ -584,9 +584,13 @@
                             </div>
                             <div class="form-group">
                                 <label>Jednotka</label>
-                                <select id="receiptUnit" onkeydown="if(event.key==='Enter') document.getElementById('receiptNote').focus()">
+                                <select id="receiptUnit" onkeydown="if(event.key==='Enter') document.getElementById('receiptPurchasePrice').focus()">
                                     <option value="">Vyberte jednotku...</option>
                                 </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Nákupní cena (Kč/ks)</label>
+                                <input type="number" id="receiptPurchasePrice" placeholder="Nákupní cena" step="0.01" min="0" onkeydown="if(event.key==='Enter') document.getElementById('receiptNote').focus()">
                             </div>
                             <div class="form-group">
                                 <label>Poznámka (nepovinné)</label>
@@ -625,13 +629,14 @@
                                         <th>Produkt</th>
                                         <th>Množství</th>
                                         <th>Jednotka</th>
+                                        <th>Nákupní cena</th>
                                         <th>Poznámka</th>
                                         <th>Akce</th>
                                     </tr>
                                 </thead>
                                 <tbody id="receiptTableBody">
                                     <tr class="empty-row">
-                                        <td colspan="5" style="text-align: center; color: var(--text-light); padding: 2rem;">
+                                        <td colspan="6" style="text-align: center; color: var(--text-light); padding: 2rem;">
                                             <i class="fas fa-inbox" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
                                             Zatím žádné položky
                                         </td>

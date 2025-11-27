@@ -3616,6 +3616,13 @@ function selectProduct(productId) {
     
     document.getElementById('receiptProduct').value = productId;
     document.getElementById('receiptProductSearch').value = product.name;
+    
+    // Předvyplnit nákupní cenu
+    const priceInput = document.getElementById('receiptPurchasePrice');
+    if (priceInput) {
+        priceInput.value = product.pricePurchase || '';
+    }
+    
     hideProductSuggestions();
     
     updateReceiptProductInfo();
@@ -3772,6 +3779,7 @@ function addToReceipt() {
     const productId = parseInt(document.getElementById('receiptProduct').value);
     const quantity = parseFloat(document.getElementById('receiptQuantity').value);
     const unit = document.getElementById('receiptUnit').value;
+    const purchasePrice = parseFloat(document.getElementById('receiptPurchasePrice').value) || 0;
     const note = document.getElementById('receiptNote').value.trim();
     
     if (!productId) {
@@ -3813,6 +3821,7 @@ function addToReceipt() {
         quantity: quantity,
         unit: unit,
         baseUnit: product.unit,
+        purchasePrice: purchasePrice,
         note: note
     });
     
@@ -3822,6 +3831,7 @@ function addToReceipt() {
     document.getElementById('receiptProduct').value = '';
     document.getElementById('receiptProductSearch').value = '';
     document.getElementById('receiptQuantity').value = '';
+    document.getElementById('receiptPurchasePrice').value = '';
     document.getElementById('receiptNote').value = '';
     document.getElementById('receiptProductInfo').style.display = 'none';
     
@@ -3855,6 +3865,13 @@ function renderReceiptTable() {
                        onchange="updateReceiptQuantity(${index}, this.value)">
             </td>
             <td>${item.unit}</td>
+            <td>
+                <input type="number" 
+                       value="${item.purchasePrice || 0}" 
+                       step="0.01"
+                       style="width: 120px; padding: 0.375rem; border: 1px solid var(--border-color); border-radius: 0.375rem;"
+                       onchange="updateReceiptPrice(${index}, this.value)"> Kč
+            </td>
             <td>
                 <input type="text" 
                        value="${item.note || ''}" 
@@ -3890,6 +3907,15 @@ function updateReceiptQuantity(index, newQuantity) {
 
 function updateReceiptNote(index, newNote) {
     receiptItems[index].note = newNote.trim();
+}
+
+function updateReceiptPrice(index, newPrice) {
+    const price = parseFloat(newPrice);
+    if (isNaN(price) || price < 0) {
+        receiptItems[index].purchasePrice = 0;
+    } else {
+        receiptItems[index].purchasePrice = price;
+    }
 }
 
 function removeFromReceipt(index) {
@@ -3962,6 +3988,23 @@ async function confirmSaveStockReceipt() {
                     quantityInBaseUnit = convertToBaseUnit(item.quantity, item.unit, product.unit, product);
                 }
                 
+                // Přepočítat váženou průměrnou nákupní cenu
+                if (item.purchasePrice && item.purchasePrice > 0) {
+                    const oldStock = product.stock || 0;
+                    const oldPrice = product.pricePurchase || 0;
+                    const oldValue = oldStock * oldPrice;
+                    
+                    const newStock = quantityInBaseUnit;
+                    const newPrice = item.purchasePrice;
+                    const newValue = newStock * newPrice;
+                    
+                    const totalStock = oldStock + newStock;
+                    const totalValue = oldValue + newValue;
+                    
+                    // Nová vážená průměrná cena
+                    product.pricePurchase = totalStock > 0 ? totalValue / totalStock : newPrice;
+                }
+                
                 // Přidat do skladu lokálně
                 product.stock += quantityInBaseUnit;
                 
@@ -3992,6 +4035,7 @@ async function confirmSaveStockReceipt() {
         document.getElementById('receiptProduct').value = '';
         document.getElementById('receiptProductSearch').value = '';
         document.getElementById('receiptQuantity').value = '';
+        document.getElementById('receiptPurchasePrice').value = '';
         document.getElementById('receiptNote').value = '';
         document.getElementById('receiptProductInfo').style.display = 'none';
         
