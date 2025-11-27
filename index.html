@@ -578,6 +578,26 @@
                                     <i class="fas fa-plus-circle"></i> Přidat nový produkt
                                 </button>
                             </div>
+                            
+                            <!-- Info o produktu - hned pod výběrem produktu -->
+                            <div id="receiptProductInfo" class="product-info-box" style="display: none; margin-bottom: 1rem;">
+                                <h4 style="margin: 0 0 0.75rem 0; font-size: 0.875rem; color: #6b7280;">Informace o produktu</h4>
+                                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; font-size: 0.875rem;">
+                                    <div>
+                                        <div style="color: #9ca3af; margin-bottom: 0.25rem;">Aktuální stav:</div>
+                                        <div id="infoCurrentStock" style="font-weight: 600; color: #374151;"></div>
+                                    </div>
+                                    <div>
+                                        <div style="color: #9ca3af; margin-bottom: 0.25rem;">Minimální zásoba:</div>
+                                        <div id="infoMinStock" style="font-weight: 600; color: #f59e0b;"></div>
+                                    </div>
+                                    <div>
+                                        <div style="color: #9ca3af; margin-bottom: 0.25rem;">Stav po příjmu:</div>
+                                        <div id="infoNewStock" style="font-weight: 600; color: #10b981;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
                             <div class="form-group">
                                 <label>Množství</label>
                                 <input type="number" id="receiptQuantity" placeholder="Množství" step="0.01" onkeydown="if(event.key==='Enter') document.getElementById('receiptNote').focus()">
@@ -599,23 +619,6 @@
                             <button class="btn btn-primary" onclick="addToReceipt()">
                                 <i class="fas fa-plus"></i> Přidat
                             </button>
-                        </div>
-                        
-                        <!-- Info o produktu -->
-                        <div id="receiptProductInfo" class="product-info-box" style="display: none;">
-                            <h4>Informace o produktu</h4>
-                            <div class="info-row">
-                                <span class="label">Aktuální stav:</span>
-                                <span id="infoCurrentStock"></span>
-                            </div>
-                            <div class="info-row">
-                                <span class="label">Minimální zásoba:</span>
-                                <span id="infoMinStock"></span>
-                            </div>
-                            <div class="info-row">
-                                <span class="label">Stav po příjmu:</span>
-                                <span id="infoNewStock" style="font-weight: 600; color: var(--success);"></span>
-                            </div>
                         </div>
                     </div>
                     
