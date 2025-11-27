@@ -27,14 +27,27 @@
             try {
                 const response = await fetch('modals.html');
                 const html = await response.text();
-                document.body.insertAdjacentHTML('beforeend', html);
+                
+                console.log('📦 Modals HTML length:', html.length);
+                console.log('🔍 Contains productVatRate?', html.includes('id="productVatRate"'));
+                
+                // Vytvořit dočasný div a vložit HTML
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = html;
+                
+                // Přesunout všechny potomky do body
+                while (tempDiv.firstChild) {
+                    document.body.appendChild(tempDiv.firstChild);
+                }
+                
+                console.log('✅ Modals appended to body');
                 
                 // Počkat, až budou konkrétní elementy skutečně v DOM
                 let attempts = 0;
                 while (attempts < 50) {
                     const testElement = document.getElementById('productVatRate');
                     if (testElement) {
-                        console.log('✅ Modals loaded successfully - elements verified');
+                        console.log('✅ Element productVatRate found in DOM');
                         break;
                     }
                     await new Promise(resolve => setTimeout(resolve, 10));
@@ -42,7 +55,10 @@
                 }
                 
                 if (attempts >= 50) {
-                    console.error('❌ Modals loaded but elements not found after 500ms');
+                    console.error('❌ Element productVatRate NOT found after 500ms');
+                    // Debug - vypsat všechny modaly
+                    const allModals = document.querySelectorAll('[id$="Modal"]');
+                    console.log('Found modals:', Array.from(allModals).map(m => m.id));
                 }
                 
                 // Oznámit, že modaly jsou připravené
