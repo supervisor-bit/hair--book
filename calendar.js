@@ -67,7 +67,7 @@ function populateClientSelect() {
     clients.forEach(client => {
         const option = document.createElement('option');
         option.value = client.id;
-        option.textContent = client.name;
+        option.textContent = `${client.firstName} ${client.lastName}`;
         select.appendChild(option);
     });
 }
@@ -229,7 +229,7 @@ function renderAppointments() {
                 
                 aptElement.innerHTML = `
                     <div class="appointment-time">${apt.time.substring(0, 5)}</div>
-                    <div class="appointment-client">${client ? client.name : 'Neznámý'}</div>
+                    <div class="appointment-client">${client ? `${client.firstName} ${client.lastName}` : 'Neznámý'}</div>
                     <div class="appointment-service">${service ? service.name : 'Služba'}</div>
                     ${client && client.phone ? `<div class="appointment-phone"><i class="fas fa-phone"></i> ${client.phone}</div>` : ''}
                 `;
@@ -341,7 +341,7 @@ function showAppointmentDetail(apt) {
     content.innerHTML = `
         <div style="margin-bottom: 1.5rem;">
             <h4 style="margin: 0 0 0.5rem 0; color: #667eea;">
-                <i class="fas fa-user"></i> ${client ? client.name : 'Neznámý klient'}
+                <i class="fas fa-user"></i> ${client ? `${client.firstName} ${client.lastName}` : 'Neznámý klient'}
             </h4>
             ${client && client.phone ? `<p style="color: #6b7280; margin: 0.25rem 0;"><i class="fas fa-phone"></i> ${client.phone}</p>` : ''}
             ${client && client.email ? `<p style="color: #6b7280; margin: 0.25rem 0;"><i class="fas fa-envelope"></i> ${client.email}</p>` : ''}
