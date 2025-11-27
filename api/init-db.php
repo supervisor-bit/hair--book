@@ -62,6 +62,7 @@ try {
         minimal_stock REAL DEFAULT 0,
         purchase_price REAL DEFAULT 0,
         sale_price REAL DEFAULT 0,
+        vat_rate REAL DEFAULT 21,
         for_sale BOOLEAN DEFAULT 0,
         for_work BOOLEAN DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

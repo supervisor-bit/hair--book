@@ -2992,6 +2992,7 @@ function editProduct(productId) {
     document.getElementById('productMinimalStock').value = (product.minStock / product.packageSize) || 0;
     document.getElementById('productPurchasePrice').value = product.pricePurchase || '';
     document.getElementById('productSalePrice').value = product.priceRetail || '';
+    document.getElementById('productVatRate').value = product.vatRate || 21;
     document.getElementById('productForSale').checked = product.forSale || false;
     document.getElementById('productForWork').checked = product.forWork !== false;
     
@@ -3029,6 +3030,7 @@ async function saveProductForm(event) {
     const minStock = parseFloat(document.getElementById('productMinimalStock').value);
     const purchasePrice = parseFloat(document.getElementById('productPurchasePrice').value) || 0;
     const salePrice = parseFloat(document.getElementById('productSalePrice').value) || 0;
+    const vatRate = parseFloat(document.getElementById('productVatRate').value) || 21;
     const forSale = document.getElementById('productForSale').checked;
     const forWork = document.getElementById('productForWork').checked;
     
@@ -3045,6 +3047,7 @@ async function saveProductForm(event) {
         minStock: minStock * packageSize, // Převést na základní jednotky
         pricePurchase: purchasePrice,
         priceRetail: salePrice,
+        vatRate: vatRate,
         forSale,
         forWork
     };
@@ -3572,6 +3575,7 @@ function saveQuickProductForm(event) {
     const minimalStock = parseFloat(document.getElementById('quickProductMinimalStock').value);
     const purchasePrice = parseFloat(document.getElementById('quickProductPurchasePrice').value) || 0;
     const salePrice = parseFloat(document.getElementById('quickProductSalePrice').value) || 0;
+    const vatRate = parseFloat(document.getElementById('quickProductVatRate').value) || 21;
     const forSale = document.getElementById('quickProductForSale').checked;
     const forWork = document.getElementById('quickProductForWork').checked;
     
@@ -3587,6 +3591,7 @@ function saveQuickProductForm(event) {
         minimalStock,
         purchasePrice,
         salePrice,
+        vatRate: vatRate,
         forSale,
         forWork,
         movements: []
@@ -8655,6 +8660,7 @@ async function saveQuickEntry(event) {
     const minimalStock = parseFloat(document.getElementById('quickEntryMinimalStock').value);
     const purchasePrice = parseFloat(document.getElementById('quickEntryPurchasePrice').value) || 0;
     const salePrice = parseFloat(document.getElementById('quickEntrySalePrice').value) || 0;
+    const vatRate = parseFloat(document.getElementById('quickEntryVatRate').value) || 21;
     const forSale = document.getElementById('quickEntryForSale').checked;
     const forService = document.getElementById('quickEntryForService').checked;
     
@@ -8672,6 +8678,7 @@ async function saveQuickEntry(event) {
         minimalStock,
         purchasePrice,
         salePrice,
+        vatRate: vatRate,
         forSale,
         forWork: forService
     };

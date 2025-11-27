@@ -403,6 +403,14 @@
                         <label for="quickProductSalePrice">Prodejní cena (Kč/ks)</label>
                         <input type="number" id="quickProductSalePrice" min="0" step="0.01" placeholder="0">
                     </div>
+                    <div class="form-group">
+                        <label for="quickProductVatRate">DPH (%)</label>
+                        <select id="quickProductVatRate" style="padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 1rem;">
+                            <option value="0">0%</option>
+                            <option value="12">12%</option>
+                            <option value="21" selected>21%</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="form-row">
@@ -572,6 +580,14 @@
                         <label for="quickEntrySalePrice">Prodejní cena (Kč/ks)</label>
                         <input type="number" id="quickEntrySalePrice" min="0" step="0.01" placeholder="0">
                     </div>
+                    <div class="form-group">
+                        <label for="quickEntryVatRate">DPH (%)</label>
+                        <select id="quickEntryVatRate" style="padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 1rem;">
+                            <option value="0">0%</option>
+                            <option value="12">12%</option>
+                            <option value="21" selected>21%</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="form-row">
@@ -679,6 +695,14 @@
                     <div class="form-group">
                         <label for="productSalePrice">Prodejní cena (Kč/ks)</label>
                         <input type="number" id="productSalePrice" min="0" step="0.01" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="productVatRate">DPH (%)</label>
+                        <select id="productVatRate" style="padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 1rem;">
+                            <option value="0">0% (bez DPH)</option>
+                            <option value="12">12% (snížená)</option>
+                            <option value="21" selected>21% (základní)</option>
+                        </select>
                     </div>
                 </div>
 

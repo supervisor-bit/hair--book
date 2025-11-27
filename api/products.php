@@ -22,13 +22,14 @@ switch ($method) {
             $product['minStock'] = isset($product['minimal_stock']) ? $product['minimal_stock'] : 0;
             $product['pricePurchase'] = isset($product['purchase_price']) ? $product['purchase_price'] : 0;
             $product['priceRetail'] = isset($product['sale_price']) ? $product['sale_price'] : 0;
+            $product['vatRate'] = isset($product['vat_rate']) ? $product['vat_rate'] : 21;
             $product['priceWork'] = 0; // Nemáme samostatný sloupec, použijeme 0
             $product['forSale'] = (bool)$product['for_sale'];
             $product['forWork'] = (bool)$product['for_work'];
             $product['createdAt'] = $product['created_at'];
             
             unset($product['category_id'], $product['package_size'], $product['minimal_stock'], 
-                  $product['purchase_price'], $product['sale_price'],
+                  $product['purchase_price'], $product['sale_price'], $product['vat_rate'],
                   $product['for_sale'], $product['for_work'], $product['created_at']);
             
             // Převést movements
@@ -46,7 +47,7 @@ switch ($method) {
     case 'POST':
         // Vytvořit nový produkt
         $data = getJsonInput();
-        $stmt = $db->prepare("INSERT INTO products (name, barcode, description, category_id, stock, unit, package_size, minimal_stock, purchase_price, sale_price, for_sale, for_work) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt = $db->prepare("INSERT INTO products (name, barcode, description, category_id, stock, unit, package_size, minimal_stock, purchase_price, sale_price, vat_rate, for_sale, for_work) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             $data['name'],
             $data['barcode'] ?? null,
@@ -58,6 +59,7 @@ switch ($method) {
             $data['minStock'] ?? 0,
             $data['pricePurchase'] ?? 0,
             $data['priceRetail'] ?? 0,
+            $data['vatRate'] ?? 21,
             $data['forSale'] ? 1 : 0,
             $data['forWork'] ? 1 : 0
         ]);
@@ -67,7 +69,7 @@ switch ($method) {
     case 'PUT':
         // Aktualizovat produkt
         $data = getJsonInput();
-        $stmt = $db->prepare("UPDATE products SET name = ?, barcode = ?, description = ?, category_id = ?, stock = ?, unit = ?, package_size = ?, minimal_stock = ?, purchase_price = ?, sale_price = ?, for_sale = ?, for_work = ? WHERE id = ?");
+        $stmt = $db->prepare("UPDATE products SET name = ?, barcode = ?, description = ?, category_id = ?, stock = ?, unit = ?, package_size = ?, minimal_stock = ?, purchase_price = ?, sale_price = ?, vat_rate = ?, for_sale = ?, for_work = ? WHERE id = ?");
         $stmt->execute([
             $data['name'],
             $data['barcode'] ?? null,
@@ -79,6 +81,7 @@ switch ($method) {
             $data['minStock'] ?? 0,
             $data['pricePurchase'] ?? 0,
             $data['priceRetail'] ?? 0,
+            $data['vatRate'] ?? 21,
             $data['forSale'] ? 1 : 0,
             $data['forWork'] ? 1 : 0,
             $data['id']
