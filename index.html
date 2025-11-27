@@ -23,6 +23,11 @@
                 const response = await fetch('modals.html');
                 const html = await response.text();
                 document.body.insertAdjacentHTML('beforeend', html);
+                
+                // Počkat na další frame, aby prohlížeč stihl parsovat DOM
+                await new Promise(resolve => requestAnimationFrame(resolve));
+                await new Promise(resolve => requestAnimationFrame(resolve));
+                
                 console.log('✅ Modals loaded successfully');
             } catch (error) {
                 console.error('❌ Failed to load modals:', error);
