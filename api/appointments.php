@@ -67,8 +67,9 @@ elseif ($method === 'POST') {
         // Vypočítat koncový čas
         $endTime = date('H:i:s', strtotime($startTime) + ($duration * 60));
         
+        // Najít všechny překrývající se rezervace
         $stmt = $db->prepare('
-            SELECT COUNT(*) as count FROM appointments 
+            SELECT id, duration FROM appointments 
             WHERE date = :date 
             AND (
                 (time < :end_time AND time >= :start_time)
@@ -83,8 +84,18 @@ elseif ($method === 'POST') {
             ':start_datetime' => $data['date'] . ' ' . $startTime
         ]);
         
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($result['count'] > 0) {
+        $conflicts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Povolit vložení krátké služby (max 30 min) do dlouhé rezervace (120+ min)
+        $allowShortServiceInsertion = false;
+        if ($duration <= 30 && count($conflicts) === 1) {
+            $existingDuration = (int)$conflicts[0]['duration'];
+            if ($existingDuration >= 120) {
+                $allowShortServiceInsertion = true;
+            }
+        }
+        
+        if (count($conflicts) > 0 && !$allowShortServiceInsertion) {
             http_response_code(409);
             echo json_encode(['error' => 'Time slot already booked']);
             exit();
@@ -133,8 +144,9 @@ elseif ($method === 'PUT') {
         $startTime = $data['time'];
         $endTime = date('H:i:s', strtotime($startTime) + ($duration * 60));
         
+        // Najít všechny překrývající se rezervace (kromě aktuální)
         $stmt = $db->prepare('
-            SELECT COUNT(*) as count FROM appointments 
+            SELECT id, duration FROM appointments 
             WHERE date = :date 
             AND id != :id
             AND (
@@ -151,8 +163,18 @@ elseif ($method === 'PUT') {
             ':start_datetime' => $data['date'] . ' ' . $startTime
         ]);
         
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($result['count'] > 0) {
+        $conflicts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Povolit vložení krátké služby (max 30 min) do dlouhé rezervace (120+ min)
+        $allowShortServiceInsertion = false;
+        if ($duration <= 30 && count($conflicts) === 1) {
+            $existingDuration = (int)$conflicts[0]['duration'];
+            if ($existingDuration >= 120) {
+                $allowShortServiceInsertion = true;
+            }
+        }
+        
+        if (count($conflicts) > 0 && !$allowShortServiceInsertion) {
             http_response_code(409);
             echo json_encode(['error' => 'Time slot already booked']);
             exit();
