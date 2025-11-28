@@ -273,8 +273,8 @@ function renderServiceSuggestions() {
                  data-index="${index}">
                 <div class="suggestion-name">${service.name}</div>
                 <div class="suggestion-meta">
-                    <span><i class="fas fa-tag"></i> ${service.price} Kč</span>
                     ${service.duration ? `<span><i class="fas fa-clock"></i> ${service.duration} min</span>` : ''}
+                    ${service.description ? `<span><i class="fas fa-info-circle"></i> ${service.description}</span>` : ''}
                 </div>
             </div>
         `;
