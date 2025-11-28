@@ -254,6 +254,18 @@ let currentPurchasesPage = 1;
 const purchasesPerPage = 10;
 let currentNotesPage = 1;
 const notesPerPage = 10;
+let currentReceiptsPage = 1;
+const receiptsPerPage = 20;
+let currentIssuesPage = 1;
+const issuesPerPage = 20;
+let currentOrdersPage = 1;
+const ordersPerPage = 20;
+let currentReceiptsPage = 1;
+const receiptsPerPage = 20;
+let currentIssuesPage = 1;
+const issuesPerPage = 20;
+let currentOrdersPage = 1;
+const ordersPerPage = 20;
 
 let currentClient = null;
 let currentProduct = null;
@@ -623,6 +635,26 @@ function goToPurchasesPage(page) {
 function goToNotesPage(page) {
     currentNotesPage = page;
     if (currentClient) showClientDetail(currentClient);
+}
+
+function goToReceiptsPage(page) {
+    currentReceiptsPage = page;
+    renderReceiptHistory();
+}
+
+function goToIssuesPage(page) {
+    currentIssuesPage = page;
+    renderIssueHistory();
+}
+
+function goToOrdersPage(page) {
+    currentOrdersPage = page;
+    renderOrderHistory();
+}
+
+function goToSalesPage(page) {
+    currentSalesPage = page;
+    renderSalesHistory();
 }
 
 function renderClients() {
@@ -4953,7 +4985,15 @@ function renderOrderHistory() {
         return;
     }
     
-    container.innerHTML = filteredOrders.sort((a, b) => new Date(b.date) - new Date(a.date)).map(order => {
+    const sortedOrders = filteredOrders.sort((a, b) => new Date(b.date) - new Date(a.date));
+    const totalPages = Math.ceil(sortedOrders.length / ordersPerPage);
+    if (currentOrdersPage > totalPages) currentOrdersPage = 1;
+    
+    const startIndex = (currentOrdersPage - 1) * ordersPerPage;
+    const endIndex = startIndex + ordersPerPage;
+    const pageOrders = sortedOrders.slice(startIndex, endIndex);
+    
+    container.innerHTML = pageOrders.map(order => {
         const totalItems = order.items.length;
         const totalQuantity = order.items.reduce((sum, item) => sum + item.quantity, 0);
         
@@ -5034,6 +5074,14 @@ function renderOrderHistory() {
             </div>
         `;
     }).join('');
+    
+    // Add pagination
+    if (totalPages > 1) {
+        container.innerHTML += '<div id="ordersPaginationContainer" style="padding: 1rem;"></div>';
+        setTimeout(() => {
+            renderPagination('ordersPaginationContainer', sortedOrders.length, currentOrdersPage, ordersPerPage, 'goToOrdersPage');
+        }, 0);
+    }
 }
 
 function toggleOrderDetail(orderId) {
@@ -5335,7 +5383,15 @@ function renderReceiptHistory() {
         return;
     }
     
-    container.innerHTML = filteredReceipts.sort((a, b) => new Date(b.date) - new Date(a.date)).map(receipt => {
+    const sortedReceipts = filteredReceipts.sort((a, b) => new Date(b.date) - new Date(a.date));
+    const totalPages = Math.ceil(sortedReceipts.length / receiptsPerPage);
+    if (currentReceiptsPage > totalPages) currentReceiptsPage = 1;
+    
+    const startIndex = (currentReceiptsPage - 1) * receiptsPerPage;
+    const endIndex = startIndex + receiptsPerPage;
+    const pageReceipts = sortedReceipts.slice(startIndex, endIndex);
+    
+    container.innerHTML = pageReceipts.map(receipt => {
         const totalItems = receipt.items.length;
         const totalQuantity = receipt.items.reduce((sum, item) => sum + item.quantity, 0);
         
@@ -5389,6 +5445,14 @@ function renderReceiptHistory() {
             </div>
         `;
     }).join('');
+    
+    // Add pagination
+    if (totalPages > 1) {
+        container.innerHTML += '<div id="receiptsPaginationContainer"></div>';
+        setTimeout(() => {
+            renderPagination('receiptsPaginationContainer', sortedReceipts.length, currentReceiptsPage, receiptsPerPage, 'goToReceiptsPage');
+        }, 0);
+    }
 }
 
 function toggleReceiptDetail(receiptId) {
@@ -5571,7 +5635,15 @@ function renderSalesHistory() {
         return;
     }
     
-    container.innerHTML = filteredSales.sort((a, b) => new Date(b.date) - new Date(a.date)).map(sale => {
+    const sortedSales = filteredSales.sort((a, b) => new Date(b.date) - new Date(a.date));
+    const totalPages = Math.ceil(sortedSales.length / salesPerPage);
+    if (currentSalesPage > totalPages) currentSalesPage = 1;
+    
+    const startIndex = (currentSalesPage - 1) * salesPerPage;
+    const endIndex = startIndex + salesPerPage;
+    const pageSales = sortedSales.slice(startIndex, endIndex);
+    
+    container.innerHTML = pageSales.map(sale => {
         const totalItems = sale.items.length;
         const saleItems = sale.items.filter(item => item.price > 0);
         const workItems = sale.items.filter(item => item.price === 0);
@@ -5647,6 +5719,14 @@ function renderSalesHistory() {
             </div>
         `;
     }).join('');
+    
+    // Add pagination
+    if (totalPages > 1) {
+        container.innerHTML += '<div id="salesPaginationContainer" style="padding: 1rem;"></div>';
+        setTimeout(() => {
+            renderPagination('salesPaginationContainer', sortedSales.length, currentSalesPage, salesPerPage, 'goToSalesPage');
+        }, 0);
+    }
 }
 
 function toggleSaleDetail(saleId) {
@@ -7522,7 +7602,14 @@ function renderIssueHistory() {
         return;
     }
     
-    container.innerHTML = filteredIssues.map((issue, index) => {
+    const totalPages = Math.ceil(filteredIssues.length / issuesPerPage);
+    if (currentIssuesPage > totalPages) currentIssuesPage = 1;
+    
+    const startIndex = (currentIssuesPage - 1) * issuesPerPage;
+    const endIndex = startIndex + issuesPerPage;
+    const pageIssues = filteredIssues.slice(startIndex, endIndex);
+    
+    container.innerHTML = pageIssues.map((issue, index) => {
         const issueId = `issue-${Date.parse(issue.date)}-${index}`;
         const totalItems = issue.items.length;
         const totalQuantity = issue.items.reduce((sum, item) => sum + parseFloat(item.quantity), 0);
@@ -7572,6 +7659,14 @@ function renderIssueHistory() {
             </div>
         `;
     }).join('');
+    
+    // Add pagination
+    if (totalPages > 1) {
+        container.innerHTML += '<div id="issuesPaginationContainer"></div>';
+        setTimeout(() => {
+            renderPagination('issuesPaginationContainer', filteredIssues.length, currentIssuesPage, issuesPerPage, 'goToIssuesPage');
+        }, 0);
+    }
 }
 
 function toggleIssueDetail(issueId) {
