@@ -94,6 +94,57 @@ function updateServiceDuration() {
     }
 }
 
+// Filtrování klientů
+function filterClients(searchText) {
+    const select = document.getElementById('appointmentClientId');
+    const search = searchText.toLowerCase();
+    
+    select.innerHTML = '<option value="">-- Vyberte klienta --</option>';
+    
+    const filtered = clients.filter(client => {
+        const fullName = `${client.firstName} ${client.lastName}`.toLowerCase();
+        return fullName.includes(search);
+    });
+    
+    filtered.forEach(client => {
+        const option = document.createElement('option');
+        option.value = client.id;
+        option.textContent = `${client.firstName} ${client.lastName}`;
+        select.appendChild(option);
+    });
+    
+    // Pokud je jen jedna možnost, automaticky ji vyber
+    if (filtered.length === 1) {
+        select.value = filtered[0].id;
+    }
+}
+
+// Filtrování služeb
+function filterServices(searchText) {
+    const select = document.getElementById('appointmentServiceId');
+    const search = searchText.toLowerCase();
+    
+    select.innerHTML = '<option value="">-- Vyberte službu --</option>';
+    
+    const filtered = services.filter(service => {
+        return service.name.toLowerCase().includes(search);
+    });
+    
+    filtered.forEach(service => {
+        const option = document.createElement('option');
+        option.value = service.id;
+        option.dataset.duration = service.duration || 60;
+        option.textContent = `${service.name} (${service.price} Kč)`;
+        select.appendChild(option);
+    });
+    
+    // Pokud je jen jedna možnost, automaticky ji vyber
+    if (filtered.length === 1) {
+        select.value = filtered[0].id;
+        updateServiceDuration();
+    }
+}
+
 // Navigace týdnů
 function goToToday() {
     console.log('📆 goToToday() called');
@@ -266,6 +317,10 @@ function updateWeekTitle() {
 function showNewAppointmentModal() {
     document.getElementById('appointmentModalTitle').textContent = 'Nová rezervace';
     document.getElementById('appointmentId').value = '';
+    document.getElementById('appointmentClientSearch').value = '';
+    document.getElementById('appointmentServiceSearch').value = '';
+    populateClientSelect();
+    populateServiceSelect();
     document.getElementById('appointmentClientId').value = '';
     document.getElementById('appointmentServiceId').value = '';
     document.getElementById('appointmentDate').value = '';
@@ -278,6 +333,10 @@ function showNewAppointmentModal() {
 function openNewAppointment(date) {
     document.getElementById('appointmentModalTitle').textContent = 'Nová rezervace';
     document.getElementById('appointmentId').value = '';
+    document.getElementById('appointmentClientSearch').value = '';
+    document.getElementById('appointmentServiceSearch').value = '';
+    populateClientSelect();
+    populateServiceSelect();
     document.getElementById('appointmentClientId').value = '';
     document.getElementById('appointmentServiceId').value = '';
     
