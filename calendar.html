@@ -344,6 +344,50 @@
         </div>
     </div>
 
+    <!-- Confirmation Modal pro vložení krátké služby -->
+    <div id="insertConfirmModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>⚠️ Vložit krátkou službu?</h2>
+                <button class="close-modal" onclick="closeInsertConfirmModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+                    <p style="margin: 0 0 0.5rem 0; font-weight: 600; color: #92400e;">
+                        V tomto čase už probíhá rezervace:
+                    </p>
+                    <div id="existingAppointmentInfo" style="color: #78350f; font-size: 0.875rem;">
+                        <!-- Dynamický obsah -->
+                    </div>
+                </div>
+                
+                <div style="background: #dbeafe; border-left: 4px solid #3b82f6; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+                    <p style="margin: 0 0 0.5rem 0; font-weight: 600; color: #1e40af;">
+                        Chcete vložit krátkou službu?
+                    </p>
+                    <div id="newAppointmentInfo" style="color: #1e3a8a; font-size: 0.875rem;">
+                        <!-- Dynamický obsah -->
+                    </div>
+                </div>
+                
+                <div style="background: #fee2e2; border-left: 4px solid #ef4444; padding: 1rem; border-radius: 0.5rem;">
+                    <p style="margin: 0; font-size: 0.875rem; color: #991b1b;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Upozornění:</strong> Ujistěte se, že je dostatek času mezi službami! Služba bude omezena na max 30 minut.
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeInsertConfirmModal()">
+                    <i class="fas fa-times"></i> Zrušit
+                </button>
+                <button class="btn btn-primary" onclick="confirmInsertShortService()">
+                    <i class="fas fa-check"></i> Ano, vložit
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         console.log('=== CALENDAR HTML LOADED ===');
     </script>

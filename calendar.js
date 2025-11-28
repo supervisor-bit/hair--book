@@ -12,6 +12,9 @@ let isResizing = false;
 let resizeStartY = 0;
 let resizeStartHeight = 0;
 
+// Insert confirmation proměnné
+let pendingInsertData = null;
+
 // Konstanty
 const OPENING_HOUR = 8;
 const CLOSING_HOUR = 19;
@@ -627,16 +630,8 @@ function checkAndOpenAppointment(date) {
     });
     
     if (existingApt) {
-        // Nabídnout vložení krátké služby do JAKÉKOLIV existující rezervace
-        const confirmed = confirm(
-            `V tomto čase probíhá rezervace (${existingApt.duration} min).\n\n` +
-            `Chcete vložit KRÁTKOU službu (max 30 min) do této rezervace?\n\n` +
-            `POZOR: Ujistěte se, že je dostatek času mezi službami!`
-        );
-        
-        if (confirmed) {
-            openNewAppointment(date, 30); // Omezit na max 30 min
-        }
+        // Zobrazit modal pro potvrzení vložení krátké služby
+        showInsertConfirmModal(existingApt, date);
     } else {
         openNewAppointment(date);
     }
@@ -1087,50 +1082,14 @@ async function handleDrop(e) {
         return;
     }
     
-    // Pokud je cílový slot obsazený a přetahovaná služba JE krátká, potvrdit
+    // Pokud je cílový slot obsazený a přetahovaná služba JE krátká, zobrazit modal
     if (existingApt && draggedAppointment.duration <= 30) {
-        const confirmed = confirm(
-            `V cílovém slotu je rezervace (${existingApt.duration} min).\n\n` +
-            `Chcete vložit tuto KRÁTKOU službu (${draggedAppointment.duration} min) do této rezervace?\n\n` +
-            `POZOR: Ujistěte se, že je dostatek času!`
-        );
-        
-        if (!confirmed) {
-            draggedAppointment = null;
-            draggedElement = null;
-            return;
-        }
+        showInsertConfirmModalForDrag(existingApt, draggedAppointment, newDateTime);
+        return;
     }
     
-    // Aktualizovat rezervaci
-    const updatedAppointment = {
-        ...draggedAppointment,
-        date: newDateTime.toISOString().split('T')[0],
-        time: newDateTime.toTimeString().split(' ')[0]
-    };
-    
-    try {
-        const response = await fetch(`api/appointments.php`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updatedAppointment)
-        });
-        
-        if (response.ok) {
-            showNotification('Rezervace přesunuta', 'success');
-            await loadData();
-            renderCalendar();
-        } else {
-            const error = await response.json();
-            showNotification(error.error || 'Chyba při přesunu rezervace', 'error');
-        }
-    } catch (error) {
-        console.error('Chyba:', error);
-        showNotification('Chyba při přesunu rezervace', 'error');
-    }
-    
-    draggedAppointment = null;
-    draggedElement = null;
+    // Provést přesun
+    await performAppointmentMove(draggedAppointment, newDateTime);
 }
 
 // ===== RESIZE =====
@@ -1208,6 +1167,134 @@ async function handleResizeEnd(e) {
     }
     
     currentAppointment = null;
+    draggedElement = null;
+}
+
+// ===== INSERT CONFIRMATION MODAL =====
+
+function showInsertConfirmModal(existingApt, targetDate) {
+    const service = services.find(s => s.id === existingApt.serviceId);
+    const client = clients.find(c => c.id === existingApt.clientId);
+    
+    document.getElementById('existingAppointmentInfo').innerHTML = `
+        <div><strong>Klient:</strong> ${client ? `${client.firstName} ${client.lastName}` : 'Neznámý'}</div>
+        <div><strong>Služba:</strong> ${service ? service.name : 'Neznámá'}</div>
+        <div><strong>Délka:</strong> ${existingApt.duration} minut</div>
+        <div><strong>Čas:</strong> ${existingApt.time.substring(0, 5)}</div>
+    `;
+    
+    document.getElementById('newAppointmentInfo').innerHTML = `
+        <div><strong>Nový čas:</strong> ${targetDate.toLocaleString('cs-CZ', { 
+            weekday: 'short', 
+            day: 'numeric', 
+            month: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        })}</div>
+        <div><strong>Max délka:</strong> 30 minut</div>
+    `;
+    
+    // Uložit data pro pozdější použití
+    pendingInsertData = {
+        type: 'click',
+        targetDate: targetDate,
+        maxDuration: 30
+    };
+    
+    document.getElementById('insertConfirmModal').classList.add('show');
+}
+
+function showInsertConfirmModalForDrag(existingApt, draggedApt, targetDate) {
+    const existingService = services.find(s => s.id === existingApt.serviceId);
+    const existingClient = clients.find(c => c.id === existingApt.clientId);
+    
+    const draggedService = services.find(s => s.id === draggedApt.serviceId);
+    const draggedClient = clients.find(c => c.id === draggedApt.clientId);
+    
+    document.getElementById('existingAppointmentInfo').innerHTML = `
+        <div><strong>Klient:</strong> ${existingClient ? `${existingClient.firstName} ${existingClient.lastName}` : 'Neznámý'}</div>
+        <div><strong>Služba:</strong> ${existingService ? existingService.name : 'Neznámá'}</div>
+        <div><strong>Délka:</strong> ${existingApt.duration} minut</div>
+        <div><strong>Čas:</strong> ${existingApt.time.substring(0, 5)}</div>
+    `;
+    
+    document.getElementById('newAppointmentInfo').innerHTML = `
+        <div><strong>Přesouvaná rezervace:</strong></div>
+        <div style="margin-left: 1rem;">
+            <div>Klient: ${draggedClient ? `${draggedClient.firstName} ${draggedClient.lastName}` : 'Neznámý'}</div>
+            <div>Služba: ${draggedService ? draggedService.name : 'Neznámá'}</div>
+            <div>Délka: ${draggedApt.duration} minut</div>
+        </div>
+        <div style="margin-top: 0.5rem;"><strong>Nový čas:</strong> ${targetDate.toLocaleString('cs-CZ', { 
+            weekday: 'short', 
+            day: 'numeric', 
+            month: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        })}</div>
+    `;
+    
+    // Uložit data pro pozdější použití
+    pendingInsertData = {
+        type: 'drag',
+        appointment: draggedApt,
+        targetDate: targetDate
+    };
+    
+    document.getElementById('insertConfirmModal').classList.add('show');
+}
+
+function closeInsertConfirmModal() {
+    document.getElementById('insertConfirmModal').classList.remove('show');
+    pendingInsertData = null;
+    draggedAppointment = null;
+    draggedElement = null;
+}
+
+async function confirmInsertShortService() {
+    if (!pendingInsertData) return;
+    
+    closeInsertConfirmModal();
+    
+    if (pendingInsertData.type === 'click') {
+        // Otevřít nový appointment formulář s omezením
+        openNewAppointment(pendingInsertData.targetDate, pendingInsertData.maxDuration);
+    } else if (pendingInsertData.type === 'drag') {
+        // Provést přesun
+        await performAppointmentMove(pendingInsertData.appointment, pendingInsertData.targetDate);
+    }
+    
+    pendingInsertData = null;
+}
+
+async function performAppointmentMove(appointment, newDateTime) {
+    const updatedAppointment = {
+        ...appointment,
+        date: newDateTime.toISOString().split('T')[0],
+        time: newDateTime.toTimeString().split(' ')[0]
+    };
+    
+    try {
+        const response = await fetch(`api/appointments.php`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedAppointment)
+        });
+        
+        if (response.ok) {
+            showNotification('Rezervace přesunuta', 'success');
+            await loadData();
+            renderCalendar();
+        } else {
+            const error = await response.json();
+            showNotification(error.error || 'Chyba při přesunu rezervace', 'error');
+        }
+    } catch (error) {
+        console.error('Chyba:', error);
+        showNotification('Chyba při přesunu rezervace', 'error');
+    }
+    
+    draggedAppointment = null;
     draggedElement = null;
 }
 
