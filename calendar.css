@@ -83,11 +83,25 @@
     border-bottom: 1px solid #e5e7eb;
     position: relative;
     cursor: pointer;
-    transition: background-color 0.2s;
+    background: white;
 }
 
-.time-slot:hover {
-    background: #f0f9ff;
+/* Sudý týden - modrý odstín */
+.time-slot.even-week {
+    background: #eff6ff;
+}
+
+.time-slot.even-week:hover {
+    background: #dbeafe;
+}
+
+/* Lichý týden - žlutý odstín */
+.time-slot.odd-week {
+    background: #fffbeb;
+}
+
+.time-slot.odd-week:hover {
+    background: #fef3c7;
 }
 
 .time-slot.past {

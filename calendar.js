@@ -424,6 +424,8 @@ function renderCalendar() {
     
     // Časové sloty
     const now = new Date();
+    const weekNumber = getWeekNumber(currentWeekStart);
+    const isEvenWeek = weekNumber % 2 === 0;
     
     for (let hour = OPENING_HOUR; hour < CLOSING_HOUR; hour++) {
         for (let minute = 0; minute < 60; minute += SLOT_DURATION) {
@@ -442,6 +444,13 @@ function renderCalendar() {
                 const slot = document.createElement('div');
                 slot.className = 'time-slot';
                 slot.dataset.date = slotDate.toISOString();
+                
+                // Přidat třídu pro sudý/lichý týden
+                if (isEvenWeek) {
+                    slot.classList.add('even-week');
+                } else {
+                    slot.classList.add('odd-week');
+                }
                 
                 // Označit minulé sloty
                 if (slotDate < now || slotDate > maxDate) {
@@ -510,6 +519,14 @@ function findSlotElement(date) {
     return null;
 }
 
+function getWeekNumber(date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
 function updateWeekTitle() {
     const weekEnd = new Date(currentWeekStart);
     weekEnd.setDate(weekEnd.getDate() + 6);
@@ -518,7 +535,17 @@ function updateWeekTitle() {
     const startStr = currentWeekStart.toLocaleDateString('cs-CZ', options);
     const endStr = weekEnd.toLocaleDateString('cs-CZ', options);
     
+    const weekNumber = getWeekNumber(currentWeekStart);
+    const weekType = weekNumber % 2 === 0 ? 'sudý' : 'lichý';
+    const weekIcon = weekNumber % 2 === 0 ? '📅' : '📆';
+    
     document.getElementById('weekTitle').textContent = `${startStr} - ${endStr}`;
+    document.getElementById('weekTitle').innerHTML = `
+        ${startStr} - ${endStr}
+        <span style="display: inline-block; margin-left: 1rem; padding: 0.25rem 0.75rem; background: ${weekNumber % 2 === 0 ? '#dbeafe' : '#fef3c7'}; color: ${weekNumber % 2 === 0 ? '#1e40af' : '#92400e'}; border-radius: 0.375rem; font-size: 0.875rem; font-weight: 600;">
+            ${weekIcon} Týden ${weekNumber} (${weekType})
+        </span>
+    `;
 }
 
 // Modaly
