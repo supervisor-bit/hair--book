@@ -745,6 +745,11 @@ async function deleteCurrentAppointment() {
 
 // Opakování rezervace
 function showRepeatDialog() {
+    if (!currentAppointment) return;
+    
+    // Předvyplnit hodnoty z aktuální rezervace
+    document.getElementById('repeatTimeDetail').value = currentAppointment.time;
+    document.getElementById('repeatDurationDetail').value = currentAppointment.duration;
     document.getElementById('repeatOptionsDetail').style.display = 'block';
 }
 
@@ -757,9 +762,16 @@ async function createRepeatedAppointments() {
     
     const repeatWeeks = parseInt(document.getElementById('repeatWeeksDetail').value);
     const repeatCount = parseInt(document.getElementById('repeatCountDetail').value);
+    const repeatTime = document.getElementById('repeatTimeDetail').value;
+    const repeatDuration = parseInt(document.getElementById('repeatDurationDetail').value);
     
     if (!repeatWeeks || repeatWeeks < 1 || !repeatCount || repeatCount < 1) {
         showNotification('Zadejte platné hodnoty', 'error');
+        return;
+    }
+    
+    if (!repeatTime || !repeatDuration) {
+        showNotification('Zadejte čas a trvání', 'error');
         return;
     }
     
@@ -775,8 +787,8 @@ async function createRepeatedAppointments() {
                 clientId: currentAppointment.clientId,
                 serviceId: currentAppointment.serviceId,
                 date: repeatDate.toISOString().split('T')[0],
-                time: currentAppointment.time,
-                duration: currentAppointment.duration,
+                time: repeatTime,
+                duration: repeatDuration,
                 note: currentAppointment.note || ''
             };
             
