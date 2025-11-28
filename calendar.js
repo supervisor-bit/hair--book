@@ -1253,19 +1253,29 @@ function closeInsertConfirmModal() {
 }
 
 async function confirmInsertShortService() {
-    if (!pendingInsertData) return;
-    
-    closeInsertConfirmModal();
-    
-    if (pendingInsertData.type === 'click') {
-        // Otevřít nový appointment formulář s omezením
-        openNewAppointment(pendingInsertData.targetDate, pendingInsertData.maxDuration);
-    } else if (pendingInsertData.type === 'drag') {
-        // Provést přesun
-        await performAppointmentMove(pendingInsertData.appointment, pendingInsertData.targetDate);
+    if (!pendingInsertData) {
+        console.error('No pending insert data!');
+        return;
     }
     
+    // Uložit data lokálně před zavřením modalu
+    const data = { ...pendingInsertData };
+    
+    // Zavřít modal (NE closeInsertConfirmModal, protože by resetoval pendingInsertData)
+    document.getElementById('insertConfirmModal').classList.remove('show');
+    
+    if (data.type === 'click') {
+        // Otevřít nový appointment formulář s omezením
+        openNewAppointment(data.targetDate, data.maxDuration);
+    } else if (data.type === 'drag') {
+        // Provést přesun
+        await performAppointmentMove(data.appointment, data.targetDate);
+    }
+    
+    // Vyčistit po dokončení
     pendingInsertData = null;
+    draggedAppointment = null;
+    draggedElement = null;
 }
 
 async function performAppointmentMove(appointment, newDateTime) {
