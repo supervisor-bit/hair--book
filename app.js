@@ -10769,14 +10769,47 @@ function generateCostsReport() {
         }
     });
     
-    // Celkové nákupy - zatím nejsou implementovány příjmy
-    const totalPurchases = 0; // TODO: Implementovat načítání příjmů
+    // Celkové nákupy - spočítat z příjmů materiálu (stockReceipts)
+    let totalPurchases = 0;
+    if (stockReceipts && stockReceipts.length > 0) {
+        stockReceipts.forEach(receipt => {
+            if (receipt.items) {
+                receipt.items.forEach(item => {
+                    // Najít produkt a získat nákupní cenu
+                    const product = products.find(p => p.id === item.productId);
+                    if (product && product.pricePurchase) {
+                        totalPurchases += item.quantity * product.pricePurchase;
+                    }
+                });
+            }
+        });
+    }
     
-    // Celková hodnota výdejů materiálu - zatím nejsou implementovány výdeje
-    const totalIssues = 0; // TODO: Implementovat načítání výdejů materiálu
+    // Celková hodnota výdejů materiálu - spočítat z uzavřených návštěv
+    let totalIssues = 0;
+    clients.forEach(client => {
+        if (client.visits) {
+            client.visits.forEach(visit => {
+                if (visit.closed && visit.services) {
+                    visit.services.forEach(service => {
+                        if (service.materials) {
+                            service.materials.forEach(material => {
+                                const product = products.find(p => p.id === material.productId);
+                                if (product && product.pricePurchase) {
+                                    totalIssues += material.quantity * product.pricePurchase;
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+        }
+    });
     
-    // Celkový zisk
-    const totalProfit = totalRevenue - totalPurchases - totalIssues;
+    // Celkový zisk (tržby - nákupy materiálu - použitý materiál)
+    // Poznámka: totalIssues je již zahrnuto v totalPurchases (materiál jsme koupili),
+    // takže skutečný vzorec je: zisk = tržby - materiálové náklady
+    const totalProfit = totalRevenue - totalIssues;
     
     const revenueEl = document.getElementById('costsRevenue');
     const costsEl = document.getElementById('costsPurchases');
