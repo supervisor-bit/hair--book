@@ -11147,10 +11147,33 @@ function openCreateSnapshotModal() {
         periodEnd = `${year}-12-31`;
     }
     
-    const note = prompt(`Vytvořit snapshot pro období: ${periodText}\n\nPoznámka (nepovinné):`);
-    if (note === null) return; // Zrušeno
+    // Naplnit modal
+    document.getElementById('snapshotPeriodDisplay').textContent = periodText;
+    document.getElementById('snapshotDateRange').textContent = 
+        `${new Date(periodStart).toLocaleDateString('cs-CZ')} - ${new Date(periodEnd).toLocaleDateString('cs-CZ')}`;
+    document.getElementById('snapshotPeriod').value = periodText;
+    document.getElementById('snapshotPeriodStart').value = periodStart;
+    document.getElementById('snapshotPeriodEnd').value = periodEnd;
+    document.getElementById('snapshotNote').value = '';
     
-    createSnapshot(periodText, periodStart, periodEnd, note);
+    // Otevřít modal
+    document.getElementById('createSnapshotModal').style.display = 'flex';
+}
+
+function closeCreateSnapshotModal() {
+    document.getElementById('createSnapshotModal').style.display = 'none';
+}
+
+function saveSnapshotForm(event) {
+    event.preventDefault();
+    
+    const period = document.getElementById('snapshotPeriod').value;
+    const periodStart = document.getElementById('snapshotPeriodStart').value;
+    const periodEnd = document.getElementById('snapshotPeriodEnd').value;
+    const note = document.getElementById('snapshotNote').value;
+    
+    createSnapshot(period, periodStart, periodEnd, note);
+    closeCreateSnapshotModal();
 }
 
 async function createSnapshot(period, periodStart, periodEnd, note) {
@@ -11280,35 +11303,45 @@ function viewSnapshot(id) {
     if (!snapshot) return;
     
     const data = snapshot.data;
-    const message = `
-SNAPSHOT: ${snapshot.period}
-${new Date(snapshot.periodStart).toLocaleDateString('cs-CZ')} - ${new Date(snapshot.periodEnd).toLocaleDateString('cs-CZ')}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-TRŽBY:
-  Celkem: ${data.revenue.total.toLocaleString()} Kč
-  Ze služeb: ${data.revenue.services.toLocaleString()} Kč
-  Z prodeje: ${data.revenue.products.toLocaleString()} Kč
-
-NÁKLADY:
-  Nákup materiálu: ${data.costs.purchases.toLocaleString()} Kč
-  Spotřeba materiálu: ${data.costs.issues.toLocaleString()} Kč
-
-ZISK: ${data.profit.toLocaleString()} Kč
-Marže: ${((data.profit / data.revenue.total) * 100).toFixed(1)}%
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-STATISTIKY:
-  Počet návštěv: ${data.stats.visits}
-  Průměr na návštěvu: ${data.stats.avgPerVisit.toLocaleString()} Kč
-
-${snapshot.note ? `\nPOZNÁMKA:\n${snapshot.note}` : ''}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Vytvořeno: ${new Date(snapshot.createdAt).toLocaleString('cs-CZ')}
-    `;
+    const margin = data.revenue.total > 0 ? ((data.profit / data.revenue.total) * 100).toFixed(1) : 0;
     
-    alert(message);
+    // Naplnit modal
+    document.getElementById('viewSnapshotPeriod').textContent = snapshot.period;
+    document.getElementById('viewSnapshotDateRange').textContent = 
+        `${new Date(snapshot.periodStart).toLocaleDateString('cs-CZ')} - ${new Date(snapshot.periodEnd).toLocaleDateString('cs-CZ')}`;
+    document.getElementById('viewSnapshotCreated').textContent = 
+        `Vytvořeno: ${new Date(snapshot.createdAt).toLocaleString('cs-CZ')}`;
+    
+    // Poznámka
+    if (snapshot.note) {
+        document.getElementById('viewSnapshotNote').style.display = 'block';
+        document.getElementById('viewSnapshotNoteText').textContent = snapshot.note;
+    } else {
+        document.getElementById('viewSnapshotNote').style.display = 'none';
+    }
+    
+    // Tržby
+    document.getElementById('viewSnapshotRevenue').textContent = data.revenue.total.toLocaleString() + ' Kč';
+    document.getElementById('viewSnapshotServices').textContent = data.revenue.services.toLocaleString() + ' Kč';
+    document.getElementById('viewSnapshotProducts').textContent = data.revenue.products.toLocaleString() + ' Kč';
+    
+    // Náklady
+    document.getElementById('viewSnapshotCosts').textContent = data.costs.issues.toLocaleString() + ' Kč';
+    document.getElementById('viewSnapshotPurchases').textContent = data.costs.purchases.toLocaleString() + ' Kč';
+    document.getElementById('viewSnapshotIssues').textContent = data.costs.issues.toLocaleString() + ' Kč';
+    
+    // Zisk a marže
+    document.getElementById('viewSnapshotProfit').textContent = data.profit.toLocaleString() + ' Kč';
+    document.getElementById('viewSnapshotMargin').textContent = margin + ' %';
+    
+    // Statistiky
+    document.getElementById('viewSnapshotVisits').textContent = data.stats.visits;
+    document.getElementById('viewSnapshotAvgPerVisit').textContent = data.stats.avgPerVisit.toLocaleString() + ' Kč';
+    
+    // Otevřít modal
+    document.getElementById('viewSnapshotModal').style.display = 'flex';
+}
+
+function closeViewSnapshotModal() {
+    document.getElementById('viewSnapshotModal').style.display = 'none';
 }

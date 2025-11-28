@@ -930,3 +930,134 @@
         </div>
     </div>
 </div>
+
+<!-- Modální okno pro vytvoření snapshotu -->
+<div id="createSnapshotModal" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-camera"></i> Vytvořit snapshot období</h3>
+            <button class="modal-close" onclick="closeCreateSnapshotModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="snapshotForm" onsubmit="saveSnapshotForm(event)">
+                <div style="background: #f3f4f6; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem;">
+                    <div style="font-weight: 600; color: #374151; margin-bottom: 0.5rem;">
+                        <i class="fas fa-calendar-alt"></i> Období:
+                    </div>
+                    <div style="font-size: 1.25rem; color: #111827; font-weight: 700;" id="snapshotPeriodDisplay"></div>
+                    <div style="font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem;" id="snapshotDateRange"></div>
+                </div>
+                
+                <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem;">
+                    <div style="display: flex; align-items: start; gap: 0.75rem;">
+                        <i class="fas fa-info-circle" style="color: #f59e0b; font-size: 1.25rem; margin-top: 0.1rem;"></i>
+                        <div style="flex: 1; font-size: 0.875rem; color: #92400e;">
+                            Snapshot uloží aktuální stav účetnictví za vybrané období (tržby, náklady, zisk). Data v aplikaci zůstanou editovatelná.
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="snapshotNote">
+                        <i class="fas fa-sticky-note"></i> Poznámka (nepovinné)
+                    </label>
+                    <textarea id="snapshotNote" rows="3" placeholder="např. Snapshot před DPH přiznáním, Měsíční uzávěrka..."></textarea>
+                </div>
+                
+                <input type="hidden" id="snapshotPeriod">
+                <input type="hidden" id="snapshotPeriodStart">
+                <input type="hidden" id="snapshotPeriodEnd">
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeCreateSnapshotModal()">
+                        <i class="fas fa-times"></i> Zrušit
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-camera"></i> Vytvořit snapshot
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modální okno pro zobrazení snapshotu -->
+<div id="viewSnapshotModal" class="modal">
+    <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-eye"></i> Detail snapshotu</h3>
+            <button class="modal-close" onclick="closeViewSnapshotModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem; border-radius: 0.75rem; margin-bottom: 1.5rem;">
+                <h4 style="margin: 0 0 0.5rem 0; font-size: 1.5rem;" id="viewSnapshotPeriod"></h4>
+                <div style="opacity: 0.9; font-size: 0.875rem;" id="viewSnapshotDateRange"></div>
+                <div style="opacity: 0.9; font-size: 0.75rem; margin-top: 0.5rem;" id="viewSnapshotCreated"></div>
+            </div>
+            
+            <div id="viewSnapshotNote" style="display: none; background: #f3f4f6; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem; border-left: 4px solid #6366f1;">
+                <div style="font-weight: 600; color: #374151; margin-bottom: 0.25rem;">
+                    <i class="fas fa-sticky-note"></i> Poznámka:
+                </div>
+                <div style="color: #6b7280; font-size: 0.875rem;" id="viewSnapshotNoteText"></div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+                <div style="background: white; border: 2px solid #10b981; border-radius: 0.75rem; padding: 1.25rem;">
+                    <div style="font-size: 0.875rem; color: #6b7280; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">Celkové tržby</div>
+                    <div style="font-size: 1.75rem; font-weight: 700; color: #10b981;" id="viewSnapshotRevenue"></div>
+                    <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #e5e7eb; font-size: 0.875rem; color: #6b7280;">
+                        <div>Ze služeb: <span id="viewSnapshotServices" style="font-weight: 600; color: #374151;"></span></div>
+                        <div>Z prodeje: <span id="viewSnapshotProducts" style="font-weight: 600; color: #374151;"></span></div>
+                    </div>
+                </div>
+                
+                <div style="background: white; border: 2px solid #ef4444; border-radius: 0.75rem; padding: 1.25rem;">
+                    <div style="font-size: 0.875rem; color: #6b7280; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">Náklady</div>
+                    <div style="font-size: 1.75rem; font-weight: 700; color: #ef4444;" id="viewSnapshotCosts"></div>
+                    <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #e5e7eb; font-size: 0.875rem; color: #6b7280;">
+                        <div>Nákup materiálu: <span id="viewSnapshotPurchases" style="font-weight: 600; color: #374151;"></span></div>
+                        <div>Spotřeba: <span id="viewSnapshotIssues" style="font-weight: 600; color: #374151;"></span></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.25rem;">Čistý zisk</div>
+                        <div style="font-size: 2rem; font-weight: 700;" id="viewSnapshotProfit"></div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.25rem;">Marže</div>
+                        <div style="font-size: 2rem; font-weight: 700;" id="viewSnapshotMargin"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="background: #f9fafb; border-radius: 0.75rem; padding: 1.25rem;">
+                <h5 style="margin: 0 0 1rem 0; color: #374151;">Statistiky</h5>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                    <div>
+                        <div style="font-size: 0.75rem; color: #6b7280; margin-bottom: 0.25rem;">Počet návštěv</div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: #374151;" id="viewSnapshotVisits"></div>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.75rem; color: #6b7280; margin-bottom: 0.25rem;">Průměr na návštěvu</div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: #374151;" id="viewSnapshotAvgPerVisit"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeViewSnapshotModal()">
+                    <i class="fas fa-times"></i> Zavřít
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
