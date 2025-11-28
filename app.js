@@ -11285,12 +11285,37 @@ async function createSnapshot(period, periodStart, periodEnd, note) {
     }
 }
 
-async function deleteSnapshot(id) {
-    if (!confirm('Opravdu chcete smazat tento snapshot?')) return;
+// Proměnná pro uložení ID mazaného snapshotu
+let snapshotToDelete = null;
+
+function deleteSnapshot(id) {
+    const snapshot = snapshots.find(s => s.id === id);
+    if (!snapshot) return;
+    
+    // Uložit ID pro pozdější smazání
+    snapshotToDelete = id;
+    
+    // Naplnit modal informacemi
+    document.getElementById('deleteSnapshotPeriod').textContent = snapshot.period;
+    document.getElementById('deleteSnapshotDateRange').textContent = 
+        `${new Date(snapshot.periodStart).toLocaleDateString('cs-CZ')} - ${new Date(snapshot.periodEnd).toLocaleDateString('cs-CZ')}`;
+    
+    // Zobrazit modal
+    document.getElementById('deleteSnapshotModal').style.display = 'flex';
+}
+
+function closeDeleteSnapshotModal() {
+    document.getElementById('deleteSnapshotModal').style.display = 'none';
+    snapshotToDelete = null;
+}
+
+async function confirmDeleteSnapshot() {
+    if (!snapshotToDelete) return;
     
     try {
-        await apiCall(`snapshots.php?id=${id}`, 'DELETE');
+        await apiCall(`snapshots.php?id=${snapshotToDelete}`, 'DELETE');
         showNotification('Snapshot smazán');
+        closeDeleteSnapshotModal();
         loadSnapshots();
     } catch (error) {
         console.error('Chyba při mazání snapshotu:', error);

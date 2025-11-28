@@ -983,6 +983,45 @@
     </div>
 </div>
 
+<!-- Modální okno pro potvrzení smazání snapshotu -->
+<div id="deleteSnapshotModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i> Smazat snapshot?</h3>
+            <button class="modal-close" onclick="closeDeleteSnapshotModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem;">
+                <div style="display: flex; align-items: start; gap: 0.75rem;">
+                    <i class="fas fa-exclamation-circle" style="color: #ef4444; font-size: 1.25rem; margin-top: 0.1rem;"></i>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; color: #991b1b; margin-bottom: 0.5rem;">Opravdu chcete smazat tento snapshot?</div>
+                        <div style="font-size: 0.875rem; color: #991b1b;">
+                            Tato akce je nevratná. Snapshot bude trvale odstraněn.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="background: #f9fafb; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem;">
+                <div style="font-weight: 600; color: #374151; margin-bottom: 0.5rem;" id="deleteSnapshotPeriod"></div>
+                <div style="font-size: 0.875rem; color: #6b7280;" id="deleteSnapshotDateRange"></div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeDeleteSnapshotModal()">
+                    <i class="fas fa-times"></i> Zrušit
+                </button>
+                <button type="button" class="btn" onclick="confirmDeleteSnapshot()" style="background: #ef4444; color: white; border: none;">
+                    <i class="fas fa-trash"></i> Ano, smazat
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modální okno pro zobrazení snapshotu -->
 <div id="viewSnapshotModal" class="modal">
     <div class="modal-content" style="max-width: 800px;">
