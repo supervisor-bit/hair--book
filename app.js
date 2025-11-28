@@ -10845,6 +10845,58 @@ function generateCostsReport() {
     if (marginsTable) {
         marginsTable.innerHTML = marginsHTML || '<tr><td colspan="4" style="padding: 1rem; text-align: center;">Žádná data</td></tr>';
     }
+    
+    // Rozložení nákladů - vizualizace
+    const costsBreakdownEl = document.getElementById('costsBreakdown');
+    if (costsBreakdownEl) {
+        const total = totalRevenue;
+        const profitPercentage = total > 0 ? (totalProfit / total * 100).toFixed(1) : 0;
+        const issuesPercentage = total > 0 ? (totalIssues / total * 100).toFixed(1) : 0;
+        
+        costsBreakdownEl.innerHTML = `
+            <div style="margin-bottom: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span style="font-weight: 500;">Čistý zisk</span>
+                    <span style="font-weight: 600; color: var(--success-color);">${totalProfit.toLocaleString()} Kč (${profitPercentage}%)</span>
+                </div>
+                <div style="height: 24px; background: #e5e7eb; border-radius: 12px; overflow: hidden;">
+                    <div style="height: 100%; background: linear-gradient(90deg, #10b981 0%, #059669 100%); width: ${profitPercentage}%; transition: width 0.3s;"></div>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span style="font-weight: 500;">Materiálové náklady</span>
+                    <span style="font-weight: 600; color: #ef4444;">${totalIssues.toLocaleString()} Kč (${issuesPercentage}%)</span>
+                </div>
+                <div style="height: 24px; background: #e5e7eb; border-radius: 12px; overflow: hidden;">
+                    <div style="height: 100%; background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%); width: ${issuesPercentage}%; transition: width 0.3s;"></div>
+                </div>
+            </div>
+            
+            <div style="padding: 1rem; background: #f9fafb; border-radius: 0.5rem; border-left: 4px solid #6366f1;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span style="font-weight: 600; color: #374151;">Celkové tržby</span>
+                    <span style="font-weight: 700; font-size: 1.25rem; color: #374151;">${totalRevenue.toLocaleString()} Kč</span>
+                </div>
+                <div style="font-size: 0.875rem; color: #6b7280;">
+                    Marže: ${profitPercentage}% | Náklady: ${issuesPercentage}%
+                </div>
+            </div>
+            
+            ${totalPurchases > 0 ? `
+            <div style="margin-top: 1.5rem; padding: 1rem; background: #fef3c7; border-radius: 0.5rem; border-left: 4px solid #f59e0b;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 600; color: #92400e; margin-bottom: 0.25rem;">Nakoupený materiál na skladě</div>
+                        <div style="font-size: 0.875rem; color: #92400e;">Celková hodnota nákupů materiálu</div>
+                    </div>
+                    <div style="font-weight: 700; font-size: 1.25rem; color: #92400e;">${totalPurchases.toLocaleString()} Kč</div>
+                </div>
+            </div>
+            ` : ''}
+        `;
+    }
 }
 
 function generateClientStats() {
