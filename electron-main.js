@@ -46,6 +46,19 @@ function startPHPServer() {
         
         phpServer.on('error', (err) => {
             console.error('Failed to start PHP server:', err);
+            
+            // Na Windows zobrazit chybovou hlášku s návodem
+            if (process.platform === 'win32') {
+                const { dialog } = require('electron');
+                dialog.showErrorBox(
+                    'PHP není nainstalované',
+                    'HairBook potřebuje PHP pro svůj běh.\n\n' +
+                    '📥 Stáhněte a nainstalujte XAMPP:\n' +
+                    'https://www.apachefriends.org/download.html\n\n' +
+                    'Po instalaci restartujte HairBook.\n\n' +
+                    'Podrobný návod najdete v souboru WINDOWS-INSTALACE.md'
+                );
+            }
             reject(err);
         });
         

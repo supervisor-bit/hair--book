@@ -16,18 +16,24 @@ fi
 
 echo "✅ Docker je připravený"
 echo ""
+echo "💡 Poznámka: Musíš povolit Docker File Sharing pro /Applications"
+echo "   Docker Desktop → Settings → Resources → File Sharing → Add /Applications"
+echo ""
 echo "📦 Stahuji Docker image s Wine..."
 
+# Získat absolutní cestu k projektu  
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+echo "📁 Projekt: $PROJECT_DIR"
+echo ""
+
 # Spustit build ve Wine kontejneru
-docker run --rm -ti \
-  --env ELECTRON_CACHE="/root/.cache/electron" \
-  --env ELECTRON_BUILDER_CACHE="/root/.cache/electron-builder" \
-  -v "$(pwd)":/project \
-  -v "$(pwd)-node-modules":/project/node_modules \
-  -v ~/.cache/electron:/root/.cache/electron \
-  -v ~/.cache/electron-builder:/root/.cache/electron-builder \
+docker run --rm \
+  --platform linux/amd64 \
+  -w /project \
+  -v "$PROJECT_DIR":/project \
   electronuserland/builder:wine \
-  /bin/bash -c "cd /project && npm install && npm run build:win"
+  bash -c "npm install && npm run build:win"
 
 echo ""
 echo "✅ Build dokončen! Výsledky jsou ve složce dist/"
