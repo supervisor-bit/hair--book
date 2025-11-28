@@ -245,6 +245,10 @@ let clientGroups = [
 let services = [];
 let visitTemplates = []; // Šablony návštěv
 
+// Pagination
+let currentClientsPage = 1;
+const clientsPerPage = 30;
+
 let currentClient = null;
 let currentProduct = null;
 let currentVisit = {
@@ -536,6 +540,69 @@ function renderClientGroups() {
     });
 }
 
+function renderPagination(containerId, totalItems, currentPage, itemsPerPage, onPageChange) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    
+    if (totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+    
+    let html = '<div class="pagination">';
+    
+    // Previous button
+    if (currentPage > 1) {
+        html += `<button class="pagination-btn" onclick="${onPageChange}(${currentPage - 1})">
+            <i class="fas fa-chevron-left"></i>
+        </button>`;
+    }
+    
+    // Page numbers
+    const maxVisible = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+    
+    if (endPage - startPage < maxVisible - 1) {
+        startPage = Math.max(1, endPage - maxVisible + 1);
+    }
+    
+    if (startPage > 1) {
+        html += `<button class="pagination-btn" onclick="${onPageChange}(1)">1</button>`;
+        if (startPage > 2) {
+            html += '<span class="pagination-ellipsis">...</span>';
+        }
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+        html += `<button class="pagination-btn ${i === currentPage ? 'active' : ''}" onclick="${onPageChange}(${i})">${i}</button>`;
+    }
+    
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+            html += '<span class="pagination-ellipsis">...</span>';
+        }
+        html += `<button class="pagination-btn" onclick="${onPageChange}(${totalPages})">${totalPages}</button>`;
+    }
+    
+    // Next button
+    if (currentPage < totalPages) {
+        html += `<button class="pagination-btn" onclick="${onPageChange}(${currentPage + 1})">
+            <i class="fas fa-chevron-right"></i>
+        </button>`;
+    }
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function goToClientsPage(page) {
+    currentClientsPage = page;
+    renderClients();
+}
+
 function renderClients() {
     const clientList = document.getElementById('clientList');
     clientList.innerHTML = '';
@@ -552,6 +619,7 @@ function renderClients() {
                 </button>
             </div>
         `;
+        document.getElementById('clientsPagination').innerHTML = '';
         return;
     }
     
@@ -574,10 +642,22 @@ function renderClients() {
                 <p>Žádní klienti ve skupině "${groupName}"</p>
             </div>
         `;
+        document.getElementById('clientsPagination').innerHTML = '';
         return;
     }
     
-    filteredClients.forEach(client => {
+    // Reset page if out of bounds
+    const totalPages = Math.ceil(filteredClients.length / clientsPerPage);
+    if (currentClientsPage > totalPages) {
+        currentClientsPage = 1;
+    }
+    
+    // Pagination
+    const startIndex = (currentClientsPage - 1) * clientsPerPage;
+    const endIndex = startIndex + clientsPerPage;
+    const pageClients = filteredClients.slice(startIndex, endIndex);
+    
+    pageClients.forEach(client => {
         const initials = client.firstName[0] + client.lastName[0];
         const group = clientGroups.find(g => g.id === client.groupId);
         
@@ -610,6 +690,9 @@ function renderClients() {
         item.addEventListener('click', (e) => showClientDetail(client, e));
         clientList.appendChild(item);
     });
+    
+    // Render pagination
+    renderPagination('clientsPagination', filteredClients.length, currentClientsPage, clientsPerPage, 'goToClientsPage');
 }
 
 function showClientDetail(client, event = null) {
@@ -3983,12 +4066,21 @@ document.addEventListener('DOMContentLoaded', function() {
     if (clientSearch) {
         clientSearch.addEventListener('input', function(e) {
             const query = e.target.value.toLowerCase();
-            const items = document.querySelectorAll('#clientList .client-item');
             
-            items.forEach(item => {
-                const text = item.textContent.toLowerCase();
-                item.style.display = text.includes(query) ? 'flex' : 'none';
-            });
+            if (query === '') {
+                // Reset pagination when search is cleared
+                currentClientsPage = 1;
+                renderClients();
+            } else {
+                // Filter visible items
+                const items = document.querySelectorAll('#clientList .client-item');
+                items.forEach(item => {
+                    const text = item.textContent.toLowerCase();
+                    item.style.display = text.includes(query) ? 'flex' : 'none';
+                });
+                // Hide pagination when searching
+                document.getElementById('clientsPagination').innerHTML = '';
+            }
         });
     }
     
