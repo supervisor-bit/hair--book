@@ -664,13 +664,13 @@ function openNewAppointment(date, maxDuration = null) {
         durationInput.setAttribute('data-limited', 'true');
         // Přidat varování do formuláře
         const noteField = document.getElementById('appointmentNote');
-        noteField.placeholder = `⚠️ MAX ${maxDuration} minut! Vkládáte mezi dlouhou rezervaci.`;
+        noteField.placeholder = `⚠️ MAX ${maxDuration} minut! Vkládáte mezi existující rezervaci.`;
         noteField.style.backgroundColor = '#fef3c7';
     } else {
         durationInput.value = '60';
         durationInput.removeAttribute('max');
         durationInput.removeAttribute('data-limited');
-        document.getElementById('appointmentNote').placeholder = 'Poznámka k rezervaci...';
+        document.getElementById('appointmentNote').placeholder = 'Nepovinná poznámka k rezervaci...';
         document.getElementById('appointmentNote').style.backgroundColor = '';
     }
     
@@ -725,10 +725,11 @@ async function saveAppointment(event) {
             renderCalendar();
         } else {
             const error = await response.json();
+            console.error('API error:', error);
             showNotification(error.error || 'Chyba při ukládání rezervace', 'error');
         }
     } catch (error) {
-        console.error('Chyba:', error);
+        console.error('Chyba při ukládání:', error);
         showNotification('Chyba při ukládání rezervace', 'error');
     }
 }

@@ -95,7 +95,14 @@ elseif ($method === 'POST') {
         
         if (count($conflicts) > 0 && !$allowShortServiceInsertion) {
             http_response_code(409);
-            echo json_encode(['error' => 'Time slot already booked']);
+            echo json_encode([
+                'error' => 'Time slot already booked',
+                'debug' => [
+                    'duration' => $duration,
+                    'conflicts_count' => count($conflicts),
+                    'allow_insertion' => $allowShortServiceInsertion
+                ]
+            ]);
             exit();
         }
         
