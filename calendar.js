@@ -461,3 +461,9 @@ function logout() {
     localStorage.removeItem('hairbook_remember');
     window.location.href = 'login.html';
 }
+
+// Rozbalování navigačních skupin
+function toggleNavGroup(header) {
+    const group = header.closest('.nav-group');
+    group.classList.toggle('expanded');
+}

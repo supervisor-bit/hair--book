@@ -38,6 +38,91 @@
                     <i class="fas fa-calendar-alt"></i>
                     <span>Kalendář</span>
                 </a>
+                
+                <!-- Prodej - sekce -->
+                <div class="nav-group">
+                    <div class="nav-group-header" onclick="toggleNavGroup(this)">
+                        <i class="fas fa-cash-register"></i>
+                        <span>Prodej</span>
+                        <i class="fas fa-chevron-down nav-group-arrow"></i>
+                    </div>
+                    <div class="nav-group-items">
+                        <a href="index.html" class="nav-item nav-subitem">
+                            <i class="fas fa-shopping-bag"></i>
+                            <span>Prodej zboží</span>
+                        </a>
+                        <a href="index.html" class="nav-item nav-subitem">
+                            <i class="fas fa-history"></i>
+                            <span>Historie prodejů</span>
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Výdej materiálu - sekce -->
+                <div class="nav-group">
+                    <div class="nav-group-header" onclick="toggleNavGroup(this)">
+                        <i class="fas fa-hand-holding-heart"></i>
+                        <span>Výdej materiálu</span>
+                        <i class="fas fa-chevron-down nav-group-arrow"></i>
+                    </div>
+                    <div class="nav-group-items">
+                        <a href="index.html" class="nav-item nav-subitem">
+                            <i class="fas fa-hand-sparkles"></i>
+                            <span>Nový výdej</span>
+                        </a>
+                        <a href="index.html" class="nav-item nav-subitem">
+                            <i class="fas fa-history"></i>
+                            <span>Historie výdejů</span>
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Příjem zboží - sekce -->
+                <div class="nav-group">
+                    <div class="nav-group-header" onclick="toggleNavGroup(this)">
+                        <i class="fas fa-truck-loading"></i>
+                        <span>Příjem zboží</span>
+                        <i class="fas fa-chevron-down nav-group-arrow"></i>
+                    </div>
+                    <div class="nav-group-items">
+                        <a href="index.html" class="nav-item nav-subitem">
+                            <i class="fas fa-dolly"></i>
+                            <span>Nový příjem</span>
+                        </a>
+                        <a href="index.html" class="nav-item nav-subitem">
+                            <i class="fas fa-history"></i>
+                            <span>Historie příjmů</span>
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Objednávky - sekce -->
+                <div class="nav-group">
+                    <div class="nav-group-header" onclick="toggleNavGroup(this)">
+                        <i class="fas fa-shopping-cart"></i>
+                        <span>Objednávky</span>
+                        <i class="fas fa-chevron-down nav-group-arrow"></i>
+                    </div>
+                    <div class="nav-group-items">
+                        <a href="index.html" class="nav-item nav-subitem">
+                            <i class="fas fa-cart-plus"></i>
+                            <span>Nová objednávka</span>
+                        </a>
+                        <a href="index.html" class="nav-item nav-subitem">
+                            <i class="fas fa-clipboard-list"></i>
+                            <span>Historie objednávek</span>
+                        </a>
+                    </div>
+                </div>
+                
+                <a href="index.html" class="nav-item">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                    <span>Účetnictví</span>
+                </a>
+                <a href="index.html" class="nav-item">
+                    <i class="fas fa-cog"></i>
+                    <span>Nastavení</span>
+                </a>
             </nav>
             <div style="padding: 1rem; border-top: 1px solid rgba(255,255,255,0.1); margin-top: auto;">
                 <button onclick="logout()" class="logout-btn">
