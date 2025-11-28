@@ -852,3 +852,81 @@
         </div>
     </div>
 </div>
+
+<!-- Modal pro uložení šablony -->
+<div id="saveTemplateModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-save"></i> Uložit jako šablonu</h3>
+            <button class="modal-close" onclick="closeSaveTemplateModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="saveTemplateForm" onsubmit="saveTemplateForm(event)">
+                <div class="form-group">
+                    <label for="templateName">Název šablony *</label>
+                    <input type="text" id="templateName" required placeholder="např. Kompletní barvení">
+                </div>
+                
+                <div class="form-group">
+                    <label for="templateDescription">Popis</label>
+                    <textarea id="templateDescription" placeholder="Volitelný popis šablony..." style="min-height: 80px; resize: vertical;"></textarea>
+                </div>
+                
+                <div style="background: #f3f4f6; padding: 1rem; border-radius: 0.5rem; margin-top: 1rem;">
+                    <div style="font-size: 0.875rem; color: #6b7280; margin-bottom: 0.5rem;">Šablona bude obsahovat:</div>
+                    <div style="font-size: 0.875rem;">
+                        <div><strong id="templateServicesCount">0</strong> služeb s materiály</div>
+                        <div><strong id="templateProductsCount">0</strong> produktů</div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeSaveTemplateModal()">
+                        <i class="fas fa-times"></i> Zrušit
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Uložit šablonu
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pro načtení šablony -->
+<div id="loadTemplateModal" class="modal">
+    <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-file-import"></i> Načíst šablonu</h3>
+            <button class="modal-close" onclick="closeLoadTemplateModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div style="margin-bottom: 1rem;">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="templateSearch" placeholder="Hledat šablonu..." oninput="filterTemplates()">
+                </div>
+            </div>
+            
+            <div id="templatesList" style="max-height: 400px; overflow-y: auto;">
+                <!-- Seznam šablon -->
+            </div>
+            
+            <div id="templatesEmptyState" style="display: none; text-align: center; padding: 3rem; color: #9ca3af;">
+                <i class="fas fa-clipboard-list" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.3;"></i>
+                <p>Zatím nemáte žádné šablony</p>
+                <p style="font-size: 0.875rem;">Vytvořte šablonu uložením aktuální návštěvy</p>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeLoadTemplateModal()">
+                    <i class="fas fa-times"></i> Zavřít
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

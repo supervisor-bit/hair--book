@@ -243,6 +243,7 @@ let clientGroups = [
     { id: 4, name: 'Neaktivní', icon: 'fa-user-clock', color: '#6b7280' }
 ];
 let services = [];
+let visitTemplates = []; // Šablony návštěv
 
 let currentClient = null;
 let currentProduct = null;
@@ -331,6 +332,24 @@ document.addEventListener('DOMContentLoaded', async function() {
     const loaded = await loadAllData();
     
     if (loaded) {
+        // Automatická migrace šablon z localStorage do databáze (jednorázově)
+        const localTemplates = localStorage.getItem('visitTemplates');
+        if (localTemplates && visitTemplates.length === 0) {
+            try {
+                const templates = JSON.parse(localTemplates);
+                if (templates.length > 0) {
+                    console.log('🔄 Migruji šablony z localStorage do SQLite...');
+                    const response = await apiCall('migrate_templates.php', 'POST', { templates });
+                    console.log(`✅ Migrováno ${response.migrated} šablon`);
+                    localStorage.removeItem('visitTemplates'); // Smazat z localStorage
+                    // Znovu načíst šablony z databáze
+                    visitTemplates = await apiCall('templates.php');
+                }
+            } catch (e) {
+                console.error('❌ Chyba při migraci šablon:', e);
+            }
+        }
+        
         initNavigation();
         renderDashboard();
         renderClientGroups();
@@ -671,6 +690,9 @@ function showClientDetail(client, event = null) {
                     <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
                         <button class="btn btn-primary" style="font-size: 0.8125rem; padding: 0.375rem 0.75rem;" onclick="printReceipt(${client.id}, '${visit.date}')">
                             <i class="fas fa-print"></i> Vytisknout účtenku
+                        </button>
+                        <button class="btn btn-secondary" style="font-size: 0.8125rem; padding: 0.375rem 0.75rem;" onclick="copyVisitToNew(${client.id}, ${visit.id})">
+                            <i class="fas fa-copy"></i> Zkopírovat do nové návštěvy
                         </button>
                     </div>
                 `;
@@ -1122,6 +1144,16 @@ function closeConfirmModal() {
     document.getElementById('confirmModal').classList.remove('show');
 }
 
+// Zobrazit informační modal
+function showInfoModal(title, message) {
+    document.getElementById('confirmModalTitle').textContent = title;
+    document.getElementById('confirmModalMessage').textContent = message;
+    document.getElementById('confirmModalBtn').textContent = 'OK';
+    document.getElementById('confirmModalBtn').className = 'btn btn-primary';
+    document.getElementById('confirmModalBtn').onclick = closeConfirmModal;
+    document.getElementById('confirmModal').classList.add('show');
+}
+
 // === NOVÁ NÁVŠTĚVA ===
 
 function startNewVisit(clientId) {
@@ -1152,6 +1184,238 @@ function startNewVisit(clientId) {
     updateSelectedProducts();
     filterProductsForSale();
     updateVisitButtons();
+    
+    // Nastavit fokus na tabulku návštěv
+    setTimeout(() => {
+        const servicesTable = document.getElementById('selectedServicesContainer');
+        if (servicesTable) {
+            servicesTable.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            servicesTable.focus();
+        }
+    }, 300);
+}
+
+function copyVisitToNew(clientId, visitId) {
+    const client = clients.find(c => c.id === clientId);
+    if (!client) return;
+    
+    const visit = client.visits.find(v => v.id === visitId);
+    if (!visit) return;
+    
+    // Zkopírovat služby s materiály i produkty
+    const copiedServices = JSON.parse(JSON.stringify(visit.services));
+    const copiedProducts = JSON.parse(JSON.stringify(visit.products || []));
+    
+    currentVisit = {
+        id: null,
+        clientId: clientId,
+        services: copiedServices,
+        products: copiedProducts,  // Zkopírované produkty
+        closed: false   // Vždy otevřeno - NIKDY se neuzavře automaticky
+    };
+    
+    document.getElementById('visitTitle').textContent = 'Nová návštěva (zkopírováno)';
+    document.getElementById('visitClientName').textContent = `${client.firstName} ${client.lastName}`;
+    
+    // Přepnout na stránku nové návštěvy
+    document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+    document.getElementById('page-new-visit').classList.add('active');
+    
+    // Vykreslit služby, materiály a produkty
+    selectedMaterialCategory = null;
+    renderServiceRows();
+    renderMaterialCategories();
+    renderMaterialCards();
+    updateSelectedServices();
+    updateSelectedProducts();
+    filterProductsForSale();
+    updateVisitButtons();
+    
+    // Nastavit fokus na tabulku návštěv s malým zpožděním
+    setTimeout(() => {
+        const servicesTable = document.getElementById('selectedServicesContainer');
+        if (servicesTable) {
+            servicesTable.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            servicesTable.focus();
+        }
+    }, 300);
+}
+
+// ============================================
+// ŠABLONY NÁVŠTĚV
+// ============================================
+
+function saveTemplateModal() {
+    if (currentVisit.services.length === 0) {
+        showInfoModal('Prázdná návštěva', 'Návštěva neobsahuje žádné služby. Přidejte nejdříve služby a materiály.');
+        return;
+    }
+    
+    // Zobrazit počty v modalu
+    document.getElementById('templateServicesCount').textContent = currentVisit.services.length;
+    document.getElementById('templateProductsCount').textContent = currentVisit.products ? currentVisit.products.length : 0;
+    
+    // Vymazat předchozí hodnoty
+    document.getElementById('templateName').value = '';
+    document.getElementById('templateDescription').value = '';
+    
+    // Otevřít modal
+    document.getElementById('saveTemplateModal').classList.add('active');
+}
+
+function closeSaveTemplateModal() {
+    document.getElementById('saveTemplateModal').classList.remove('active');
+}
+
+async function saveTemplateForm(event) {
+    event.preventDefault();
+    
+    const name = document.getElementById('templateName').value.trim();
+    const description = document.getElementById('templateDescription').value.trim();
+    
+    if (!name) {
+        alert('Zadejte název šablony!');
+        return;
+    }
+    
+    // Vytvořit šablonu
+    const template = {
+        name: name,
+        description: description,
+        services: JSON.parse(JSON.stringify(currentVisit.services)),
+        products: JSON.parse(JSON.stringify(currentVisit.products || []))
+    };
+    
+    try {
+        const response = await apiCall('templates.php', 'POST', template);
+        visitTemplates.push(response);
+        
+        closeSaveTemplateModal();
+        showInfoModal('Šablona uložena', `Šablona "${name}" byla úspěšně uložena.`);
+    } catch (error) {
+        console.error('Chyba při ukládání šablony:', error);
+        showInfoModal('Chyba', 'Nepodařilo se uložit šablonu.');
+    }
+}
+
+function loadTemplateModal() {
+    renderTemplatesList();
+    document.getElementById('loadTemplateModal').classList.add('active');
+}
+
+function closeLoadTemplateModal() {
+    document.getElementById('loadTemplateModal').classList.remove('active');
+}
+
+function renderTemplatesList() {
+    const container = document.getElementById('templatesList');
+    const emptyState = document.getElementById('templatesEmptyState');
+    const searchValue = document.getElementById('templateSearch').value.toLowerCase();
+    
+    const filtered = visitTemplates.filter(t => 
+        t.name.toLowerCase().includes(searchValue) || 
+        (t.description && t.description.toLowerCase().includes(searchValue))
+    );
+    
+    if (filtered.length === 0) {
+        container.style.display = 'none';
+        emptyState.style.display = 'block';
+        return;
+    }
+    
+    container.style.display = 'block';
+    emptyState.style.display = 'none';
+    
+    container.innerHTML = filtered.map(template => {
+        const createdDate = new Date(template.created_at || template.createdAt).toLocaleDateString('cs-CZ');
+        // Spočítat materiály ve službách
+        const materialsCount = template.services.reduce((sum, service) => {
+            return sum + (service.materials ? service.materials.length : 0);
+        }, 0);
+        return `
+            <div style="background: white; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem; margin-bottom: 0.75rem; cursor: pointer; transition: all 0.2s;" 
+                 onmouseover="this.style.borderColor='var(--primary-color)'; this.style.boxShadow='0 4px 6px -1px rgba(0,0,0,0.1)'" 
+                 onmouseout="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                    <div style="flex: 1;">
+                        <h4 style="margin: 0 0 0.25rem 0; color: #111827;">${template.name}</h4>
+                        ${template.description ? `<p style="margin: 0 0 0.5rem 0; font-size: 0.875rem; color: #6b7280;">${template.description}</p>` : ''}
+                        <div style="display: flex; gap: 1rem; font-size: 0.75rem; color: #9ca3af;">
+                            <span><i class="fas fa-scissors"></i> ${template.services.length} služeb</span>
+                            <span><i class="fas fa-flask"></i> ${materialsCount} materiálů</span>
+                            ${template.products && template.products.length > 0 ? `<span><i class="fas fa-box"></i> ${template.products.length} produktů</span>` : ''}
+                            <span><i class="fas fa-calendar"></i> ${createdDate}</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button onclick="event.stopPropagation(); loadTemplate(${template.id})" class="btn btn-sm btn-primary" style="padding: 0.375rem 0.75rem;">
+                            <i class="fas fa-check"></i> Načíst
+                        </button>
+                        <button onclick="event.stopPropagation(); deleteTemplate(${template.id})" class="btn btn-sm" style="background: #ef4444; color: white; padding: 0.375rem 0.75rem;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function filterTemplates() {
+    renderTemplatesList();
+}
+
+function loadTemplate(templateId) {
+    const template = visitTemplates.find(t => t.id === templateId);
+    if (!template) return;
+    
+    // Zkopírovat služby a produkty ze šablony
+    currentVisit.services = JSON.parse(JSON.stringify(template.services));
+    currentVisit.products = JSON.parse(JSON.stringify(template.products));
+    
+    // Aktualizovat UI
+    updateSelectedServices();
+    updateSelectedProducts();
+    
+    closeLoadTemplateModal();
+    showInfoModal('Šablona načtena', `Šablona "${template.name}" byla úspěšně načtena.`);
+    
+    // Nastavit fokus na tabulku služeb
+    setTimeout(() => {
+        const servicesContainer = document.getElementById('selectedServices');
+        if (servicesContainer) {
+            servicesContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, 300);
+}
+
+function deleteTemplate(templateId) {
+    const template = visitTemplates.find(t => t.id === templateId);
+    if (!template) return;
+    
+    const confirmModalEl = document.getElementById('confirmModal');
+    document.getElementById('confirmModalTitle').textContent = 'Smazat šablonu';
+    document.getElementById('confirmModalMessage').textContent = `Opravdu chcete smazat šablonu "${template.name}"?`;
+    document.getElementById('confirmModalBtn').textContent = 'Smazat';
+    document.getElementById('confirmModalBtn').className = 'btn';
+    document.getElementById('confirmModalBtn').style.background = '#ef4444';
+    document.getElementById('confirmModalBtn').style.color = 'white';
+    
+    document.getElementById('confirmModalBtn').onclick = async () => {
+        try {
+            await apiCall(`templates.php?id=${templateId}`, 'DELETE');
+            visitTemplates = visitTemplates.filter(t => t.id !== templateId);
+            closeConfirmModal();
+            renderTemplatesList();
+            showInfoModal('Šablona smazána', 'Šablona byla úspěšně smazána.');
+        } catch (error) {
+            console.error('Chyba při mazání šablony:', error);
+            closeConfirmModal();
+            showInfoModal('Chyba', 'Nepodařilo se smazat šablonu.');
+        }
+    };
+    
+    confirmModalEl.classList.add('active');
 }
 
 function editVisit(clientId, visitId) {
@@ -1307,9 +1571,49 @@ function renderMaterialCategories() {
     });
 }
 
+let visitMaterialViewMode = 'cards'; // 'cards' nebo 'rows'
+
+// Přepnutí režimu zobrazení materiálů v návštěvě
+window.switchVisitMaterialView = function(mode) {
+    visitMaterialViewMode = mode;
+    
+    // Update button states
+    document.getElementById('visitViewCards').classList.toggle('active', mode === 'cards');
+    document.getElementById('visitViewRows').classList.toggle('active', mode === 'rows');
+    
+    // Toggle visibility
+    const cardsContainer = document.getElementById('materialCards');
+    const tableContainer = document.getElementById('materialTable');
+    
+    if (mode === 'cards') {
+        cardsContainer.style.display = 'grid';
+        tableContainer.style.display = 'none';
+    } else {
+        cardsContainer.style.display = 'none';
+        tableContainer.style.display = 'block';
+    }
+    
+    // Clear search to show all items
+    const searchInput = document.getElementById('materialSearch');
+    if (searchInput && searchInput.value) {
+        searchInput.value = '';
+        // Trigger search to reset visibility
+        const event = new Event('input', { bubbles: true });
+        searchInput.dispatchEvent(event);
+    }
+    
+    // Re-render materials to populate both views
+    renderMaterialCards();
+}
+
 function renderMaterialCards() {
-    const container = document.getElementById('materialCards');
-    container.innerHTML = '';
+    const cardsContainer = document.getElementById('materialCards');
+    const tableBody = document.getElementById('materialTableBody');
+    
+    if (!cardsContainer || !tableBody) return; // Elements don't exist yet
+    
+    cardsContainer.innerHTML = '';
+    tableBody.innerHTML = '';
     
     // Filtrovat produkty podle vybrané kategorie
     const filteredProducts = selectedMaterialCategory 
@@ -1329,6 +1633,7 @@ function renderMaterialCards() {
             card.style.opacity = '0.5';
             card.style.cursor = 'not-allowed';
         }
+        card.setAttribute('data-name', product.name.toLowerCase());
         card.innerHTML = `
             <i class="fas ${categoryIcon}" style="color: ${categoryColor}"></i>
             <h6>${product.name}</h6>
@@ -1347,9 +1652,64 @@ function renderMaterialCards() {
                 card.classList.remove('dragging');
             });
             
-            card.addEventListener('click', () => addMaterialToLastService(product));
+            card.addEventListener('click', () => {
+                addToPreparedMaterials(product);
+            });
         }
-        container.appendChild(card);
+        cardsContainer.appendChild(card);
+        
+        // === TABLE ROW ===
+        const row = document.createElement('tr');
+        row.draggable = !currentVisit.closed;
+        row.setAttribute('data-name', product.name.toLowerCase());
+        row.style.borderBottom = '1px solid #e5e7eb';
+        if (currentVisit.closed) {
+            row.style.opacity = '0.5';
+            row.style.cursor = 'not-allowed';
+        } else {
+            row.style.cursor = 'pointer';
+        }
+        
+        row.innerHTML = `
+            <td>
+                <div style="width: 32px; height: 32px; background: ${categoryColor}; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; color: white;">
+                    <i class="fas ${categoryIcon}"></i>
+                </div>
+            </td>
+            <td><strong>${product.name}</strong></td>
+            <td>${product.brand || '-'}</td>
+            <td>${formatStockDisplay(product)}</td>
+            <td>${product.unit || 'ks'}</td>
+
+        `;
+        
+        if (!currentVisit.closed) {
+            row.addEventListener('click', () => {
+                addToPreparedMaterials(product);
+            });
+            
+            // Drag and drop
+            row.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('productId', product.id);
+                e.dataTransfer.setData('type', 'material');
+                row.style.opacity = '0.5';
+            });
+            
+            row.addEventListener('dragend', () => {
+                row.style.opacity = currentVisit.closed ? '0.5' : '1';
+            });
+            
+            row.addEventListener('mouseenter', () => {
+                if (!currentVisit.closed) {
+                    row.style.background = '#f8fafc';
+                }
+            });
+            row.addEventListener('mouseleave', () => {
+                row.style.background = '';
+            });
+        }
+        
+        tableBody.appendChild(row);
     });
 }
 
@@ -1374,6 +1734,186 @@ function selectServiceInVisit(index) {
     if (currentVisit.closed) return;
     selectedServiceIndex = index;
     updateSelectedServices();
+}
+
+// Seznam připravených materiálů k přidání
+let preparedMaterials = [];
+
+// Přidat materiál do připraveného seznamu
+window.addToPreparedMaterials = function(product) {
+    if (currentVisit.closed) return;
+    
+    // Zkontrolovat, jestli už tam není
+    const existing = preparedMaterials.find(m => m.product.id === product.id);
+    if (existing) {
+        showInfoModal('Upozornění', 'Materiál už je v připraveném seznamu!');
+        return;
+    }
+    
+    preparedMaterials.push({
+        product: product,
+        quantity: 1,
+        unit: product.unit || 'ks'
+    });
+    
+    renderPreparedMaterials();
+}
+
+// Přepnout zobrazení plovoucího panelu
+window.togglePreparedMaterials = function() {
+    const panel = document.getElementById('preparedMaterialsFloat');
+    const content = document.getElementById('preparedMaterialsContent');
+    const btn = event.target.closest('button');
+    
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        if (btn) btn.querySelector('i').className = 'fas fa-minus';
+    } else {
+        content.style.display = 'none';
+        if (btn) btn.querySelector('i').className = 'fas fa-plus';
+    }
+}
+
+// Vykreslit seznam připravených materiálů
+function renderPreparedMaterials() {
+    const panel = document.getElementById('preparedMaterialsFloat');
+    const list = document.getElementById('preparedMaterialsList');
+    const countSpan = document.getElementById('preparedCount');
+    
+    if (!panel || !list) return;
+    
+    if (preparedMaterials.length === 0) {
+        panel.style.display = 'none';
+        return;
+    }
+    
+    panel.style.display = 'block';
+    if (countSpan) countSpan.textContent = preparedMaterials.length;
+    list.innerHTML = '';
+    
+    preparedMaterials.forEach((item, index) => {
+        const category = productCategories.find(c => c.id === item.product.categoryId);
+        const categoryColor = category ? category.color : '#10b981';
+        const categoryIcon = category ? category.icon : 'fa-box';
+        
+        const div = document.createElement('div');
+        div.style.cssText = 'display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; background: #f8fafc; border-radius: 0.5rem; margin-bottom: 0.5rem;';
+        
+        div.innerHTML = `
+            <div style="width: 32px; height: 32px; background: ${categoryColor}; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; color: white; flex-shrink: 0;">
+                <i class="fas ${categoryIcon}"></i>
+            </div>
+            <div style="flex: 1; min-width: 0;">
+                <div style="font-weight: 600; font-size: 0.875rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.product.name}</div>
+                <div style="font-size: 0.75rem; color: #64748b;">Skladem: ${formatStockDisplay(item.product)}</div>
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <input type="number" 
+                       value="${item.quantity}" 
+                       min="0.1" 
+                       step="0.1"
+                       onchange="updatePreparedMaterialQuantity(${index}, this.value)"
+                       style="width: 60px; padding: 0.25rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; text-align: center; font-size: 0.875rem;">
+                <select onchange="updatePreparedMaterialUnit(${index}, this.value)"
+                        style="padding: 0.25rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size: 0.875rem;">
+                    <option value="ks" ${item.unit === 'ks' ? 'selected' : ''}>ks</option>
+                    <option value="ml" ${item.unit === 'ml' ? 'selected' : ''}>ml</option>
+                    <option value="g" ${item.unit === 'g' ? 'selected' : ''}>g</option>
+                </select>
+                <button onclick="removeFromPreparedMaterials(${index})" 
+                        class="btn btn-sm" 
+                        style="background: #fee2e2; color: #dc2626; padding: 0.25rem 0.5rem;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+        
+        list.appendChild(div);
+    });
+    
+    // Scroll na poslední přidaný materiál
+    setTimeout(() => {
+        if (list.lastElementChild) {
+            list.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }, 100);
+}
+
+// Aktualizovat množství připraveného materiálu
+window.updatePreparedMaterialQuantity = function(index, value) {
+    const quantity = parseFloat(value);
+    if (quantity > 0) {
+        preparedMaterials[index].quantity = quantity;
+    }
+}
+
+// Aktualizovat jednotku připraveného materiálu
+window.updatePreparedMaterialUnit = function(index, unit) {
+    preparedMaterials[index].unit = unit;
+}
+
+// Odstranit materiál z připraveného seznamu
+window.removeFromPreparedMaterials = function(index) {
+    preparedMaterials.splice(index, 1);
+    renderPreparedMaterials();
+}
+
+// Vymazat všechny připravené materiály
+window.clearPreparedMaterials = function() {
+    if (preparedMaterials.length === 0) return;
+    
+    document.getElementById('confirmModalTitle').textContent = 'Vymazat materiály';
+    document.getElementById('confirmModalMessage').textContent = 'Opravdu chcete vymazat všechny připravené materiály?';
+    document.getElementById('confirmModalBtn').textContent = 'Vymazat';
+    document.getElementById('confirmModalBtn').className = 'btn btn-danger';
+    document.getElementById('confirmModalBtn').onclick = function() {
+        preparedMaterials = [];
+        renderPreparedMaterials();
+        closeConfirmModal();
+    };
+    document.getElementById('confirmModal').classList.add('show');
+}
+
+// Přidat všechny připravené materiály do vybrané služby
+window.addPreparedMaterialsToService = function() {
+    if (currentVisit.closed) {
+        showInfoModal('Návštěva uzavřena', 'Návštěva je uzavřená, nelze přidávat materiály!');
+        return;
+    }
+    
+    if (preparedMaterials.length === 0) {
+        showInfoModal('Upozornění', 'Žádné připravené materiály!');
+        return;
+    }
+    
+    if (currentVisit.services.length === 0) {
+        showInfoModal('Není služba', 'Nejprve vyberte službu, ke které chcete přidat materiály!');
+        return;
+    }
+    
+    // Pokud není vybrána žádná služba, vybrat poslední
+    if (selectedServiceIndex < 0 || selectedServiceIndex >= currentVisit.services.length) {
+        selectedServiceIndex = currentVisit.services.length - 1;
+    }
+    
+    // Přidat všechny materiály
+    preparedMaterials.forEach(item => {
+        const material = {
+            productId: item.product.id,
+            name: item.product.name,
+            quantity: item.quantity,
+            unit: item.unit,
+            priceWork: item.product.priceWork || 0
+        };
+        
+        currentVisit.services[selectedServiceIndex].materials.push(material);
+    });
+    
+    // Vymazat připravené materiály
+    preparedMaterials = [];
+    renderPreparedMaterials();
+    updateSelectedServices();
+    saveToLocalStorage();
 }
 
 function addMaterialToLastService(product) {
@@ -1733,7 +2273,10 @@ function updateSelectedServices() {
 
 // Funkce pro prodej produktů
 function filterProductsForSale() {
-    const search = document.getElementById('productSaleSearch').value.toLowerCase();
+    const searchElement = document.getElementById('productSaleSearch');
+    if (!searchElement) return; // Element doesn't exist on this page
+    
+    const search = searchElement.value.toLowerCase();
     const container = document.getElementById('productsForSale');
     
     const filteredProducts = products.filter(p => 
@@ -3479,11 +4022,19 @@ document.addEventListener('DOMContentLoaded', function() {
     if (materialSearch) {
         materialSearch.addEventListener('input', function(e) {
             const query = e.target.value.toLowerCase();
-            const items = document.querySelectorAll('.material-card');
+            const cards = document.querySelectorAll('.material-card');
+            const rows = document.querySelectorAll('#materialTableBody tr');
             
-            items.forEach(item => {
-                const text = item.textContent.toLowerCase();
-                item.style.display = text.includes(query) ? 'flex' : 'none';
+            // Filter cards
+            cards.forEach(item => {
+                const name = item.getAttribute('data-name') || '';
+                item.style.display = name.includes(query) ? 'flex' : 'none';
+            });
+            
+            // Filter rows
+            rows.forEach(row => {
+                const name = row.getAttribute('data-name') || '';
+                row.style.display = name.includes(query) ? '' : 'none';
             });
         });
     }
@@ -5555,9 +6106,37 @@ document.addEventListener('click', function(e) {
         }
     });
 
+let salesViewMode = 'cards'; // 'cards' nebo 'rows'
+
+window.switchSalesView = function(mode) {
+    salesViewMode = mode;
+    
+    // Update button states
+    document.getElementById('salesViewCards').classList.toggle('active', mode === 'cards');
+    document.getElementById('salesViewRows').classList.toggle('active', mode === 'rows');
+    
+    // Toggle visibility
+    const grid = document.getElementById('salesProductGrid');
+    const table = document.getElementById('salesProductTable');
+    
+    if (mode === 'cards') {
+        grid.style.display = 'grid';
+        table.style.display = 'none';
+    } else {
+        grid.style.display = 'none';
+        table.style.display = 'block';
+    }
+    
+    // Re-render
+    filterSalesProducts();
+}
+
 function filterSalesProducts() {
     const search = document.getElementById('salesProductSearch').value.toLowerCase();
     const container = document.getElementById('salesProductGrid');
+    const tableBody = document.getElementById('salesProductTableBody');
+    
+    if (!container || !tableBody) return;
     
     // Stránka prodeje zobrazuje pouze produkty forSale
     let filteredProducts = products.filter(p => {
@@ -5573,10 +6152,12 @@ function filterSalesProducts() {
     
     if (filteredProducts.length === 0) {
         container.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: #9ca3af; padding: 3rem;">Žádné produkty</div>';
+        tableBody.innerHTML = '';
         return;
     }
     
     container.innerHTML = '';
+    tableBody.innerHTML = '';
     
     filteredProducts.forEach(p => {
         const pieces = calculatePieces(p.stock, p.unit, p.packageSize);
@@ -5646,6 +6227,58 @@ function filterSalesProducts() {
         }
         
         container.appendChild(card);
+        
+        // === TABLE ROW ===
+        const row = document.createElement('tr');
+        row.draggable = !isOutOfStock && p.forSale;
+        row.style.borderBottom = '1px solid #e5e7eb';
+        row.style.cursor = !isOutOfStock && p.forSale ? 'pointer' : 'default';
+        row.style.opacity = isAvailable ? '1' : '0.5';
+        
+        row.innerHTML = `
+            <td>
+                <div style="width: 32px; height: 32px; background: ${category?.color || '#6b7280'}; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; color: white;">
+                    <i class="fas ${category?.icon || 'fa-box'}"></i>
+                </div>
+            </td>
+            <td><strong>${p.name}</strong></td>
+            <td>${p.brand || '-'}</td>
+            <td>${pieces} ks</td>
+            <td><strong style="color: var(--primary-color);">${p.priceRetail || 0} Kč</strong></td>
+            <td>
+                ${!isOutOfStock ? `<button onclick="addToSalesCart(${p.id}, 'sale')" class="btn btn-sm btn-primary" style="padding: 0.375rem 0.75rem;">
+                    <i class="fas fa-plus"></i>
+                </button>` : `<span style="color: #94a3b8; font-size: 0.875rem;">-</span>`}
+            </td>
+        `;
+        
+        if (!isOutOfStock && p.forSale) {
+            row.addEventListener('click', (e) => {
+                if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'I') {
+                    addToSalesCart(p.id, 'sale');
+                }
+            });
+            
+            // Drag and drop
+            row.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('productId', p.id);
+                e.dataTransfer.setData('type', 'saleProduct');
+                row.style.opacity = '0.5';
+            });
+            
+            row.addEventListener('dragend', () => {
+                row.style.opacity = isAvailable ? '1' : '0.5';
+            });
+            
+            row.addEventListener('mouseenter', () => {
+                row.style.background = '#f8fafc';
+            });
+            row.addEventListener('mouseleave', () => {
+                row.style.background = '';
+            });
+        }
+        
+        tableBody.appendChild(row);
     });
 }
 
@@ -6116,8 +6749,6 @@ function filterIssueProducts() {
         const row = document.createElement('tr');
         row.style.cssText = `cursor: ${!isOutOfStock ? 'pointer' : 'default'}; opacity: ${isOutOfStock ? '0.5' : '1'};`;
         row.draggable = !isOutOfStock;
-        
-        const category = productCategories.find(c => c.id === p.categoryId);
         
         let stockClass = '';
         let stockText = 'V pořádku';
@@ -7258,14 +7889,16 @@ async function loadAllData() {
             categoriesData,
             servicesData,
             settingsData,
-            purchasesData
+            purchasesData,
+            templatesData
         ] = await Promise.all([
             apiCall('clients.php'),
             apiCall('products.php'),
             apiCall('categories.php'),
             apiCall('services.php'),
             apiCall('settings.php'),
-            apiCall('purchases.php')
+            apiCall('purchases.php'),
+            apiCall('templates.php')
         ]);
         
         clients = clientsData;
@@ -7273,13 +7906,14 @@ async function loadAllData() {
         productCategories = categoriesData;
         services = servicesData;
         salonSettings = settingsData;
+        visitTemplates = templatesData;
         
         // Přiřadit nákupy ke klientům
         clients.forEach(client => {
             client.purchases = purchasesData.filter(p => p.clientId === client.id);
         });
         
-        console.log('✅ Data načtena z SQLite (včetně nákupů)');
+        console.log('✅ Data načtena z SQLite (včetně nákupů a šablon)');
         return true;
     } catch (error) {
         console.error('❌ Chyba při načítání dat:', error);
@@ -7787,6 +8421,11 @@ function showSettingsSection(sectionId) {
         targetSection.style.display = 'block';
     }
     
+    // Pokud je to sekce šablon, vykreslit je
+    if (sectionId === 'templates') {
+        renderSettingsTemplates();
+    }
+    
     // Aktualizovat aktivní menu položku
     document.querySelectorAll('.settings-nav-item').forEach(item => {
         item.classList.remove('active');
@@ -7800,6 +8439,117 @@ function showSettingsSection(sectionId) {
         activeItem.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
         activeItem.style.color = 'white';
     }
+}
+
+function renderSettingsTemplates() {
+    const container = document.getElementById('settingsTemplatesList');
+    if (!container) return;
+    
+    if (visitTemplates.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 3rem; color: #9ca3af;">
+                <i class="fas fa-clipboard-list" style="font-size: 4rem; margin-bottom: 1.5rem; opacity: 0.3;"></i>
+                <h3 style="color: #6b7280; margin-bottom: 0.5rem;">Zatím nemáte žádné šablony</h3>
+                <p style="margin-bottom: 1.5rem;">Šablony můžete vytvořit při návštěvě klienta</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = visitTemplates.map(template => {
+        const createdDate = new Date(template.created_at || template.createdAt).toLocaleDateString('cs-CZ', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+        
+        // Spočítat materiály ve službách
+        const materialsCount = template.services.reduce((sum, service) => {
+            return sum + (service.materials ? service.materials.length : 0);
+        }, 0);
+        
+        return `
+            <div style="background: #f9fafb; border: 2px solid #e5e7eb; border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1rem; transition: all 0.2s;">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                    <div style="flex: 1;">
+                        <h4 style="margin: 0 0 0.5rem 0; font-size: 1.25rem; color: #111827;">
+                            <i class="fas fa-clipboard-list" style="color: #f59e0b; margin-right: 0.5rem;"></i>
+                            ${template.name}
+                        </h4>
+                        ${template.description ? `<p style="margin: 0 0 1rem 0; color: #6b7280;">${template.description}</p>` : ''}
+                        
+                        <div style="display: flex; gap: 1.5rem; font-size: 0.875rem; color: #6b7280;">
+                            <span><i class="fas fa-scissors" style="color: #8b5cf6;"></i> <strong>${template.services.length}</strong> služeb</span>
+                            <span><i class="fas fa-flask" style="color: #f59e0b;"></i> <strong>${materialsCount}</strong> materiálů</span>
+                            ${template.products && template.products.length > 0 ? `<span><i class="fas fa-box" style="color: #3b82f6;"></i> <strong>${template.products.length}</strong> produktů</span>` : ''}
+                            <span><i class="fas fa-calendar" style="color: #10b981;"></i> ${createdDate}</span>
+                        </div>
+                    </div>
+                    
+                    <button onclick="deleteTemplateFromSettings(${template.id})" class="btn" style="background: #ef4444; color: white; padding: 0.5rem 1rem;">
+                        <i class="fas fa-trash"></i> Smazat
+                    </button>
+                </div>
+                
+                <!-- Detail služeb -->
+                <div style="background: white; border-radius: 0.5rem; padding: 1rem; margin-top: 1rem;">
+                    <div style="font-weight: 600; color: #374151; margin-bottom: 0.75rem;">Služby a materiály:</div>
+                    ${template.services.map(service => {
+                        const materials = service.materials && service.materials.length > 0
+                            ? service.materials.map(m => `${m.name} (${m.quantity} ${m.unit})`).join(', ')
+                            : 'Bez materiálů';
+                        return `
+                            <div style="padding: 0.5rem 0; border-bottom: 1px solid #f3f4f6;">
+                                <div style="font-weight: 500; color: #111827;">${service.name}</div>
+                                <div style="font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem;">${materials}</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                
+                ${template.products.length > 0 ? `
+                    <div style="background: white; border-radius: 0.5rem; padding: 1rem; margin-top: 0.75rem;">
+                        <div style="font-weight: 600; color: #374151; margin-bottom: 0.75rem;">Produkty:</div>
+                        ${template.products.map(product => `
+                            <div style="padding: 0.5rem 0; border-bottom: 1px solid #f3f4f6;">
+                                <div style="font-weight: 500; color: #111827;">${product.name}</div>
+                                <div style="font-size: 0.875rem; color: #6b7280;">${product.quantity} × ${product.packageSize} ${product.unit}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+function deleteTemplateFromSettings(templateId) {
+    const template = visitTemplates.find(t => t.id === templateId);
+    if (!template) return;
+    
+    const confirmModalEl = document.getElementById('confirmModal');
+    document.getElementById('confirmModalTitle').textContent = 'Smazat šablonu';
+    document.getElementById('confirmModalMessage').textContent = `Opravdu chcete smazat šablonu "${template.name}"?`;
+    document.getElementById('confirmModalBtn').textContent = 'Smazat';
+    document.getElementById('confirmModalBtn').className = 'btn';
+    document.getElementById('confirmModalBtn').style.background = '#ef4444';
+    document.getElementById('confirmModalBtn').style.color = 'white';
+    
+    document.getElementById('confirmModalBtn').onclick = async () => {
+        try {
+            await apiCall(`templates.php?id=${templateId}`, 'DELETE');
+            visitTemplates = visitTemplates.filter(t => t.id !== templateId);
+            closeConfirmModal();
+            renderSettingsTemplates();
+            showInfoModal('Šablona smazána', 'Šablona byla úspěšně smazána.');
+        } catch (error) {
+            console.error('Chyba při mazání šablony:', error);
+            closeConfirmModal();
+            showInfoModal('Chyba', 'Nepodařilo se smazat šablonu.');
+        }
+    };
+    
+    confirmModalEl.classList.add('active');
 }
 
 // Graf měsíčních tržeb

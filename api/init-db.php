@@ -200,6 +200,16 @@ try {
         FOREIGN KEY (product_id) REFERENCES products(id)
     )");
     
+    // Tabulka pro šablony návštěv
+    $db->exec("CREATE TABLE IF NOT EXISTS visit_templates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT,
+        services_data TEXT NOT NULL,
+        products_data TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+    
     // Indexy pro rychlejší vyhledávání
     $db->exec("CREATE INDEX IF NOT EXISTS idx_clients_phone ON clients(phone)");
     $db->exec("CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode)");
@@ -209,6 +219,7 @@ try {
     $db->exec("CREATE INDEX IF NOT EXISTS idx_receipts_date ON stock_receipts(date)");
     $db->exec("CREATE INDEX IF NOT EXISTS idx_orders_date ON stock_orders(date)");
     $db->exec("CREATE INDEX IF NOT EXISTS idx_orders_status ON stock_orders(status)");
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_templates_name ON visit_templates(name)");
     
     echo "✅ Databáze úspěšně vytvořena: " . $dbFile . "\n";
     echo "✅ Všechny tabulky vytvořeny\n";

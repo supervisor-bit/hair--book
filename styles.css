@@ -2027,6 +2027,108 @@ body {
     pointer-events: none;
 }
 
+/* ========== MATERIAL TABLE STYLING ========== */
+.material-table {
+    background: white;
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.material-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.material-table thead {
+    background: #f8fafc;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.material-table th {
+    padding: 0.75rem;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #64748b;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.material-table td {
+    padding: 0.75rem;
+    font-size: 0.875rem;
+    color: #1e293b;
+}
+
+.material-table tbody tr {
+    border-bottom: 1px solid #e5e7eb;
+    transition: background 0.2s;
+}
+
+.material-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.material-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+/* ========== SALES & ISSUE PRODUCT TABLES ========== */
+#salesProductTable,
+#issueProductsTable {
+    background: white;
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+#salesProductTable table,
+#issueProductsTable table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#salesProductTable thead,
+#issueProductsTable thead {
+    background: #f8fafc;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+#salesProductTable th,
+#issueProductsTable th {
+    padding: 0.75rem;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #64748b;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+#salesProductTable td,
+#issueProductsTable td {
+    padding: 0.75rem;
+    font-size: 0.875rem;
+    color: #1e293b;
+}
+
+#salesProductTable tbody tr,
+#issueProductsTable tbody tr {
+    border-bottom: 1px solid #e5e7eb;
+    transition: background 0.2s;
+}
+
+#salesProductTable tbody tr:last-child,
+#issueProductsTable tbody tr:last-child {
+    border-bottom: none;
+}
+
+#salesProductTable tbody tr:hover,
+#issueProductsTable tbody tr:hover {
+    background: #f8fafc;
+}
+
 /* ========== RESPONSIVE DESIGN PRO ÚČETNICTVÍ ========== */
 @media (max-width: 1200px) {
     .costs-grid,
