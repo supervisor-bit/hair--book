@@ -2,6 +2,7 @@
 
 .calendar-container {
     width: 100%;
+    overflow: hidden;
 }
 
 .calendar-header {
@@ -34,6 +35,7 @@
     overflow-y: auto;
     overflow-x: hidden;
     border: 1px solid #e5e7eb;
+    height: calc(100vh - 240px);
     max-height: calc(100vh - 240px);
 }
 
