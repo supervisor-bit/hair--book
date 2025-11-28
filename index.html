@@ -1214,6 +1214,12 @@
                                 <i class="fas fa-users" style="width: 20px;"></i>
                                 <span>Statistiky klientů</span>
                             </a>
+                            <a href="#" onclick="showAccountingSection('snapshots'); return false;" 
+                               class="accounting-nav-item" data-section="snapshots"
+                               style="padding: 0.75rem 1rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: var(--text-dark); transition: all 0.2s;">
+                                <i class="fas fa-camera" style="width: 20px;"></i>
+                                <span>Snapshoty období</span>
+                            </a>
                             <a href="#" onclick="showAccountingSection('export'); return false;" 
                                class="accounting-nav-item" data-section="export"
                                style="padding: 0.75rem 1rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: var(--text-dark); transition: all 0.2s;">
@@ -1505,6 +1511,39 @@
                                         <tr><td colspan="3" style="padding: 1rem; text-align: center; color: #9ca3af;">Načítání...</td></tr>
                                     </tbody>
                                 </table>
+                            </div>
+                        </div>
+
+                        <!-- Sekce: Snapshoty období -->
+                        <div id="accounting-section-snapshots" class="accounting-section" style="display: none; min-height: 400px;">
+                            <h3 style="background: white; padding: 1.5rem; border-radius: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <i class="fas fa-camera" style="color: #6366f1;"></i>
+                                    <span>Snapshoty období</span>
+                                </div>
+                                <button class="btn btn-primary" onclick="openCreateSnapshotModal()">
+                                    <i class="fas fa-plus"></i> Vytvořit snapshot
+                                </button>
+                            </h3>
+                            
+                            <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem;">
+                                <div style="display: flex; align-items: start; gap: 0.75rem;">
+                                    <i class="fas fa-info-circle" style="color: #f59e0b; font-size: 1.25rem; margin-top: 0.1rem;"></i>
+                                    <div style="flex: 1;">
+                                        <div style="font-weight: 600; color: #92400e; margin-bottom: 0.25rem;">Co je snapshot?</div>
+                                        <div style="font-size: 0.875rem; color: #92400e;">
+                                            Snapshot ukládá aktuální stav účetnictví (tržby, náklady, zisk, statistiky) za vybrané období. Slouží jako archiv pro srovnání a reporty. Data v aplikaci zůstávají editovatelná.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="snapshotsList" style="display: grid; gap: 1rem;">
+                                <div style="text-align: center; padding: 3rem; color: #9ca3af;">
+                                    <i class="fas fa-camera" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.3;"></i>
+                                    <h4 style="color: #6b7280; margin-bottom: 0.5rem;">Zatím nemáte žádné snapshoty</h4>
+                                    <p style="margin-bottom: 1.5rem;">Vytvořte první snapshot kliknutím na tlačítko výše</p>
+                                </div>
                             </div>
                         </div>
 

@@ -210,6 +210,17 @@ try {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )");
     
+    // Tabulka pro snapshoty období (uzávěrky)
+    $db->exec("CREATE TABLE IF NOT EXISTS period_snapshots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        period TEXT NOT NULL,
+        period_start DATE NOT NULL,
+        period_end DATE NOT NULL,
+        snapshot_data TEXT NOT NULL,
+        note TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+    
     // Indexy pro rychlejší vyhledávání
     $db->exec("CREATE INDEX IF NOT EXISTS idx_clients_phone ON clients(phone)");
     $db->exec("CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode)");
@@ -220,6 +231,8 @@ try {
     $db->exec("CREATE INDEX IF NOT EXISTS idx_orders_date ON stock_orders(date)");
     $db->exec("CREATE INDEX IF NOT EXISTS idx_orders_status ON stock_orders(status)");
     $db->exec("CREATE INDEX IF NOT EXISTS idx_templates_name ON visit_templates(name)");
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_snapshots_period ON period_snapshots(period)");
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_snapshots_date ON period_snapshots(created_at)");
     
     echo "✅ Databáze úspěšně vytvořena: " . $dbFile . "\n";
     echo "✅ Všechny tabulky vytvořeny\n";

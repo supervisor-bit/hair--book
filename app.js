@@ -8761,6 +8761,8 @@ function showAccountingSection(sectionId) {
         generateCostsReport();
     } else if (sectionId === 'clients-stats') {
         generateClientStats();
+    } else if (sectionId === 'snapshots') {
+        loadSnapshots();
     }
 }
 
@@ -11036,4 +11038,277 @@ function generateClientStats() {
     if (inactiveTable) {
         inactiveTable.innerHTML = inactiveHTML || '<tr><td colspan="3" style="padding: 1rem; text-align: center;">Žádná data</td></tr>';
     }
+}
+
+// ============================================
+// SNAPSHOTY OBDOBÍ
+// ============================================
+
+let snapshots = [];
+
+async function loadSnapshots() {
+    try {
+        snapshots = await apiCall('snapshots.php');
+        renderSnapshots();
+    } catch (error) {
+        console.error('Chyba při načítání snapshotů:', error);
+        showNotification('Chyba při načítání snapshotů', 'error');
+    }
+}
+
+function renderSnapshots() {
+    const container = document.getElementById('snapshotsList');
+    if (!container) return;
+    
+    if (snapshots.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 3rem; color: #9ca3af;">
+                <i class="fas fa-camera" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.3;"></i>
+                <h4 style="color: #6b7280; margin-bottom: 0.5rem;">Zatím nemáte žádné snapshoty</h4>
+                <p style="margin-bottom: 1.5rem;">Vytvořte první snapshot kliknutím na tlačítko výše</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    snapshots.forEach(snapshot => {
+        const data = snapshot.data;
+        const createdDate = new Date(snapshot.createdAt).toLocaleString('cs-CZ');
+        
+        html += `
+            <div style="background: white; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 4px solid #6366f1;">
+                <div style="display: flex; justify-content: between; align-items: start; margin-bottom: 1rem;">
+                    <div style="flex: 1;">
+                        <h4 style="margin: 0 0 0.5rem 0; font-size: 1.25rem; color: #111827;">
+                            <i class="fas fa-calendar-alt" style="color: #6366f1;"></i>
+                            ${snapshot.period}
+                        </h4>
+                        <div style="font-size: 0.875rem; color: #6b7280;">
+                            ${new Date(snapshot.periodStart).toLocaleDateString('cs-CZ')} - ${new Date(snapshot.periodEnd).toLocaleDateString('cs-CZ')}
+                        </div>
+                        <div style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.25rem;">
+                            Vytvořeno: ${createdDate}
+                        </div>
+                        ${snapshot.note ? `<div style="margin-top: 0.5rem; padding: 0.5rem; background: #f3f4f6; border-radius: 0.375rem; font-size: 0.875rem; color: #374151;"><i class="fas fa-sticky-note"></i> ${snapshot.note}</div>` : ''}
+                    </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button onclick="viewSnapshot(${snapshot.id})" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                            <i class="fas fa-eye"></i> Zobrazit
+                        </button>
+                        <button onclick="deleteSnapshot(${snapshot.id})" class="btn" style="padding: 0.5rem 1rem; font-size: 0.875rem; background: #ef4444; color: white; border: none;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
+                    <div style="text-align: center; padding: 0.75rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 0.5rem; color: white;">
+                        <div style="font-size: 0.75rem; opacity: 0.9; margin-bottom: 0.25rem;">Tržby</div>
+                        <div style="font-size: 1.1rem; font-weight: 700;">${data.revenue.total.toLocaleString()} Kč</div>
+                    </div>
+                    <div style="text-align: center; padding: 0.75rem; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); border-radius: 0.5rem; color: white;">
+                        <div style="font-size: 0.75rem; opacity: 0.9; margin-bottom: 0.25rem;">Náklady</div>
+                        <div style="font-size: 1.1rem; font-weight: 700;">${data.costs.issues.toLocaleString()} Kč</div>
+                    </div>
+                    <div style="text-align: center; padding: 0.75rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 0.5rem; color: white;">
+                        <div style="font-size: 0.75rem; opacity: 0.9; margin-bottom: 0.25rem;">Zisk</div>
+                        <div style="font-size: 1.1rem; font-weight: 700;">${data.profit.toLocaleString()} Kč</div>
+                    </div>
+                    <div style="text-align: center; padding: 0.75rem; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-radius: 0.5rem; color: white;">
+                        <div style="font-size: 0.75rem; opacity: 0.9; margin-bottom: 0.25rem;">Návštěv</div>
+                        <div style="font-size: 1.1rem; font-weight: 700;">${data.stats.visits}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function openCreateSnapshotModal() {
+    const year = parseInt(document.getElementById('accountingYear').value);
+    const month = document.getElementById('accountingMonth').value;
+    
+    let periodText, periodStart, periodEnd;
+    
+    if (month) {
+        // Měsíc
+        const monthNames = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen', 'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec'];
+        periodText = `${monthNames[parseInt(month) - 1]} ${year}`;
+        periodStart = `${year}-${month.padStart(2, '0')}-01`;
+        const lastDay = new Date(year, parseInt(month), 0).getDate();
+        periodEnd = `${year}-${month.padStart(2, '0')}-${lastDay}`;
+    } else {
+        // Rok
+        periodText = `Rok ${year}`;
+        periodStart = `${year}-01-01`;
+        periodEnd = `${year}-12-31`;
+    }
+    
+    const note = prompt(`Vytvořit snapshot pro období: ${periodText}\n\nPoznámka (nepovinné):`);
+    if (note === null) return; // Zrušeno
+    
+    createSnapshot(periodText, periodStart, periodEnd, note);
+}
+
+async function createSnapshot(period, periodStart, periodEnd, note) {
+    try {
+        // Shromáždit data pro snapshot
+        const year = parseInt(document.getElementById('accountingYear').value);
+        const month = document.getElementById('accountingMonth').value;
+        
+        // Spočítat všechna data (použít stejnou logiku jako v generateCostsReport)
+        let totalRevenue = 0;
+        let serviceRevenue = 0;
+        let productRevenue = 0;
+        let totalVisits = 0;
+        let totalPurchases = 0;
+        let totalIssues = 0;
+        
+        clients.forEach(client => {
+            if (client.visits) {
+                client.visits.forEach(visit => {
+                    if (!visit.closed || !visit.price) return;
+                    const visitDate = new Date(visit.date);
+                    const visitYear = visitDate.getFullYear();
+                    const visitMonth = visitDate.getMonth() + 1;
+                    if (visitYear !== year || (month && visitMonth !== parseInt(month))) return;
+                    
+                    totalVisits++;
+                    serviceRevenue += visit.price;
+                    totalRevenue += visit.price;
+                    
+                    // Náklady na materiál
+                    if (visit.services) {
+                        visit.services.forEach(service => {
+                            if (service.materials) {
+                                service.materials.forEach(material => {
+                                    const product = products.find(p => p.id === material.productId);
+                                    if (product && product.pricePurchase) {
+                                        totalIssues += material.quantity * product.pricePurchase;
+                                    }
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+            if (client.purchases) {
+                client.purchases.forEach(purchase => {
+                    const purchaseDate = new Date(purchase.date);
+                    const purchaseYear = purchaseDate.getFullYear();
+                    const purchaseMonth = purchaseDate.getMonth() + 1;
+                    if (purchaseYear !== year || (month && purchaseMonth !== parseInt(month))) return;
+                    
+                    const revenue = purchase.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                    productRevenue += revenue;
+                    totalRevenue += revenue;
+                });
+            }
+        });
+        
+        // Nákupy materiálu
+        if (stockReceipts && stockReceipts.length > 0) {
+            stockReceipts.forEach(receipt => {
+                const receiptDate = new Date(receipt.date);
+                const receiptYear = receiptDate.getFullYear();
+                const receiptMonth = receiptDate.getMonth() + 1;
+                if (receiptYear !== year || (month && receiptMonth !== parseInt(month))) return;
+                
+                if (receipt.items) {
+                    receipt.items.forEach(item => {
+                        const product = products.find(p => p.id === item.productId);
+                        if (product && product.pricePurchase) {
+                            totalPurchases += item.quantity * product.pricePurchase;
+                        }
+                    });
+                }
+            });
+        }
+        
+        const profit = totalRevenue - totalIssues;
+        
+        const snapshotData = {
+            period,
+            periodStart,
+            periodEnd,
+            note,
+            data: {
+                revenue: {
+                    total: totalRevenue,
+                    services: serviceRevenue,
+                    products: productRevenue
+                },
+                costs: {
+                    purchases: totalPurchases,
+                    issues: totalIssues
+                },
+                profit,
+                stats: {
+                    visits: totalVisits,
+                    avgPerVisit: totalVisits > 0 ? Math.round(totalRevenue / totalVisits) : 0
+                }
+            }
+        };
+        
+        await apiCall('snapshots.php', 'POST', snapshotData);
+        showNotification('Snapshot úspěšně vytvořen');
+        loadSnapshots();
+    } catch (error) {
+        console.error('Chyba při vytváření snapshotu:', error);
+        showNotification('Chyba při vytváření snapshotu', 'error');
+    }
+}
+
+async function deleteSnapshot(id) {
+    if (!confirm('Opravdu chcete smazat tento snapshot?')) return;
+    
+    try {
+        await apiCall(`snapshots.php?id=${id}`, 'DELETE');
+        showNotification('Snapshot smazán');
+        loadSnapshots();
+    } catch (error) {
+        console.error('Chyba při mazání snapshotu:', error);
+        showNotification('Chyba při mazání snapshotu', 'error');
+    }
+}
+
+function viewSnapshot(id) {
+    const snapshot = snapshots.find(s => s.id === id);
+    if (!snapshot) return;
+    
+    const data = snapshot.data;
+    const message = `
+SNAPSHOT: ${snapshot.period}
+${new Date(snapshot.periodStart).toLocaleDateString('cs-CZ')} - ${new Date(snapshot.periodEnd).toLocaleDateString('cs-CZ')}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TRŽBY:
+  Celkem: ${data.revenue.total.toLocaleString()} Kč
+  Ze služeb: ${data.revenue.services.toLocaleString()} Kč
+  Z prodeje: ${data.revenue.products.toLocaleString()} Kč
+
+NÁKLADY:
+  Nákup materiálu: ${data.costs.purchases.toLocaleString()} Kč
+  Spotřeba materiálu: ${data.costs.issues.toLocaleString()} Kč
+
+ZISK: ${data.profit.toLocaleString()} Kč
+Marže: ${((data.profit / data.revenue.total) * 100).toFixed(1)}%
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STATISTIKY:
+  Počet návštěv: ${data.stats.visits}
+  Průměr na návštěvu: ${data.stats.avgPerVisit.toLocaleString()} Kč
+
+${snapshot.note ? `\nPOZNÁMKA:\n${snapshot.note}` : ''}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Vytvořeno: ${new Date(snapshot.createdAt).toLocaleString('cs-CZ')}
+    `;
+    
+    alert(message);
 }
