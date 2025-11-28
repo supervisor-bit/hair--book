@@ -262,6 +262,10 @@ let currentOrdersPage = 1;
 const ordersPerPage = 20;
 let currentSalesPage = 1;
 const salesPerPage = 20;
+let currentProductsPage = 1;
+const productsPerPage = 30;
+let currentServicesPage = 1;
+const servicesPerPage = 20;
 
 let currentClient = null;
 let currentProduct = null;
@@ -276,6 +280,7 @@ let selectedMaterialCategory = null;
 let selectedProductCategory = null;
 let selectedClientGroup = null;
 let clientSearchQuery = '';
+let productSearchQuery = '';
 let selectedServiceIndex = -1;
 let showOnlyLowStock = false;
 
@@ -651,6 +656,16 @@ function goToOrdersPage(page) {
 function goToSalesPage(page) {
     currentSalesPage = page;
     renderSalesHistory();
+}
+
+function goToProductsPage(page) {
+    currentProductsPage = page;
+    renderProducts();
+}
+
+function goToServicesPage(page) {
+    currentServicesPage = page;
+    renderServices();
 }
 
 function renderClients() {
@@ -3363,6 +3378,7 @@ function renderProductCategories() {
     allItem.addEventListener('click', () => {
         selectedProductCategory = null;
         showOnlyLowStock = false; // Zrušit filtr při výběru "Vše"
+        currentProductsPage = 1; // Reset pagination
         renderProductCategories();
         renderProducts();
     });
@@ -3391,6 +3407,7 @@ function renderProductCategories() {
         item.addEventListener('click', () => {
             selectedProductCategory = category.id;
             showOnlyLowStock = false; // Zrušit filtr při výběru kategorie
+            currentProductsPage = 1; // Reset pagination
             renderProductCategories();
             renderProducts();
         });
@@ -3438,6 +3455,16 @@ function renderProducts() {
         filteredProducts = filteredProducts.filter(p => p.stock < p.minStock);
     }
     
+    // Filtrovat podle vyhledávacího dotazu
+    if (productSearchQuery) {
+        const query = productSearchQuery.toLowerCase();
+        filteredProducts = filteredProducts.filter(p => 
+            p.name.toLowerCase().includes(query) ||
+            (p.brand && p.brand.toLowerCase().includes(query)) ||
+            (p.barcode && p.barcode.toLowerCase().includes(query))
+        );
+    }
+    
     if (filteredProducts.length === 0) {
         const categoryName = productCategories.find(c => c.id === selectedProductCategory)?.name || 'kategorie';
         container.innerHTML = `
@@ -3446,10 +3473,19 @@ function renderProducts() {
                 <p>Žádné produkty v kategorii "${categoryName}"</p>
             </div>
         `;
+        document.getElementById('productsPagination').innerHTML = '';
         return;
     }
     
-    filteredProducts.forEach(product => {
+    // Pagination
+    const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
+    if (currentProductsPage > totalPages) currentProductsPage = 1;
+    
+    const startIndex = (currentProductsPage - 1) * productsPerPage;
+    const endIndex = startIndex + productsPerPage;
+    const pageProducts = filteredProducts.slice(startIndex, endIndex);
+    
+    pageProducts.forEach(product => {
         const category = productCategories.find(c => c.id === product.categoryId);
         const categoryColor = category ? category.color : '#10b981';
         const firstLetter = product.name[0].toUpperCase();
@@ -3474,6 +3510,15 @@ function renderProducts() {
         item.addEventListener('click', () => showProductDetail(product));
         container.appendChild(item);
     });
+    
+    // Add pagination
+    if (totalPages > 1) {
+        setTimeout(() => {
+            renderPagination('productsPagination', filteredProducts.length, currentProductsPage, productsPerPage, 'goToProductsPage');
+        }, 0);
+    } else {
+        document.getElementById('productsPagination').innerHTML = '';
+    }
 }
 
 function showProductDetail(product) {
@@ -4028,10 +4073,19 @@ function renderServices() {
                 </button>
             </div>
         `;
+        document.getElementById('servicesPagination').innerHTML = '';
         return;
     }
     
-    services.forEach(service => {
+    // Pagination
+    const totalPages = Math.ceil(services.length / servicesPerPage);
+    if (currentServicesPage > totalPages) currentServicesPage = 1;
+    
+    const startIndex = (currentServicesPage - 1) * servicesPerPage;
+    const endIndex = startIndex + servicesPerPage;
+    const pageServices = services.slice(startIndex, endIndex);
+    
+    pageServices.forEach(service => {
         const item = document.createElement('div');
         item.className = 'service-item';
         item.innerHTML = `
@@ -4051,6 +4105,15 @@ function renderServices() {
         
         container.appendChild(item);
     });
+    
+    // Add pagination
+    if (totalPages > 1) {
+        setTimeout(() => {
+            renderPagination('servicesPagination', services.length, currentServicesPage, servicesPerPage, 'goToServicesPage');
+        }, 0);
+    } else {
+        document.getElementById('servicesPagination').innerHTML = '';
+    }
 }
 
 function addNewServiceInPos() {
@@ -4191,13 +4254,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const productSearch = document.getElementById('productSearch');
     if (productSearch) {
         productSearch.addEventListener('input', function(e) {
-            const query = e.target.value.toLowerCase();
-            const items = document.querySelectorAll('#productsList .client-item');
-            
-            items.forEach(item => {
-                const text = item.textContent.toLowerCase();
-                item.style.display = text.includes(query) ? 'flex' : 'none';
-            });
+            productSearchQuery = e.target.value;
+            currentProductsPage = 1; // Reset na první stránku při vyhledávání
+            renderProducts();
         });
     }
     
@@ -10070,6 +10129,7 @@ function updateLowStockFilterButton() {
 
 function toggleLowStockFilter() {
     showOnlyLowStock = !showOnlyLowStock;
+    currentProductsPage = 1; // Reset pagination
     
     // Pokud zapínáme filtr, zrušit filtr kategorie
     if (showOnlyLowStock) {
