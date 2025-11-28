@@ -99,12 +99,25 @@ function filterClients(searchText) {
     const select = document.getElementById('appointmentClientId');
     const search = searchText.toLowerCase();
     
-    select.innerHTML = '<option value="">-- Vyberte klienta --</option>';
+    // Skrýt select pokud je prázdné vyhledávání
+    if (!search) {
+        select.style.display = 'none';
+        return;
+    }
+    
+    select.innerHTML = '';
     
     const filtered = clients.filter(client => {
         const fullName = `${client.firstName} ${client.lastName}`.toLowerCase();
         return fullName.includes(search);
     });
+    
+    if (filtered.length === 0) {
+        select.style.display = 'none';
+        return;
+    }
+    
+    select.style.display = 'block';
     
     filtered.forEach(client => {
         const option = document.createElement('option');
@@ -124,11 +137,24 @@ function filterServices(searchText) {
     const select = document.getElementById('appointmentServiceId');
     const search = searchText.toLowerCase();
     
-    select.innerHTML = '<option value="">-- Vyberte službu --</option>';
+    // Skrýt select pokud je prázdné vyhledávání
+    if (!search) {
+        select.style.display = 'none';
+        return;
+    }
+    
+    select.innerHTML = '';
     
     const filtered = services.filter(service => {
         return service.name.toLowerCase().includes(search);
     });
+    
+    if (filtered.length === 0) {
+        select.style.display = 'none';
+        return;
+    }
+    
+    select.style.display = 'block';
     
     filtered.forEach(service => {
         const option = document.createElement('option');
