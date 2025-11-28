@@ -221,7 +221,7 @@ function renderAppointments() {
                 
                 const aptElement = document.createElement('div');
                 aptElement.className = `appointment service-${serviceColor}`;
-                aptElement.style.height = `${(apt.duration / SLOT_DURATION) * 50 - 4}px`;
+                aptElement.style.height = `${(apt.duration / SLOT_DURATION) * 35 - 4}px`;
                 aptElement.onclick = (e) => {
                     e.stopPropagation();
                     showAppointmentDetail(apt);
