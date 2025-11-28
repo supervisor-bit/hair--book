@@ -1066,7 +1066,40 @@ async function handleDrop(e) {
     // Zkontrolovat, zda není v minulosti
     if (newDateTime < new Date()) {
         showNotification('Nelze přesunout rezervaci do minulosti', 'error');
+        draggedAppointment = null;
+        draggedElement = null;
         return;
+    }
+    
+    // Zkontrolovat, zda v cílovém slotu už není jiná rezervace
+    const existingApt = appointments.find(apt => {
+        if (apt.id === draggedAppointment.id) return false; // Přeskočit sebe sama
+        const aptDate = new Date(apt.date + 'T' + apt.time);
+        const aptEnd = new Date(aptDate.getTime() + apt.duration * 60000);
+        return newDateTime >= aptDate && newDateTime < aptEnd;
+    });
+    
+    // Pokud je cílový slot obsazený a přetahovaná služba NENÍ krátká (max 30 min), zamítnout
+    if (existingApt && draggedAppointment.duration > 30) {
+        showNotification('Nelze přesunout dlouhou službu na obsazený slot', 'error');
+        draggedAppointment = null;
+        draggedElement = null;
+        return;
+    }
+    
+    // Pokud je cílový slot obsazený a přetahovaná služba JE krátká, potvrdit
+    if (existingApt && draggedAppointment.duration <= 30) {
+        const confirmed = confirm(
+            `V cílovém slotu je rezervace (${existingApt.duration} min).\n\n` +
+            `Chcete vložit tuto KRÁTKOU službu (${draggedAppointment.duration} min) do této rezervace?\n\n` +
+            `POZOR: Ujistěte se, že je dostatek času!`
+        );
+        
+        if (!confirmed) {
+            draggedAppointment = null;
+            draggedElement = null;
+            return;
+        }
     }
     
     // Aktualizovat rezervaci
