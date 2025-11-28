@@ -389,10 +389,6 @@ function renderCalendar() {
     // Aktualizovat nadpis
     updateWeekTitle();
     
-    // Kontrola, zda není příliš daleko v budoucnosti (max 6 týdnů)
-    const maxDate = new Date();
-    maxDate.setDate(maxDate.getDate() + (6 * 7));
-    
     // Hlavička - prázdný prostor pro časy
     const emptyCorner = document.createElement('div');
     emptyCorner.className = 'day-header';
@@ -452,8 +448,8 @@ function renderCalendar() {
                     slot.classList.add('odd-week');
                 }
                 
-                // Označit minulé sloty
-                if (slotDate < now || slotDate > maxDate) {
+                // Označit pouze minulé sloty (už neomezujeme budoucnost)
+                if (slotDate < now) {
                     slot.classList.add('past');
                 } else {
                     slot.onclick = () => openNewAppointment(slotDate);
