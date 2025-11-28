@@ -40,6 +40,15 @@ document.addEventListener('DOMContentLoaded', async function() {
             hideServiceSuggestions();
         }
     });
+    
+    // Sledovat změny v poli duration pro zrušení omezení
+    const durationInput = document.getElementById('appointmentDuration');
+    if (durationInput) {
+        durationInput.addEventListener('input', function() {
+            const newDuration = parseInt(this.value) || 0;
+            checkAndRemoveDurationLimit(newDuration);
+        });
+    }
 });
 
 async function loadData() {
@@ -100,6 +109,27 @@ function updateServiceDuration() {
     const service = services.find(s => s.id == serviceId);
     if (service && service.duration) {
         document.getElementById('appointmentDuration').value = service.duration;
+        
+        // Pokud je nová služba delší než 30 min, zruš omezení
+        checkAndRemoveDurationLimit(service.duration);
+    }
+}
+
+function checkAndRemoveDurationLimit(newDuration) {
+    const durationInput = document.getElementById('appointmentDuration');
+    const noteField = document.getElementById('appointmentNote');
+    
+    // Pokud je nová délka větší než 30 minut a existuje omezení
+    if (newDuration > 30 && durationInput.dataset.limited === 'true') {
+        // Zrušit omezení
+        delete durationInput.dataset.limited;
+        durationInput.removeAttribute('max');
+        
+        // Vrátit normální vzhled poznámky
+        noteField.style.backgroundColor = '';
+        noteField.placeholder = 'Nepovinná poznámka k rezervaci...';
+        
+        showNotification('Omezení délky zrušeno - služba není krátká', 'success');
     }
 }
 
