@@ -10821,11 +10821,12 @@ function generateCostsReport() {
     if (issuesEl) issuesEl.textContent = totalIssues.toLocaleString() + ' Kč';
     if (profitEl) profitEl.textContent = totalProfit.toLocaleString() + ' Kč';
     
-    // Marže produktů
+    // Marže produktů - zobrazit pouze produkty určené k prodeji s marží
     const productMargins = products.map(p => {
-        if (p.pricePurchase && p.priceSale && p.pricePurchase > 0) {
-            const margin = ((p.priceSale - p.pricePurchase) / p.pricePurchase * 100).toFixed(1);
-            return { name: p.name, purchase: p.pricePurchase, sale: p.priceSale, margin };
+        if (p.pricePurchase && p.priceRetail && p.pricePurchase > 0 && p.priceRetail > 0 && p.forSale) {
+            const margin = ((p.priceRetail - p.pricePurchase) / p.pricePurchase * 100).toFixed(1);
+            const profit = p.priceRetail - p.pricePurchase;
+            return { name: p.name, purchase: p.pricePurchase, sale: p.priceRetail, margin, profit };
         }
         return null;
     }).filter(p => p !== null).sort((a, b) => b.margin - a.margin).slice(0, 10);
