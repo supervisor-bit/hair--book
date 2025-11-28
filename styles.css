@@ -2001,6 +2001,32 @@ body {
     font-weight: 600;
 }
 
+/* ========== VIEW SWITCH BUTTONS ========== */
+.btn-view-switch {
+    background: transparent;
+    border: none;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    color: var(--text-medium);
+    transition: all 0.2s;
+    font-size: 1rem;
+}
+
+.btn-view-switch:hover {
+    background: var(--bg-light);
+    color: var(--primary-color);
+}
+
+.btn-view-switch.active {
+    background: var(--primary-color);
+    color: white;
+}
+
+.btn-view-switch i {
+    pointer-events: none;
+}
+
 /* ========== RESPONSIVE DESIGN PRO ÚČETNICTVÍ ========== */
 @media (max-width: 1200px) {
     .costs-grid,

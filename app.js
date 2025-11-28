@@ -5987,13 +5987,39 @@ async function confirmCompleteSale() {
 // ===== SYSTÉM VÝDEJE MATERIÁLU =====
 
 let issueCart = [];
+let issueViewMode = 'cards'; // 'cards' nebo 'rows'
+
+// Přepnutí režimu zobrazení
+function switchIssueView(mode) {
+    issueViewMode = mode;
+    
+    // Update button states
+    document.getElementById('issueViewCards').classList.toggle('active', mode === 'cards');
+    document.getElementById('issueViewRows').classList.toggle('active', mode === 'rows');
+    
+    // Toggle visibility
+    const grid = document.getElementById('issueProductsGrid');
+    const table = document.getElementById('issueProductsTable');
+    
+    if (mode === 'cards') {
+        grid.style.display = 'grid';
+        table.style.display = 'none';
+    } else {
+        grid.style.display = 'none';
+        table.style.display = 'block';
+    }
+    
+    // Re-render
+    filterIssueProducts();
+}
 
 // Filtrování produktů pro výdej (forWork)
 function filterIssueProducts() {
     const searchTerm = document.getElementById('issueSearchInput')?.value.toLowerCase() || '';
     const grid = document.getElementById('issueProductsGrid');
+    const tableBody = document.getElementById('issueProductsTableBody');
     
-    if (!grid) return;
+    if (!grid || !tableBody) return;
     
     const filtered = products.filter(p => {
         const matchesSearch = p.name.toLowerCase().includes(searchTerm) ||
@@ -6001,12 +6027,17 @@ function filterIssueProducts() {
         return matchesSearch;
     });
     
-    grid.innerHTML = '';
-    
     if (filtered.length === 0) {
         grid.innerHTML = '<div class="col-12"><p class="text-muted text-center">Žádné produkty</p></div>';
+        tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #6b7280; padding: 2rem;">Žádné produkty</td></tr>';
         return;
     }
+    
+    // Render cards
+    grid.innerHTML = '';
+    
+    // Render table rows
+    tableBody.innerHTML = '';
     
     filtered.forEach(p => {
         const category = productCategories.find(c => c.id === p.categoryId);
@@ -6080,6 +6111,68 @@ function filterIssueProducts() {
         }
         
         grid.appendChild(card);
+        
+        // === TABLE ROW ===
+        const row = document.createElement('tr');
+        row.style.cssText = `cursor: ${!isOutOfStock ? 'pointer' : 'default'}; opacity: ${isOutOfStock ? '0.5' : '1'};`;
+        row.draggable = !isOutOfStock;
+        
+        const category = productCategories.find(c => c.id === p.categoryId);
+        
+        let stockClass = '';
+        let stockText = 'V pořádku';
+        if (isOutOfStock) {
+            stockClass = 'text-danger';
+            stockText = 'Vyprodáno';
+        } else if (isLowStock) {
+            stockClass = 'text-warning';
+            stockText = 'Málo';
+        }
+        
+        row.innerHTML = `
+            <td>
+                <div style="width: 32px; height: 32px; background: ${category?.color || '#6b7280'}; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; color: white;">
+                    <i class="fas ${category?.icon || 'fa-box'}"></i>
+                </div>
+            </td>
+            <td><strong>${p.name}</strong></td>
+            <td>${p.brand || '-'}</td>
+            <td><span class="${stockClass}">${p.stock} ${p.unit || 'ks'}</span></td>
+            <td>${p.unit || 'ks'}</td>
+            <td>
+                ${!isOutOfStock ? `<button onclick="addToIssueCart(${p.id})" class="btn btn-sm btn-primary" style="padding: 0.375rem 0.75rem;">
+                    <i class="fas fa-plus"></i>
+                </button>` : `<span style="color: #dc2626; font-size: 0.875rem;">Vyprodáno</span>`}
+            </td>
+        `;
+        
+        if (!isOutOfStock) {
+            row.addEventListener('click', (e) => {
+                if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'I') {
+                    addToIssueCart(p.id);
+                }
+            });
+            
+            // Drag and drop
+            row.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('productId', p.id);
+                e.dataTransfer.setData('type', 'issueProduct');
+                row.style.opacity = '0.5';
+            });
+            
+            row.addEventListener('dragend', () => {
+                row.style.opacity = '1';
+            });
+            
+            row.addEventListener('mouseenter', () => {
+                row.style.background = '#f8fafc';
+            });
+            row.addEventListener('mouseleave', () => {
+                row.style.background = '';
+            });
+        }
+        
+        tableBody.appendChild(row);
     });
 }
 
