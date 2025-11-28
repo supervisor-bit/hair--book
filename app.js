@@ -5444,7 +5444,7 @@ function renderReceiptHistory() {
     
     // Add pagination
     if (totalPages > 1) {
-        container.innerHTML += '<div id="receiptsPaginationContainer"></div>';
+        container.innerHTML += '<div id="receiptsPaginationContainer" style="padding: 1rem;"></div>';
         setTimeout(() => {
             renderPagination('receiptsPaginationContainer', sortedReceipts.length, currentReceiptsPage, receiptsPerPage, 'goToReceiptsPage');
         }, 0);
@@ -7658,7 +7658,7 @@ function renderIssueHistory() {
     
     // Add pagination
     if (totalPages > 1) {
-        container.innerHTML += '<div id="issuesPaginationContainer"></div>';
+        container.innerHTML += '<div id="issuesPaginationContainer" style="padding: 1rem;"></div>';
         setTimeout(() => {
             renderPagination('issuesPaginationContainer', filteredIssues.length, currentIssuesPage, issuesPerPage, 'goToIssuesPage');
         }, 0);
