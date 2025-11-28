@@ -627,19 +627,15 @@ function checkAndOpenAppointment(date) {
     });
     
     if (existingApt) {
-        // Pokud má rezervace 2+ hodiny, nabídnout vložení krátké služby
-        if (existingApt.duration >= 120) {
-            const confirmed = confirm(
-                `V tomto čase probíhá dlouhá rezervace (${existingApt.duration} min).\n\n` +
-                `Chcete vložit KRÁTKOU službu (max 30 min) do této rezervace?\n\n` +
-                `POZOR: Ujistěte se, že je dostatek času mezi službami!`
-            );
-            
-            if (confirmed) {
-                openNewAppointment(date, 30); // Omezit na max 30 min
-            }
-        } else {
-            showNotification('V tomto čase už je rezervace. Zvolte jiný čas.', 'error');
+        // Nabídnout vložení krátké služby do JAKÉKOLIV existující rezervace
+        const confirmed = confirm(
+            `V tomto čase probíhá rezervace (${existingApt.duration} min).\n\n` +
+            `Chcete vložit KRÁTKOU službu (max 30 min) do této rezervace?\n\n` +
+            `POZOR: Ujistěte se, že je dostatek času mezi službami!`
+        );
+        
+        if (confirmed) {
+            openNewAppointment(date, 30); // Omezit na max 30 min
         }
     } else {
         openNewAppointment(date);

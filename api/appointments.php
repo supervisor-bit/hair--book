@@ -86,13 +86,11 @@ elseif ($method === 'POST') {
         
         $conflicts = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Povolit vložení krátké služby (max 30 min) do dlouhé rezervace (120+ min)
+        // Povolit vložení krátké služby (max 30 min) mezi JAKOUKOLIV existující rezervaci
         $allowShortServiceInsertion = false;
         if ($duration <= 30 && count($conflicts) === 1) {
-            $existingDuration = (int)$conflicts[0]['duration'];
-            if ($existingDuration >= 120) {
-                $allowShortServiceInsertion = true;
-            }
+            // Krátká služba může být vložena do jakékoliv rezervace
+            $allowShortServiceInsertion = true;
         }
         
         if (count($conflicts) > 0 && !$allowShortServiceInsertion) {
@@ -165,13 +163,11 @@ elseif ($method === 'PUT') {
         
         $conflicts = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Povolit vložení krátké služby (max 30 min) do dlouhé rezervace (120+ min)
+        // Povolit vložení krátké služby (max 30 min) mezi JAKOUKOLIV existující rezervaci
         $allowShortServiceInsertion = false;
         if ($duration <= 30 && count($conflicts) === 1) {
-            $existingDuration = (int)$conflicts[0]['duration'];
-            if ($existingDuration >= 120) {
-                $allowShortServiceInsertion = true;
-            }
+            // Krátká služba může být vložena do jakékoliv rezervace
+            $allowShortServiceInsertion = true;
         }
         
         if (count($conflicts) > 0 && !$allowShortServiceInsertion) {
