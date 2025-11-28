@@ -901,14 +901,17 @@ function showClientDetail(client, event = null) {
         
         <!-- Záložky -->
         <div style="display: flex; background: white; margin: 0 2rem; flex-shrink: 0;">
-            <button class="tab-btn active" onclick="switchClientTab(${client.id}, 'visits')" data-tab="visits" style="flex: 1; padding: 1rem; border: none; background: none; cursor: pointer; font-weight: 600; color: #6b7280; border-bottom: 3px solid transparent; transition: all 0.2s;">
+            <button class="tab-btn active" onclick="switchClientTab(${client.id}, 'visits')" data-tab="visits" style="position: relative; flex: 1; padding: 1rem; border: none; background: none; cursor: pointer; font-weight: 600; color: #6b7280; border-bottom: 3px solid transparent; transition: all 0.2s;">
                 <i class="fas fa-scissors"></i> Historie návštěv
+                <span style="position: absolute; top: 0.5rem; right: 0.5rem; background: #8b5cf6; color: white; font-size: 0.75rem; font-weight: 700; padding: 0.125rem 0.5rem; border-radius: 9999px; min-width: 1.5rem; text-align: center;">${client.visits.length}</span>
             </button>
-            <button class="tab-btn" onclick="switchClientTab(${client.id}, 'purchases')" data-tab="purchases" style="flex: 1; padding: 1rem; border: none; background: none; cursor: pointer; font-weight: 600; color: #6b7280; border-bottom: 3px solid transparent; transition: all 0.2s;">
+            <button class="tab-btn" onclick="switchClientTab(${client.id}, 'purchases')" data-tab="purchases" style="position: relative; flex: 1; padding: 1rem; border: none; background: none; cursor: pointer; font-weight: 600; color: #6b7280; border-bottom: 3px solid transparent; transition: all 0.2s;">
                 <i class="fas fa-shopping-bag"></i> Zakoupené produkty
+                <span style="position: absolute; top: 0.5rem; right: 0.5rem; background: #ec4899; color: white; font-size: 0.75rem; font-weight: 700; padding: 0.125rem 0.5rem; border-radius: 9999px; min-width: 1.5rem; text-align: center;">${client.purchases?.length || 0}</span>
             </button>
-            <button class="tab-btn" onclick="switchClientTab(${client.id}, 'notes')" data-tab="notes" style="flex: 1; padding: 1rem; border: none; background: none; cursor: pointer; font-weight: 600; color: #6b7280; border-bottom: 3px solid transparent; transition: all 0.2s;">
+            <button class="tab-btn" onclick="switchClientTab(${client.id}, 'notes')" data-tab="notes" style="position: relative; flex: 1; padding: 1rem; border: none; background: none; cursor: pointer; font-weight: 600; color: #6b7280; border-bottom: 3px solid transparent; transition: all 0.2s;">
                 <i class="fas fa-sticky-note"></i> Poznámky
+                <span style="position: absolute; top: 0.5rem; right: 0.5rem; background: #06b6d4; color: white; font-size: 0.75rem; font-weight: 700; padding: 0.125rem 0.5rem; border-radius: 9999px; min-width: 1.5rem; text-align: center;">${client.notes?.length || 0}</span>
             </button>
         </div>
         
