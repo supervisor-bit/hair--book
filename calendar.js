@@ -32,6 +32,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Nastavit aktuální týden
     console.log('📅 Setting up current week...');
     goToToday();
+    
+    // Zavřít suggestions při kliknutí mimo
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.autocomplete-wrapper')) {
+            hideClientSuggestions();
+            hideServiceSuggestions();
+        }
+    });
 });
 
 async function loadData() {
@@ -86,89 +94,263 @@ function populateServiceSelect() {
 }
 
 function updateServiceDuration() {
-    const select = document.getElementById('appointmentServiceId');
-    const selectedOption = select.options[select.selectedIndex];
+    const serviceId = document.getElementById('appointmentServiceId').value;
+    if (!serviceId) return;
     
-    if (selectedOption && selectedOption.dataset.duration) {
-        document.getElementById('appointmentDuration').value = selectedOption.dataset.duration;
+    const service = services.find(s => s.id == serviceId);
+    if (service && service.duration) {
+        document.getElementById('appointmentDuration').value = service.duration;
     }
 }
 
-// Filtrování klientů
-function filterClients(searchText) {
-    const select = document.getElementById('appointmentClientId');
-    const search = searchText.toLowerCase();
+// Klienti - autocomplete
+let selectedClientSuggestionIndex = -1;
+let filteredClientSuggestions = [];
+
+function filterClients() {
+    const input = document.getElementById('appointmentClientSearch');
+    const query = input.value.toLowerCase().trim();
     
-    // Skrýt select pokud je prázdné vyhledávání
-    if (!search) {
-        select.style.display = 'none';
+    if (query.length === 0) {
+        filteredClientSuggestions = [...clients].sort((a, b) => 
+            `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`)
+        );
+    } else {
+        filteredClientSuggestions = clients.filter(c => {
+            const fullName = `${c.firstName} ${c.lastName}`.toLowerCase();
+            return fullName.includes(query);
+        }).sort((a, b) => {
+            const aFullName = `${a.firstName} ${a.lastName}`.toLowerCase();
+            const bFullName = `${b.firstName} ${b.lastName}`.toLowerCase();
+            const aStarts = aFullName.startsWith(query);
+            const bStarts = bFullName.startsWith(query);
+            if (aStarts && !bStarts) return -1;
+            if (!aStarts && bStarts) return 1;
+            return aFullName.localeCompare(bFullName);
+        });
+    }
+    
+    selectedClientSuggestionIndex = -1;
+    renderClientSuggestions();
+    showClientSuggestions();
+}
+
+function renderClientSuggestions() {
+    const suggestionsDiv = document.getElementById('clientSuggestions');
+    
+    if (filteredClientSuggestions.length === 0) {
+        suggestionsDiv.innerHTML = '<div class="no-suggestions">Žádní klienti nenalezeni</div>';
         return;
     }
     
-    select.innerHTML = '';
+    const displaySuggestions = filteredClientSuggestions.slice(0, 50);
     
-    const filtered = clients.filter(client => {
-        const fullName = `${client.firstName} ${client.lastName}`.toLowerCase();
-        return fullName.includes(search);
-    });
+    suggestionsDiv.innerHTML = displaySuggestions.map((client, index) => {
+        return `
+            <div class="suggestion-item ${index === selectedClientSuggestionIndex ? 'selected' : ''}" 
+                 onclick="selectClient(${client.id})" 
+                 data-index="${index}">
+                <div class="suggestion-name">${client.firstName} ${client.lastName}</div>
+                <div class="suggestion-meta">
+                    ${client.phone ? `<span><i class="fas fa-phone"></i> ${client.phone}</span>` : ''}
+                    ${client.email ? `<span><i class="fas fa-envelope"></i> ${client.email}</span>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
     
-    if (filtered.length === 0) {
-        select.style.display = 'none';
-        return;
-    }
-    
-    select.style.display = 'block';
-    
-    filtered.forEach(client => {
-        const option = document.createElement('option');
-        option.value = client.id;
-        option.textContent = `${client.firstName} ${client.lastName}`;
-        select.appendChild(option);
-    });
-    
-    // Pokud je jen jedna možnost, automaticky ji vyber
-    if (filtered.length === 1) {
-        select.value = filtered[0].id;
+    if (filteredClientSuggestions.length > 50) {
+        suggestionsDiv.innerHTML += '<div class="no-suggestions">... a dalších ' + (filteredClientSuggestions.length - 50) + ' klientů. Upřesněte hledání.</div>';
     }
 }
 
-// Filtrování služeb
-function filterServices(searchText) {
-    const select = document.getElementById('appointmentServiceId');
-    const search = searchText.toLowerCase();
+function showClientSuggestions() {
+    const suggestionsDiv = document.getElementById('clientSuggestions');
+    if (filteredClientSuggestions.length > 0 || document.getElementById('appointmentClientSearch').value.length > 0) {
+        suggestionsDiv.classList.add('active');
+    }
+}
+
+function hideClientSuggestions() {
+    const suggestionsDiv = document.getElementById('clientSuggestions');
+    suggestionsDiv.classList.remove('active');
+    selectedClientSuggestionIndex = -1;
+}
+
+function handleClientKeyDown(event) {
+    const suggestionsDiv = document.getElementById('clientSuggestions');
     
-    // Skrýt select pokud je prázdné vyhledávání
-    if (!search) {
-        select.style.display = 'none';
+    if (!suggestionsDiv.classList.contains('active')) {
+        if (event.key === 'ArrowDown' || event.key === 'Enter') {
+            filterClients();
+            showClientSuggestions();
+        }
         return;
     }
     
-    select.innerHTML = '';
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        selectedClientSuggestionIndex = Math.min(selectedClientSuggestionIndex + 1, filteredClientSuggestions.length - 1);
+        renderClientSuggestions();
+        scrollToSelectedClientSuggestion();
+    } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        selectedClientSuggestionIndex = Math.max(selectedClientSuggestionIndex - 1, 0);
+        renderClientSuggestions();
+        scrollToSelectedClientSuggestion();
+    } else if (event.key === 'Enter') {
+        event.preventDefault();
+        if (selectedClientSuggestionIndex >= 0 && selectedClientSuggestionIndex < filteredClientSuggestions.length) {
+            selectClient(filteredClientSuggestions[selectedClientSuggestionIndex].id);
+        }
+    } else if (event.key === 'Escape') {
+        hideClientSuggestions();
+    }
+}
+
+function scrollToSelectedClientSuggestion() {
+    const suggestionsDiv = document.getElementById('clientSuggestions');
+    const selectedItem = suggestionsDiv.querySelector('.suggestion-item.selected');
+    if (selectedItem) {
+        selectedItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+}
+
+function selectClient(clientId) {
+    const client = clients.find(c => c.id == clientId);
+    if (!client) return;
     
-    const filtered = services.filter(service => {
-        return service.name.toLowerCase().includes(search);
-    });
+    document.getElementById('appointmentClientId').value = clientId;
+    document.getElementById('appointmentClientSearch').value = `${client.firstName} ${client.lastName}`;
     
-    if (filtered.length === 0) {
-        select.style.display = 'none';
+    hideClientSuggestions();
+    
+    // Přesunout fokus na další pole
+    document.getElementById('appointmentServiceSearch').focus();
+}
+
+// Služby - autocomplete
+let selectedServiceSuggestionIndex = -1;
+let filteredServiceSuggestions = [];
+
+function filterServices() {
+    const input = document.getElementById('appointmentServiceSearch');
+    const query = input.value.toLowerCase().trim();
+    
+    if (query.length === 0) {
+        filteredServiceSuggestions = [...services].sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+        filteredServiceSuggestions = services.filter(s => 
+            s.name.toLowerCase().includes(query)
+        ).sort((a, b) => {
+            const aStarts = a.name.toLowerCase().startsWith(query);
+            const bStarts = b.name.toLowerCase().startsWith(query);
+            if (aStarts && !bStarts) return -1;
+            if (!aStarts && bStarts) return 1;
+            return a.name.localeCompare(b.name);
+        });
+    }
+    
+    selectedServiceSuggestionIndex = -1;
+    renderServiceSuggestions();
+    showServiceSuggestions();
+}
+
+function renderServiceSuggestions() {
+    const suggestionsDiv = document.getElementById('serviceSuggestions');
+    
+    if (filteredServiceSuggestions.length === 0) {
+        suggestionsDiv.innerHTML = '<div class="no-suggestions">Žádné služby nenalezeny</div>';
         return;
     }
     
-    select.style.display = 'block';
+    const displaySuggestions = filteredServiceSuggestions.slice(0, 50);
     
-    filtered.forEach(service => {
-        const option = document.createElement('option');
-        option.value = service.id;
-        option.dataset.duration = service.duration || 60;
-        option.textContent = `${service.name} (${service.price} Kč)`;
-        select.appendChild(option);
-    });
+    suggestionsDiv.innerHTML = displaySuggestions.map((service, index) => {
+        return `
+            <div class="suggestion-item ${index === selectedServiceSuggestionIndex ? 'selected' : ''}" 
+                 onclick="selectService(${service.id})" 
+                 data-index="${index}">
+                <div class="suggestion-name">${service.name}</div>
+                <div class="suggestion-meta">
+                    <span><i class="fas fa-tag"></i> ${service.price} Kč</span>
+                    ${service.duration ? `<span><i class="fas fa-clock"></i> ${service.duration} min</span>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
     
-    // Pokud je jen jedna možnost, automaticky ji vyber
-    if (filtered.length === 1) {
-        select.value = filtered[0].id;
-        updateServiceDuration();
+    if (filteredServiceSuggestions.length > 50) {
+        suggestionsDiv.innerHTML += '<div class="no-suggestions">... a dalších ' + (filteredServiceSuggestions.length - 50) + ' služeb. Upřesněte hledání.</div>';
     }
+}
+
+function showServiceSuggestions() {
+    const suggestionsDiv = document.getElementById('serviceSuggestions');
+    if (filteredServiceSuggestions.length > 0 || document.getElementById('appointmentServiceSearch').value.length > 0) {
+        suggestionsDiv.classList.add('active');
+    }
+}
+
+function hideServiceSuggestions() {
+    const suggestionsDiv = document.getElementById('serviceSuggestions');
+    suggestionsDiv.classList.remove('active');
+    selectedServiceSuggestionIndex = -1;
+}
+
+function handleServiceKeyDown(event) {
+    const suggestionsDiv = document.getElementById('serviceSuggestions');
+    
+    if (!suggestionsDiv.classList.contains('active')) {
+        if (event.key === 'ArrowDown' || event.key === 'Enter') {
+            filterServices();
+            showServiceSuggestions();
+        }
+        return;
+    }
+    
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        selectedServiceSuggestionIndex = Math.min(selectedServiceSuggestionIndex + 1, filteredServiceSuggestions.length - 1);
+        renderServiceSuggestions();
+        scrollToSelectedServiceSuggestion();
+    } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        selectedServiceSuggestionIndex = Math.max(selectedServiceSuggestionIndex - 1, 0);
+        renderServiceSuggestions();
+        scrollToSelectedServiceSuggestion();
+    } else if (event.key === 'Enter') {
+        event.preventDefault();
+        if (selectedServiceSuggestionIndex >= 0 && selectedServiceSuggestionIndex < filteredServiceSuggestions.length) {
+            selectService(filteredServiceSuggestions[selectedServiceSuggestionIndex].id);
+        }
+    } else if (event.key === 'Escape') {
+        hideServiceSuggestions();
+    }
+}
+
+function scrollToSelectedServiceSuggestion() {
+    const suggestionsDiv = document.getElementById('serviceSuggestions');
+    const selectedItem = suggestionsDiv.querySelector('.suggestion-item.selected');
+    if (selectedItem) {
+        selectedItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+}
+
+function selectService(serviceId) {
+    const service = services.find(s => s.id == serviceId);
+    if (!service) return;
+    
+    document.getElementById('appointmentServiceId').value = serviceId;
+    document.getElementById('appointmentServiceSearch').value = service.name;
+    
+    hideServiceSuggestions();
+    
+    // Nastavit výchozí dobu trvání
+    updateServiceDuration();
+    
+    // Přesunout fokus na další pole
+    document.getElementById('appointmentDate').focus();
 }
 
 // Navigace týdnů
@@ -343,12 +525,16 @@ function updateWeekTitle() {
 function showNewAppointmentModal() {
     document.getElementById('appointmentModalTitle').textContent = 'Nová rezervace';
     document.getElementById('appointmentId').value = '';
+    
+    // Reset vyhledávání
     document.getElementById('appointmentClientSearch').value = '';
-    document.getElementById('appointmentServiceSearch').value = '';
-    populateClientSelect();
-    populateServiceSelect();
     document.getElementById('appointmentClientId').value = '';
+    hideClientSuggestions();
+    
+    document.getElementById('appointmentServiceSearch').value = '';
     document.getElementById('appointmentServiceId').value = '';
+    hideServiceSuggestions();
+    
     document.getElementById('appointmentDate').value = '';
     document.getElementById('appointmentTime').value = '09:00';
     document.getElementById('appointmentDuration').value = '60';
@@ -359,12 +545,15 @@ function showNewAppointmentModal() {
 function openNewAppointment(date) {
     document.getElementById('appointmentModalTitle').textContent = 'Nová rezervace';
     document.getElementById('appointmentId').value = '';
+    
+    // Reset vyhledávání
     document.getElementById('appointmentClientSearch').value = '';
-    document.getElementById('appointmentServiceSearch').value = '';
-    populateClientSelect();
-    populateServiceSelect();
     document.getElementById('appointmentClientId').value = '';
+    hideClientSuggestions();
+    
+    document.getElementById('appointmentServiceSearch').value = '';
     document.getElementById('appointmentServiceId').value = '';
+    hideServiceSuggestions();
     
     const dateStr = date.toISOString().split('T')[0];
     const timeStr = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
@@ -476,8 +665,23 @@ function editCurrentAppointment() {
     
     document.getElementById('appointmentModalTitle').textContent = 'Upravit rezervaci';
     document.getElementById('appointmentId').value = currentAppointment.id;
-    document.getElementById('appointmentClientId').value = currentAppointment.clientId;
-    document.getElementById('appointmentServiceId').value = currentAppointment.serviceId;
+    
+    // Najít a nastavit klienta
+    const client = clients.find(c => c.id === currentAppointment.clientId);
+    if (client) {
+        document.getElementById('appointmentClientId').value = client.id;
+        document.getElementById('appointmentClientSearch').value = `${client.firstName} ${client.lastName}`;
+    }
+    hideClientSuggestions();
+    
+    // Najít a nastavit službu
+    const service = services.find(s => s.id === currentAppointment.serviceId);
+    if (service) {
+        document.getElementById('appointmentServiceId').value = service.id;
+        document.getElementById('appointmentServiceSearch').value = service.name;
+    }
+    hideServiceSuggestions();
+    
     document.getElementById('appointmentDate').value = currentAppointment.date;
     document.getElementById('appointmentTime').value = currentAppointment.time;
     document.getElementById('appointmentDuration').value = currentAppointment.duration;

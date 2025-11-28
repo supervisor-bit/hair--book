@@ -178,18 +178,34 @@
                 
                 <div class="form-group">
                     <label>Klient *</label>
-                    <input type="text" id="appointmentClientSearch" placeholder="Začněte psát jméno klienta..." autocomplete="off" oninput="filterClients(this.value)">
-                    <select id="appointmentClientId" required size="5" style="margin-top: 0.5rem; display: none;">
-                        <option value="">-- Vyberte klienta --</option>
-                    </select>
+                    <div class="autocomplete-wrapper">
+                        <input type="text" 
+                               id="appointmentClientSearch" 
+                               placeholder="Začněte psát jméno klienta..." 
+                               autocomplete="off"
+                               oninput="filterClients()"
+                               onfocus="showClientSuggestions()"
+                               onkeydown="handleClientKeyDown(event)"
+                               required>
+                        <div id="clientSuggestions" class="autocomplete-suggestions"></div>
+                    </div>
+                    <input type="hidden" id="appointmentClientId">
                 </div>
 
                 <div class="form-group">
                     <label>Služba *</label>
-                    <input type="text" id="appointmentServiceSearch" placeholder="Začněte psát název služby..." autocomplete="off" oninput="filterServices(this.value)">
-                    <select id="appointmentServiceId" required onchange="updateServiceDuration()" size="5" style="margin-top: 0.5rem; display: none;">
-                        <option value="">-- Vyberte službu --</option>
-                    </select>
+                    <div class="autocomplete-wrapper">
+                        <input type="text" 
+                               id="appointmentServiceSearch" 
+                               placeholder="Začněte psát název služby..." 
+                               autocomplete="off"
+                               oninput="filterServices()"
+                               onfocus="showServiceSuggestions()"
+                               onkeydown="handleServiceKeyDown(event)"
+                               required>
+                        <div id="serviceSuggestions" class="autocomplete-suggestions"></div>
+                    </div>
+                    <input type="hidden" id="appointmentServiceId">
                 </div>
 
                 <div class="form-row">
