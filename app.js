@@ -261,6 +261,7 @@ let currentVisit = {
 let selectedMaterialCategory = null;
 let selectedProductCategory = null;
 let selectedClientGroup = null;
+let clientSearchQuery = '';
 let selectedServiceIndex = -1;
 let showOnlyLowStock = false;
 
@@ -631,6 +632,16 @@ function renderClients() {
     } else {
         // Konkrétní skupina - zobrazit jen klienty z této skupiny
         filteredClients = clients.filter(c => c.groupId === selectedClientGroup);
+    }
+    
+    // Filtrovat podle vyhledávání
+    if (clientSearchQuery) {
+        const query = clientSearchQuery.toLowerCase();
+        filteredClients = filteredClients.filter(c => {
+            const fullName = `${c.firstName} ${c.lastName}`.toLowerCase();
+            const phone = c.phone.toLowerCase();
+            return fullName.includes(query) || phone.includes(query);
+        });
     }
     
     // Pokud filtrované výsledky jsou prázdné
@@ -4065,22 +4076,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const clientSearch = document.getElementById('clientSearch');
     if (clientSearch) {
         clientSearch.addEventListener('input', function(e) {
-            const query = e.target.value.toLowerCase();
-            
-            if (query === '') {
-                // Reset pagination when search is cleared
-                currentClientsPage = 1;
-                renderClients();
-            } else {
-                // Filter visible items
-                const items = document.querySelectorAll('#clientList .client-item');
-                items.forEach(item => {
-                    const text = item.textContent.toLowerCase();
-                    item.style.display = text.includes(query) ? 'flex' : 'none';
-                });
-                // Hide pagination when searching
-                document.getElementById('clientsPagination').innerHTML = '';
-            }
+            clientSearchQuery = e.target.value;
+            currentClientsPage = 1; // Reset to first page
+            renderClients();
         });
     }
     
