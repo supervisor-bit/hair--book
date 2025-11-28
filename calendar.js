@@ -563,19 +563,7 @@ function showNewAppointmentModal() {
     document.getElementById('appointmentDuration').value = '60';
     document.getElementById('appointmentNote').value = '';
     
-    // Reset opakování
-    document.getElementById('appointmentRepeat').checked = false;
-    document.getElementById('repeatOptions').style.display = 'none';
-    document.getElementById('repeatWeeks').value = '4';
-    document.getElementById('repeatCount').value = '1';
-    
     document.getElementById('appointmentModal').classList.add('show');
-}
-
-function toggleRepeatOptions() {
-    const checkbox = document.getElementById('appointmentRepeat');
-    const options = document.getElementById('repeatOptions');
-    options.style.display = checkbox.checked ? 'block' : 'none';
 }
 
 function openNewAppointment(date) {
@@ -599,12 +587,6 @@ function openNewAppointment(date) {
     document.getElementById('appointmentDuration').value = '60';
     document.getElementById('appointmentNote').value = '';
     
-    // Reset opakování
-    document.getElementById('appointmentRepeat').checked = false;
-    document.getElementById('repeatOptions').style.display = 'none';
-    document.getElementById('repeatWeeks').value = '4';
-    document.getElementById('repeatCount').value = '1';
-    
     document.getElementById('appointmentModal').classList.add('show');
 }
 
@@ -625,69 +607,24 @@ async function saveAppointment(event) {
         note: document.getElementById('appointmentNote').value
     };
     
-    // Kontrola opakování
-    const shouldRepeat = document.getElementById('appointmentRepeat').checked;
-    const repeatWeeks = parseInt(document.getElementById('repeatWeeks').value);
-    const repeatCount = parseInt(document.getElementById('repeatCount').value);
-    
     try {
         const method = id ? 'PUT' : 'POST';
         if (id) appointment.id = parseInt(id);
         
-        // Pokud je to update, nepoužívat opakování
-        if (id || !shouldRepeat) {
-            const response = await fetch('api/appointments.php', {
-                method: method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(appointment)
-            });
-            
-            if (response.ok) {
-                showNotification('Rezervace uložena', 'success');
-                closeAppointmentModal();
-                await loadData();
-                renderCalendar();
-            } else {
-                const error = await response.json();
-                showNotification(error.error || 'Chyba při ukládání rezervace', 'error');
-            }
-        } else {
-            // Vytvoření opakovaných rezervací
-            let successCount = 0;
-            let failedDates = [];
-            
-            for (let i = 0; i <= repeatCount; i++) {
-                const repeatDate = new Date(appointment.date);
-                repeatDate.setDate(repeatDate.getDate() + (i * repeatWeeks * 7));
-                
-                const repeatedAppointment = {
-                    ...appointment,
-                    date: repeatDate.toISOString().split('T')[0]
-                };
-                
-                const response = await fetch('api/appointments.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(repeatedAppointment)
-                });
-                
-                if (response.ok) {
-                    successCount++;
-                } else {
-                    failedDates.push(repeatedAppointment.date);
-                }
-            }
-            
-            if (successCount > 0) {
-                showNotification(`Vytvořeno ${successCount} rezervací`, 'success');
-            }
-            if (failedDates.length > 0) {
-                showNotification(`Nepodařilo se vytvořit rezervace pro: ${failedDates.join(', ')}`, 'error');
-            }
-            
+        const response = await fetch('api/appointments.php', {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(appointment)
+        });
+        
+        if (response.ok) {
+            showNotification('Rezervace uložena', 'success');
             closeAppointmentModal();
             await loadData();
             renderCalendar();
+        } else {
+            const error = await response.json();
+            showNotification(error.error || 'Chyba při ukládání rezervace', 'error');
         }
     } catch (error) {
         console.error('Chyba:', error);
@@ -803,6 +740,73 @@ async function deleteCurrentAppointment() {
     } catch (error) {
         console.error('Chyba:', error);
         showNotification('Chyba při mazání rezervace', 'error');
+    }
+}
+
+// Opakování rezervace
+function showRepeatDialog() {
+    document.getElementById('repeatOptionsDetail').style.display = 'block';
+}
+
+function hideRepeatDialog() {
+    document.getElementById('repeatOptionsDetail').style.display = 'none';
+}
+
+async function createRepeatedAppointments() {
+    if (!currentAppointment) return;
+    
+    const repeatWeeks = parseInt(document.getElementById('repeatWeeksDetail').value);
+    const repeatCount = parseInt(document.getElementById('repeatCountDetail').value);
+    
+    if (!repeatWeeks || repeatWeeks < 1 || !repeatCount || repeatCount < 1) {
+        showNotification('Zadejte platné hodnoty', 'error');
+        return;
+    }
+    
+    let successCount = 0;
+    let failedDates = [];
+    
+    try {
+        for (let i = 1; i <= repeatCount; i++) {
+            const repeatDate = new Date(currentAppointment.date);
+            repeatDate.setDate(repeatDate.getDate() + (i * repeatWeeks * 7));
+            
+            const repeatedAppointment = {
+                clientId: currentAppointment.clientId,
+                serviceId: currentAppointment.serviceId,
+                date: repeatDate.toISOString().split('T')[0],
+                time: currentAppointment.time,
+                duration: currentAppointment.duration,
+                note: currentAppointment.note || ''
+            };
+            
+            const response = await fetch('api/appointments.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(repeatedAppointment)
+            });
+            
+            if (response.ok) {
+                successCount++;
+            } else {
+                failedDates.push(repeatedAppointment.date);
+            }
+        }
+        
+        if (successCount > 0) {
+            showNotification(`Vytvořeno ${successCount} opakovaných rezervací`, 'success');
+        }
+        if (failedDates.length > 0) {
+            showNotification(`Nepodařilo se vytvořit rezervace pro: ${failedDates.join(', ')}`, 'error');
+        }
+        
+        hideRepeatDialog();
+        closeAppointmentDetailModal();
+        await loadData();
+        renderCalendar();
+    } catch (error) {
+        console.error('Chyba:', error);
+        showNotification('Chyba při vytváření opakovaných rezervací', 'error');
     }
 }
 
