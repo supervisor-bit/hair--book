@@ -266,6 +266,8 @@ let currentProductsPage = 1;
 const productsPerPage = 30;
 let currentServicesPage = 1;
 const servicesPerPage = 20;
+let currentMovementsPage = 1;
+const movementsPerPage = 20;
 
 let currentClient = null;
 let currentProduct = null;
@@ -666,6 +668,13 @@ function goToProductsPage(page) {
 function goToServicesPage(page) {
     currentServicesPage = page;
     renderServices();
+}
+
+function goToMovementsPage(page) {
+    currentMovementsPage = page;
+    if (currentProduct) {
+        showProductDetail(currentProduct);
+    }
 }
 
 function renderClients() {
@@ -3523,6 +3532,7 @@ function renderProducts() {
 
 function showProductDetail(product) {
     currentProduct = product;
+    currentMovementsPage = 1; // Reset pagination při výběru produktu
     
     // Aktualizovat aktivní produkt v seznamu
     document.querySelectorAll('#productsList .client-item').forEach(item => {
@@ -3538,6 +3548,14 @@ function showProductDetail(product) {
     
     let movementsHtml = '';
     if (product.movements && product.movements.length > 0) {
+        // Pagination pro pohyby
+        const totalPages = Math.ceil(product.movements.length / movementsPerPage);
+        if (currentMovementsPage > totalPages) currentMovementsPage = 1;
+        
+        const startIndex = (currentMovementsPage - 1) * movementsPerPage;
+        const endIndex = startIndex + movementsPerPage;
+        const pageMovements = product.movements.slice(startIndex, endIndex);
+        
         movementsHtml = `
             <table class="movements-table">
                 <thead>
@@ -3549,7 +3567,7 @@ function showProductDetail(product) {
                     </tr>
                 </thead>
                 <tbody>
-                    ${product.movements.map(movement => {
+                    ${pageMovements.map(movement => {
                         const typeLabel = movement.type === 'purchase' ? 'Příjem' : 'Výdej';
                         const typeClass = movement.type === 'purchase' ? 'movement-in' : 'movement-out';
                         const quantitySign = movement.quantity > 0 ? '+' : '';
@@ -3574,6 +3592,7 @@ function showProductDetail(product) {
                     }).join('')}
                 </tbody>
             </table>
+            ${totalPages > 1 ? '<div id="movementsPagination"></div>' : ''}
         `;
     } else {
         movementsHtml = '<p style="color: var(--text-light); text-align: center; padding: 2rem;">Zatím žádné pohyby</p>';
@@ -3619,6 +3638,16 @@ function showProductDetail(product) {
             ${movementsHtml}
         </div>
     `;
+    
+    // Renderovat pagination pokud je potřeba
+    if (product.movements && product.movements.length > 0) {
+        const totalPages = Math.ceil(product.movements.length / movementsPerPage);
+        if (totalPages > 1) {
+            setTimeout(() => {
+                renderPagination('movementsPagination', product.movements.length, currentMovementsPage, movementsPerPage, 'goToMovementsPage');
+            }, 0);
+        }
+    }
 }
 
 function addNewCategory() {
