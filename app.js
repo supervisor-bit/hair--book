@@ -496,8 +496,18 @@ function renderClientGroups() {
     
     container.innerHTML = '';
     
-    // Přidat položku "Vše" (bez neaktivních)
-    const activeClientsCount = clients.filter(c => parseInt(c.groupId) !== 4).length;
+    // Přidat položku "Vše" (aktivní klienti podle návštěv)
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    
+    const activeClientsCount = clients.filter(client => {
+        if (!client.visits || client.visits.length === 0) return false;
+        const closedVisits = client.visits.filter(v => v.closed);
+        if (closedVisits.length === 0) return false;
+        const lastVisit = closedVisits.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+        return new Date(lastVisit.date) >= threeMonthsAgo;
+    }).length;
+    
     const allItem = document.createElement('div');
     allItem.className = 'category-item' + (selectedClientGroup === null ? ' active' : '');
     allItem.innerHTML = `
@@ -700,8 +710,17 @@ function renderClients() {
     // Filtrovat podle vybrané skupiny (neaktivní se zobrazují jen když je vybraná jejich skupina)
     let filteredClients;
     if (selectedClientGroup === null) {
-        // "Všichni" - zobrazit všechny kromě neaktivních (groupId 4)
-        filteredClients = clients.filter(c => parseInt(c.groupId) !== 4);
+        // "Všichni" - zobrazit aktivní klienty (s návštěvou za poslední 3 měsíce)
+        const threeMonthsAgo = new Date();
+        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+        
+        filteredClients = clients.filter(client => {
+            if (!client.visits || client.visits.length === 0) return false;
+            const closedVisits = client.visits.filter(v => v.closed);
+            if (closedVisits.length === 0) return false;
+            const lastVisit = closedVisits.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+            return new Date(lastVisit.date) >= threeMonthsAgo;
+        });
     } else {
         // Konkrétní skupina - zobrazit jen klienty z této skupiny
         filteredClients = clients.filter(c => c.groupId === selectedClientGroup);
@@ -8349,9 +8368,18 @@ function calculateDashboardStats() {
         }
     });
     
-    // Celkový počet klientů a aktivních
+    // Celkový počet klientů a aktivních (podle návštěv)
     const totalClients = clients.length;
-    const activeClients = clients.filter(c => parseInt(c.groupId) !== 4).length;
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    
+    const activeClients = clients.filter(client => {
+        if (!client.visits || client.visits.length === 0) return false;
+        const closedVisits = client.visits.filter(v => v.closed);
+        if (closedVisits.length === 0) return false;
+        const lastVisit = closedVisits.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+        return new Date(lastVisit.date) >= threeMonthsAgo;
+    }).length;
     
     // Produkty pod minimem
     const lowStockProducts = products.filter(p => p.stock < p.minStock).length;
@@ -8620,14 +8648,24 @@ function renderAlerts(stats) {
         });
     }
     
-    // Neaktivní klienti (označeni skupinou Neaktivní)
-    const inactiveClients = clients.filter(c => parseInt(c.groupId) === 4);
+    // Neaktivní klienti (podle návštěv - 3+ měsíce nebo nikdy)
+    const threeMonthsAgoAlert = new Date();
+    threeMonthsAgoAlert.setMonth(threeMonthsAgoAlert.getMonth() - 3);
+    
+    const inactiveClients = clients.filter(client => {
+        if (!client.visits || client.visits.length === 0) return true;
+        const closedVisits = client.visits.filter(v => v.closed);
+        if (closedVisits.length === 0) return true;
+        const lastVisit = closedVisits.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+        return new Date(lastVisit.date) < threeMonthsAgoAlert;
+    });
+    
     if (inactiveClients.length > 0) {
         alerts.push({
             icon: 'fa-user-clock',
             color: '#f59e0b',
             title: 'Neaktivní klienti',
-            description: `${inactiveClients.length} klientů označeno jako neaktivní`
+            description: `${inactiveClients.length} klientů bez návštěvy 3+ měsíce`
         });
     }
     
