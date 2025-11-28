@@ -29,9 +29,25 @@ function startPHPServer() {
         }
         
         console.log('Using PHP:', phpPath);
+        console.log('Working directory:', __dirname);
+        console.log('App path:', app.getAppPath());
+        console.log('Resources path:', process.resourcesPath);
         
         // Spustit PHP vestavěný server
-        phpServer = spawn(phpPath, ['-S', `localhost:${PHP_PORT}`, '-t', __dirname]);
+        // V produkci jsou soubory v resources/app.asar, ale PHP nemůže číst z .asar
+        // Musíme použít resources místo app.asar
+        let appPath;
+        if (app.isPackaged) {
+            // V produkci: resources složka vedle .exe
+            appPath = path.join(process.resourcesPath, 'app');
+        } else {
+            // V development: aktuální složka
+            appPath = __dirname;
+        }
+        
+        console.log('Serving from:', appPath);
+        
+        phpServer = spawn(phpPath, ['-S', `localhost:${PHP_PORT}`, '-t', appPath]);
         
         phpServer.stdout.on('data', (data) => {
             console.log(`PHP Server: ${data}`);
