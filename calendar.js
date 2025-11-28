@@ -452,7 +452,7 @@ function renderCalendar() {
                 if (slotDate < now) {
                     slot.classList.add('past');
                 } else {
-                    slot.onclick = () => openNewAppointment(slotDate);
+                    slot.onclick = () => checkAndOpenAppointment(slotDate);
                 }
                 
                 grid.appendChild(slot);
@@ -566,7 +566,35 @@ function showNewAppointmentModal() {
     document.getElementById('appointmentModal').classList.add('show');
 }
 
-function openNewAppointment(date) {
+function checkAndOpenAppointment(date) {
+    // Najít existující rezervace v tomto čase
+    const existingApt = appointments.find(apt => {
+        const aptDate = new Date(apt.date + 'T' + apt.time);
+        const aptEnd = new Date(aptDate.getTime() + apt.duration * 60000);
+        return date >= aptDate && date < aptEnd;
+    });
+    
+    if (existingApt) {
+        // Pokud má rezervace 2+ hodiny, nabídnout vložení krátké služby
+        if (existingApt.duration >= 120) {
+            const confirmed = confirm(
+                `V tomto čase probíhá dlouhá rezervace (${existingApt.duration} min).\n\n` +
+                `Chcete vložit KRÁTKOU službu (max 30 min) do této rezervace?\n\n` +
+                `POZOR: Ujistěte se, že je dostatek času mezi službami!`
+            );
+            
+            if (confirmed) {
+                openNewAppointment(date, 30); // Omezit na max 30 min
+            }
+        } else {
+            showNotification('V tomto čase už je rezervace. Zvolte jiný čas.', 'error');
+        }
+    } else {
+        openNewAppointment(date);
+    }
+}
+
+function openNewAppointment(date, maxDuration = null) {
     document.getElementById('appointmentModalTitle').textContent = 'Nová rezervace';
     document.getElementById('appointmentId').value = '';
     
@@ -584,7 +612,25 @@ function openNewAppointment(date) {
     
     document.getElementById('appointmentDate').value = dateStr;
     document.getElementById('appointmentTime').value = timeStr;
-    document.getElementById('appointmentDuration').value = '60';
+    
+    // Nastavit dobu trvání a případně maximální limit
+    const durationInput = document.getElementById('appointmentDuration');
+    if (maxDuration) {
+        durationInput.value = '30';
+        durationInput.max = maxDuration;
+        durationInput.setAttribute('data-limited', 'true');
+        // Přidat varování do formuláře
+        const noteField = document.getElementById('appointmentNote');
+        noteField.placeholder = `⚠️ MAX ${maxDuration} minut! Vkládáte mezi dlouhou rezervaci.`;
+        noteField.style.backgroundColor = '#fef3c7';
+    } else {
+        durationInput.value = '60';
+        durationInput.removeAttribute('max');
+        durationInput.removeAttribute('data-limited');
+        document.getElementById('appointmentNote').placeholder = 'Poznámka k rezervaci...';
+        document.getElementById('appointmentNote').style.backgroundColor = '';
+    }
+    
     document.getElementById('appointmentNote').value = '';
     
     document.getElementById('appointmentModal').classList.add('show');
@@ -598,12 +644,24 @@ async function saveAppointment(event) {
     event.preventDefault();
     
     const id = document.getElementById('appointmentId').value;
+    const durationInput = document.getElementById('appointmentDuration');
+    const duration = parseInt(durationInput.value);
+    
+    // Kontrola limitu trvání pro vložené služby
+    if (durationInput.getAttribute('data-limited') === 'true') {
+        const maxDuration = parseInt(durationInput.max);
+        if (duration > maxDuration) {
+            showNotification(`Trvání nesmí překročit ${maxDuration} minut (vkládáte mezi dlouhou rezervaci)`, 'error');
+            return;
+        }
+    }
+    
     const appointment = {
         clientId: parseInt(document.getElementById('appointmentClientId').value),
         serviceId: parseInt(document.getElementById('appointmentServiceId').value),
         date: document.getElementById('appointmentDate').value,
         time: document.getElementById('appointmentTime').value,
-        duration: parseInt(document.getElementById('appointmentDuration').value),
+        duration: duration,
         note: document.getElementById('appointmentNote').value
     };
     
