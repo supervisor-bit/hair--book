@@ -229,6 +229,28 @@
                     <textarea id="appointmentNote" rows="3" placeholder="Poznámka k rezervaci..."></textarea>
                 </div>
 
+                <div class="form-group" style="border-top: 1px solid #e5e7eb; padding-top: 1rem; margin-top: 1rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="appointmentRepeat" onchange="toggleRepeatOptions()">
+                        <span><i class="fas fa-redo"></i> Opakovat rezervaci</span>
+                    </label>
+                    <div id="repeatOptions" style="display: none; margin-top: 1rem; padding: 1rem; background: #f9fafb; border-radius: 0.5rem;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Opakovat za</label>
+                                <input type="number" id="repeatWeeks" value="4" min="1" max="52" placeholder="Počet týdnů">
+                            </div>
+                            <div class="form-group">
+                                <label>Počet opakování</label>
+                                <input type="number" id="repeatCount" value="1" min="1" max="10" placeholder="Kolikrát">
+                            </div>
+                        </div>
+                        <div style="font-size: 0.875rem; color: #6b7280; margin-top: 0.5rem;">
+                            <i class="fas fa-info-circle"></i> Vytvoří se několik rezervací v pravidelných intervalech
+                        </div>
+                    </div>
+                </div>
+
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="closeAppointmentModal()">
                         Zrušit
