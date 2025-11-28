@@ -1,53 +1,168 @@
-# HairBook
+# HairBook 💇‍♀️
 
-Profesionální systém pro správu kadeřnictví.
+Komplexní desktop aplikace pro správu kadeřnického salonu s offline-first přístupem.
 
-## Funkce
+## 🚀 Hlavní funkce
 
-- ✅ Správa klientů a jejich historie návštěv
-- ✅ Správa produktů a skladu
-- ✅ Přehled tržeb a účetnictví
-- ✅ Export dat do CSV a Excel
-- ✅ Záloha a obnovení dat
-- ✅ Tisk účtenek
+### Správa klientů
+- Evidence klientů s kontaktními údaji
+- Historie všech návštěv
+- Poznámky a fotogalerie (před/po)
+- Pokročilé vyhledávání a filtrace
 
-## Technologie
+### Návštěvy
+- Vytváření a uzavírání návštěv
+- Přidávání služeb s materiály
+- Přidávání produktů
+- Automatické výpočty cen a DPH
+- **🔄 Kopírování návštěv** - zkopírujte celou návštěvu do nové
+- **📋 Šablony návštěv** - ukládejte často používané kombinace služeb
 
-- HTML5
-- CSS3
-- JavaScript
-- PHP
-- SQLite
+### Služby a materiály
+- Katalog služeb s cenami
+- Správa materiálů použitých při službách
+- Drag & drop přidávání
+- Kalkulace spotřeby
 
-## Instalace
+### Produkty a sklad
+- Evidence produktů s DPH
+- Sledování skladových zásob
+- Nákupy a výdeje
+- Automatická aktualizace stavu
 
-1. Naklonujte repozitář:
+## 📦 Technologie
+
+- **Frontend**: Vanilla JavaScript (10,500+ řádků)
+- **Backend**: PHP 8.2
+- **Databáze**: SQLite 3
+- **Desktop**: Electron
+- **Server**: MAMP/Apache
+
+## 🛠️ Instalace
+
+### Požadavky
+- Node.js 16+
+- PHP 8.2+
+- MAMP nebo jiný PHP server (development)
+
+### Development
+
 ```bash
-git clone https://github.com/supervisor-bit/hair--book.git
+# Instalace závislostí
+npm install
+
+# Spuštění aplikace
+npm start
+
+# Build pro Windows
+npm run build:win
+
+# Build pro macOS
+npm run build:mac
 ```
 
-2. Nastavte webový server (Apache/MAMP/XAMPP) s PHP podporou
+### První spuštění
 
-3. Vytvořte databázi:
-```bash
-cd api
-php init-db.php
+1. Databáze se automaticky vytvoří při prvním spuštění
+2. Pokud migrujete z localStorage, migrace proběhne automaticky
+
+## 📁 Struktura projektu
+
+```
+HairBook/
+├── api/                    # PHP backend
+│   ├── config.php         # Databázová konfigurace
+│   ├── init-db.php        # DB schéma
+│   ├── clients.php        # API: Klienti
+│   ├── visits.php         # API: Návštěvy
+│   ├── services.php       # API: Služby
+│   ├── products.php       # API: Produkty
+│   ├── templates.php      # API: Šablony návštěv
+│   ├── purchases.php      # API: Nákupy
+│   ├── categories.php     # API: Kategorie
+│   └── hairbook.db        # SQLite databáze
+├── js/
+│   └── app.js             # Hlavní aplikační logika
+├── css/
+│   └── styles.css         # Styly
+├── index.html             # Hlavní HTML
+├── modals.html            # Modální okna
+├── main.js                # Electron main process
+├── preload.js             # Electron preload
+└── package.json           # NPM konfigurace
 ```
 
-4. Otevřete aplikaci v prohlížeči:
+## 🗄️ Databázové schéma
+
+### Hlavní tabulky
+
+- **clients** - Klienti (name, phone, email, notes)
+- **visits** - Návštěvy (client_id, services, products, total_price, closed)
+- **services** - Služby (name, price, category_id)
+- **products** - Produkty (name, price, vat_rate, stock_quantity)
+- **visit_templates** - Šablony návštěv (name, services_data, products_data)
+- **purchases** - Nákupy (product_id, quantity, purchase_price)
+- **categories** - Kategorie (name, type)
+- **client_notes** - Poznámky ke klientům
+- **client_photos** - Fotografie klientů
+
+## 🔧 API Endpointy
+
+Všechny endpointy podporují REST operace (GET, POST, PUT, DELETE):
+
+```javascript
+// Příklad použití
+fetch('http://localhost:8765/api/clients.php')
+  .then(res => res.json())
+  .then(data => console.log(data));
 ```
-http://localhost/HairBook/
+
+## ⚙️ Klíčové funkce
+
+### Kopírování návštěv
+```javascript
+copyVisitToNew(clientId, visitId)
+```
+Zkopíruje služby, materiály a produkty z předchozí návštěvy.
+
+### Šablony návštěv
+```javascript
+saveTemplateForm()       // Uložit šablonu
+loadTemplate(templateId) // Načíst šablonu
+deleteTemplate(id)       // Smazat šablonu
 ```
 
-## Výchozí přihlášení
+### Drag & Drop
+- Materiály → Služby
+- Produkty → Návštěva
+- Řádkový režim pro touch zařízení
 
-- **Heslo:** `admin`
+## 📊 Aktuální verze
 
-## Požadavky
+**v1.0.4** (28. listopadu 2025)
 
-- PHP 7.4+
-- SQLite3
-- Webový server (Apache/Nginx)
+### Changelog
+- ✅ Šablony návštěv s SQLite úložištěm
+- ✅ Kopírování návštěv
+- ✅ Automatická migrace z localStorage
+- ✅ Drag & drop řádkový view
+- ✅ Opravy DPH zobrazení
+
+## 🔐 Bezpečnost
+
+- Prepared statements pro SQL
+- Input sanitizace
+- Lokální databáze (offline)
+- CORS omezení
+
+## 👨‍💻 Autor
+
+Martin Vítek  
+GitHub: [@supervisor-bit](https://github.com/supervisor-bit)
+
+## 📝 Licence
+
+Proprietární software
 
 ## Licence
 
