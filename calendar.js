@@ -5,6 +5,13 @@ let appointments = [];
 let currentWeekStart = null;
 let currentAppointment = null;
 
+// Drag & Drop proměnné
+let draggedAppointment = null;
+let draggedElement = null;
+let isResizing = false;
+let resizeStartY = 0;
+let resizeStartHeight = 0;
+
 // Konstanty
 const OPENING_HOUR = 8;
 const CLOSING_HOUR = 19;
@@ -492,6 +499,9 @@ function renderCalendar() {
     
     // Vykreslit rezervace
     renderAppointments();
+    
+    // Inicializovat drag & drop listenery
+    initializeDragDropListeners();
 }
 
 function renderAppointments() {
@@ -516,17 +526,29 @@ function renderAppointments() {
                 const aptElement = document.createElement('div');
                 aptElement.className = `appointment service-${serviceColor}`;
                 aptElement.style.height = `${(apt.duration / SLOT_DURATION) * 25 - 4}px`;
+                aptElement.draggable = true;
+                aptElement.dataset.appointmentId = apt.id;
+                
                 aptElement.onclick = (e) => {
                     e.stopPropagation();
                     showAppointmentDetail(apt);
                 };
+                
+                // Drag & Drop handlers
+                aptElement.addEventListener('dragstart', handleDragStart);
+                aptElement.addEventListener('dragend', handleDragEnd);
                 
                 aptElement.innerHTML = `
                     <div class="appointment-time">${apt.time.substring(0, 5)}</div>
                     <div class="appointment-client">${client ? `${client.firstName} ${client.lastName}` : 'Neznámý'}</div>
                     <div class="appointment-service">${service ? service.name : 'Služba'}</div>
                     ${client && client.phone ? `<div class="appointment-phone"><i class="fas fa-phone"></i> ${client.phone}</div>` : ''}
+                    <div class="resize-handle"></div>
                 `;
+                
+                // Resize handler
+                const resizeHandle = aptElement.querySelector('.resize-handle');
+                resizeHandle.addEventListener('mousedown', (e) => handleResizeStart(e, apt, aptElement));
                 
                 slot.appendChild(aptElement);
             }
@@ -986,9 +1008,178 @@ function showNotification(message, type = 'info') {
     document.body.appendChild(notification);
     
     setTimeout(() => {
-        notification.style.animation = 'slideOut 0.3s ease';
-        setTimeout(() => notification.remove(), 300);
+        notification.remove();
     }, 3000);
+}
+
+// ===== DRAG & DROP =====
+
+function handleDragStart(e) {
+    draggedElement = e.target;
+    const aptId = parseInt(e.target.dataset.appointmentId);
+    draggedAppointment = appointments.find(apt => apt.id === aptId);
+    
+    e.target.style.opacity = '0.5';
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragEnd(e) {
+    e.target.style.opacity = '1';
+    
+    // Odstranit drag-over třídy ze všech slotů
+    document.querySelectorAll('.time-slot').forEach(slot => {
+        slot.classList.remove('drag-over');
+    });
+}
+
+// Povolit drop na time sloty (volá se z renderCalendar)
+function initializeDragDropListeners() {
+    document.querySelectorAll('.time-slot').forEach(slot => {
+        slot.addEventListener('dragover', handleDragOver);
+        slot.addEventListener('dragleave', handleDragLeave);
+        slot.addEventListener('drop', handleDrop);
+    });
+}
+
+function handleDragOver(e) {
+    if (e.preventDefault) {
+        e.preventDefault();
+    }
+    
+    e.dataTransfer.dropEffect = 'move';
+    e.currentTarget.classList.add('drag-over');
+    return false;
+}
+
+function handleDragLeave(e) {
+    e.currentTarget.classList.remove('drag-over');
+}
+
+async function handleDrop(e) {
+    if (e.stopPropagation) {
+        e.stopPropagation();
+    }
+    
+    e.currentTarget.classList.remove('drag-over');
+    
+    if (!draggedAppointment) return;
+    
+    const targetSlot = e.currentTarget;
+    const newDateTime = new Date(targetSlot.dataset.date);
+    
+    // Zkontrolovat, zda není v minulosti
+    if (newDateTime < new Date()) {
+        showNotification('Nelze přesunout rezervaci do minulosti', 'error');
+        return;
+    }
+    
+    // Aktualizovat rezervaci
+    const updatedAppointment = {
+        ...draggedAppointment,
+        date: newDateTime.toISOString().split('T')[0],
+        time: newDateTime.toTimeString().split(' ')[0]
+    };
+    
+    try {
+        const response = await fetch(`api/appointments.php`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedAppointment)
+        });
+        
+        if (response.ok) {
+            showNotification('Rezervace přesunuta', 'success');
+            await loadData();
+            renderCalendar();
+        } else {
+            const error = await response.json();
+            showNotification(error.error || 'Chyba při přesunu rezervace', 'error');
+        }
+    } catch (error) {
+        console.error('Chyba:', error);
+        showNotification('Chyba při přesunu rezervace', 'error');
+    }
+    
+    draggedAppointment = null;
+    draggedElement = null;
+}
+
+// ===== RESIZE =====
+
+function handleResizeStart(e, appointment, element) {
+    e.stopPropagation();
+    e.preventDefault();
+    
+    isResizing = true;
+    resizeStartY = e.clientY;
+    resizeStartHeight = element.offsetHeight;
+    currentAppointment = appointment;
+    draggedElement = element;
+    
+    document.addEventListener('mousemove', handleResizeMove);
+    document.addEventListener('mouseup', handleResizeEnd);
+    
+    element.classList.add('resizing');
+}
+
+function handleResizeMove(e) {
+    if (!isResizing) return;
+    
+    const deltaY = e.clientY - resizeStartY;
+    const newHeight = Math.max(25 - 4, resizeStartHeight + deltaY); // Min 1 slot (15 min)
+    
+    draggedElement.style.height = `${newHeight}px`;
+}
+
+async function handleResizeEnd(e) {
+    if (!isResizing) return;
+    
+    isResizing = false;
+    document.removeEventListener('mousemove', handleResizeMove);
+    document.removeEventListener('mouseup', handleResizeEnd);
+    
+    draggedElement.classList.remove('resizing');
+    
+    // Vypočítat novou délku v minutách (zaokrouhlit na 15 min)
+    const newHeight = draggedElement.offsetHeight;
+    const newDuration = Math.round((newHeight + 4) / 25) * SLOT_DURATION;
+    
+    // Minimálně 15 minut
+    const finalDuration = Math.max(SLOT_DURATION, newDuration);
+    
+    // Aktualizovat rezervaci
+    const updatedAppointment = {
+        ...currentAppointment,
+        duration: finalDuration
+    };
+    
+    try {
+        const response = await fetch(`api/appointments.php`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedAppointment)
+        });
+        
+        if (response.ok) {
+            showNotification(`Délka změněna na ${finalDuration} min`, 'success');
+            await loadData();
+            renderCalendar();
+        } else {
+            const error = await response.json();
+            showNotification(error.error || 'Chyba při změně délky', 'error');
+            // Vrátit původní výšku
+            await loadData();
+            renderCalendar();
+        }
+    } catch (error) {
+        console.error('Chyba:', error);
+        showNotification('Chyba při změně délky', 'error');
+        await loadData();
+        renderCalendar();
+    }
+    
+    currentAppointment = null;
+    draggedElement = null;
 }
 
 // Odhlášení
