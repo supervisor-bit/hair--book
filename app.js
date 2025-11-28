@@ -260,12 +260,8 @@ let currentIssuesPage = 1;
 const issuesPerPage = 20;
 let currentOrdersPage = 1;
 const ordersPerPage = 20;
-let currentReceiptsPage = 1;
-const receiptsPerPage = 20;
-let currentIssuesPage = 1;
-const issuesPerPage = 20;
-let currentOrdersPage = 1;
-const ordersPerPage = 20;
+let currentSalesPage = 1;
+const salesPerPage = 20;
 
 let currentClient = null;
 let currentProduct = null;
