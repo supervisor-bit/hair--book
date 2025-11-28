@@ -5008,7 +5008,7 @@ function renderOrderHistory() {
         };
         
         return `
-            <div class="order-item" style="border-bottom: 1px solid var(--border-color); padding: 1rem;">
+            <div class="order-item" style="background: white; border: 1px solid var(--border-color); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: all 0.2s;" onmouseenter="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.15)'" onmouseleave="this.style.boxShadow='0 1px 3px rgba(0,0,0,0.1)'">
                 <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleOrderDetail(${order.id})">
                     <div style="display: flex; align-items: center; gap: 1rem;">
                         <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); width: 48px; height: 48px; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white;">
@@ -5392,7 +5392,7 @@ function renderReceiptHistory() {
         const totalQuantity = receipt.items.reduce((sum, item) => sum + item.quantity, 0);
         
         return `
-            <div class="receipt-item" style="border-bottom: 1px solid var(--border-color); padding: 1rem; cursor: pointer; transition: background 0.2s;" onclick="toggleReceiptDetail(${receipt.id})">
+            <div class="receipt-item" style="background: white; border: 1px solid var(--border-color); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.1);" onclick="toggleReceiptDetail(${receipt.id})" onmouseenter="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.15)'" onmouseleave="this.style.boxShadow='0 1px 3px rgba(0,0,0,0.1)'"
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div style="display: flex; align-items: center; gap: 1rem;">
                         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); width: 48px; height: 48px; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white;">
@@ -5645,7 +5645,7 @@ function renderSalesHistory() {
         const workItems = sale.items.filter(item => item.price === 0);
         
         return `
-            <div class="sale-item" style="border-bottom: 1px solid var(--border-color); padding: 1rem; cursor: pointer; transition: background 0.2s;" onclick="toggleSaleDetail(${sale.id})">
+            <div class="sale-item" style="background: white; border: 1px solid var(--border-color); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.1);" onclick="toggleSaleDetail(${sale.id})" onmouseenter="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.15)'" onmouseleave="this.style.boxShadow='0 1px 3px rgba(0,0,0,0.1)'">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div style="display: flex; align-items: center; gap: 1rem;">
                         <div style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); width: 48px; height: 48px; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white;">
@@ -7611,7 +7611,7 @@ function renderIssueHistory() {
         const totalQuantity = issue.items.reduce((sum, item) => sum + parseFloat(item.quantity), 0);
         
         return `
-            <div class="receipt-item" style="border-bottom: 1px solid var(--border-color); padding: 1rem; cursor: pointer; transition: background 0.2s;" onclick="toggleIssueDetail('${issueId}')">
+            <div class="receipt-item" style="background: white; border: 1px solid var(--border-color); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.1);" onclick="toggleIssueDetail('${issueId}')" onmouseenter="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.15)'" onmouseleave="this.style.boxShadow='0 1px 3px rgba(0,0,0,0.1)'">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div style="display: flex; align-items: center; gap: 1rem;">
                         <div style="background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%); width: 48px; height: 48px; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white;">
