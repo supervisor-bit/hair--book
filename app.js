@@ -906,7 +906,7 @@ function showClientDetail(client, event = null) {
                 <span style="position: absolute; top: 0.5rem; right: 0.5rem; background: #8b5cf6; color: white; font-size: 0.75rem; font-weight: 700; padding: 0.125rem 0.5rem; border-radius: 9999px; min-width: 1.5rem; text-align: center;">${client.visits.length}</span>
             </button>
             <button class="tab-btn" onclick="switchClientTab(${client.id}, 'purchases')" data-tab="purchases" style="position: relative; flex: 1; padding: 1rem; border: none; background: none; cursor: pointer; font-weight: 600; color: #6b7280; border-bottom: 3px solid transparent; transition: all 0.2s;">
-                <i class="fas fa-shopping-bag"></i> Zakoupené produkty
+                <i class="fas fa-shopping-bag"></i> Nákupy produktů
                 <span style="position: absolute; top: 0.5rem; right: 0.5rem; background: #ec4899; color: white; font-size: 0.75rem; font-weight: 700; padding: 0.125rem 0.5rem; border-radius: 9999px; min-width: 1.5rem; text-align: center;">${client.purchases?.length || 0}</span>
             </button>
             <button class="tab-btn" onclick="switchClientTab(${client.id}, 'notes')" data-tab="notes" style="position: relative; flex: 1; padding: 1rem; border: none; background: none; cursor: pointer; font-weight: 600; color: #6b7280; border-bottom: 3px solid transparent; transition: all 0.2s;">
@@ -924,7 +924,7 @@ function showClientDetail(client, event = null) {
         </div>
         
         <div id="clientTabPurchases" class="client-tab-content" style="display: none;">
-            <h4 style="flex-shrink: 0; padding: 1.5rem 1.5rem 1rem 1.5rem; margin: 0;">Zakoupené produkty</h4>
+            <h4 style="flex-shrink: 0; padding: 1.5rem 1.5rem 1rem 1.5rem; margin: 0;">Nákupy produktů</h4>
             <div class="visits-list">
                 ${renderClientPurchases(client)}
             </div>
