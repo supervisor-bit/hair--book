@@ -305,21 +305,30 @@
 
 /* Větší modální okna pro kalendář */
 #appointmentDetailModal .modal-content {
-    max-width: 600px;
+    max-width: 700px !important;
+    width: 90vw;
     max-height: 90vh;
+    display: flex;
+    flex-direction: column;
 }
 
-#appointmentDetailModal .modal-body {
-    max-height: calc(90vh - 120px);
+#appointmentDetailModal .modal-body,
+#appointmentDetailModal #appointmentDetailContent {
+    max-height: calc(90vh - 180px);
     overflow-y: auto;
+    flex: 1;
 }
 
 #appointmentModal .modal-content {
-    max-width: 600px;
+    max-width: 700px !important;
+    width: 90vw;
     max-height: 90vh;
+    display: flex;
+    flex-direction: column;
 }
 
 #appointmentModal .modal-body {
-    max-height: calc(90vh - 120px);
+    max-height: calc(90vh - 180px);
     overflow-y: auto;
+    flex: 1;
 }
