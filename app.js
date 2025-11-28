@@ -8685,8 +8685,8 @@ function initializeAccountingPage() {
     const currentMonth = new Date().getMonth() + 1;
     document.getElementById('accountingMonth').value = currentMonth;
     
-    yearSelect.addEventListener('change', generateAccountingReport);
-    document.getElementById('accountingMonth').addEventListener('change', generateAccountingReport);
+    yearSelect.addEventListener('change', updateAllAccountingSections);
+    document.getElementById('accountingMonth').addEventListener('change', updateAllAccountingSections);
     
     // Inicializovat selektor období pro porovnání
     const comparisonSelector = document.getElementById('comparisonPeriod');
@@ -8702,6 +8702,15 @@ function initializeAccountingPage() {
     generateCostsReport();
     generateClientStats();
     generateComparison();
+}
+
+// Funkce pro aktualizaci všech sekcí účetnictví podle období
+function updateAllAccountingSections() {
+    generateAccountingReport();  // Přehled tržeb + Inventura
+    generateTopItems();           // Top produkty a služby
+    generateCostsReport();        // Náklady a zisk
+    generateClientStats();        // Statistiky klientů
+    generateComparison();         // Porovnání období
 }
 
 function showAccountingSection(sectionId) {
@@ -10608,6 +10617,9 @@ function calculateRevenueForQuarter(year, quarter) {
 }
 
 function generateTopItems() {
+    const year = parseInt(document.getElementById('accountingYear').value);
+    const month = document.getElementById('accountingMonth').value;
+    
     // TOP služby - sbíráme ze services pole
     const serviceStats = {};
     
@@ -10615,6 +10627,12 @@ function generateTopItems() {
         if (client.visits) {
             client.visits.forEach(visit => {
                 if (!visit.closed || !visit.price) return;
+                
+                // Filtr podle období
+                const visitDate = new Date(visit.date);
+                const visitYear = visitDate.getFullYear();
+                const visitMonth = visitDate.getMonth() + 1;
+                if (visitYear !== year || (month && visitMonth !== parseInt(month))) return;
                 
                 // Parsování služeb - může být array nebo string
                 let serviceNames = [];
@@ -10667,6 +10685,12 @@ function generateTopItems() {
     clients.forEach(client => {
         if (client.purchases) {
             client.purchases.forEach(purchase => {
+                // Filtr podle období
+                const purchaseDate = new Date(purchase.date);
+                const purchaseYear = purchaseDate.getFullYear();
+                const purchaseMonth = purchaseDate.getMonth() + 1;
+                if (purchaseYear !== year || (month && purchaseMonth !== parseInt(month))) return;
+                
                 purchase.items.forEach(item => {
                     if (!productStats[item.name]) {
                         productStats[item.name] = { count: 0, revenue: 0 };
@@ -10752,18 +10776,31 @@ function generateTopItems() {
 }
 
 function generateCostsReport() {
+    const year = parseInt(document.getElementById('accountingYear').value);
+    const month = document.getElementById('accountingMonth').value;
+    
     // Celkové tržby
     let totalRevenue = 0;
     clients.forEach(client => {
         if (client.visits) {
             client.visits.forEach(visit => {
-                if (visit.closed && visit.price) {
-                    totalRevenue += visit.price || 0;
-                }
+                if (!visit.closed || !visit.price) return;
+                
+                const visitDate = new Date(visit.date);
+                const visitYear = visitDate.getFullYear();
+                const visitMonth = visitDate.getMonth() + 1;
+                if (visitYear !== year || (month && visitMonth !== parseInt(month))) return;
+                
+                totalRevenue += visit.price || 0;
             });
         }
         if (client.purchases) {
             client.purchases.forEach(purchase => {
+                const purchaseDate = new Date(purchase.date);
+                const purchaseYear = purchaseDate.getFullYear();
+                const purchaseMonth = purchaseDate.getMonth() + 1;
+                if (purchaseYear !== year || (month && purchaseMonth !== parseInt(month))) return;
+                
                 totalRevenue += purchase.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
             });
         }
@@ -10773,6 +10810,12 @@ function generateCostsReport() {
     let totalPurchases = 0;
     if (stockReceipts && stockReceipts.length > 0) {
         stockReceipts.forEach(receipt => {
+            // Filtr podle období
+            const receiptDate = new Date(receipt.date);
+            const receiptYear = receiptDate.getFullYear();
+            const receiptMonth = receiptDate.getMonth() + 1;
+            if (receiptYear !== year || (month && receiptMonth !== parseInt(month))) return;
+            
             if (receipt.items) {
                 receipt.items.forEach(item => {
                     // Najít produkt a získat nákupní cenu
@@ -10790,7 +10833,15 @@ function generateCostsReport() {
     clients.forEach(client => {
         if (client.visits) {
             client.visits.forEach(visit => {
-                if (visit.closed && visit.services) {
+                if (!visit.closed || !visit.services) return;
+                
+                // Filtr podle období
+                const visitDate = new Date(visit.date);
+                const visitYear = visitDate.getFullYear();
+                const visitMonth = visitDate.getMonth() + 1;
+                if (visitYear !== year || (month && visitMonth !== parseInt(month))) return;
+                
+                if (visit.services) {
                     visit.services.forEach(service => {
                         if (service.materials) {
                             service.materials.forEach(material => {
