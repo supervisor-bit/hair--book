@@ -247,7 +247,7 @@ let visitTemplates = []; // Šablony návštěv
 
 // Pagination
 let currentClientsPage = 1;
-const clientsPerPage = 30;
+const clientsPerPage = 2;
 
 let currentClient = null;
 let currentProduct = null;
