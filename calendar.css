@@ -302,3 +302,24 @@
     color: #9ca3af;
     font-size: 0.875rem;
 }
+
+/* Větší modální okna pro kalendář */
+#appointmentDetailModal .modal-content {
+    max-width: 600px;
+    max-height: 90vh;
+}
+
+#appointmentDetailModal .modal-body {
+    max-height: calc(90vh - 120px);
+    overflow-y: auto;
+}
+
+#appointmentModal .modal-content {
+    max-width: 600px;
+    max-height: 90vh;
+}
+
+#appointmentModal .modal-body {
+    max-height: calc(90vh - 120px);
+    overflow-y: auto;
+}
