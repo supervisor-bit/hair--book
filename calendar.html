@@ -268,14 +268,52 @@
                             <input type="number" id="repeatCountDetail" value="1" min="1" max="10" placeholder="Kolikrát">
                         </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Čas</label>
-                            <input type="time" id="repeatTimeDetail" step="900">
+                    <div style="margin-bottom: 1rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="checkbox" id="alternateTimesCheckbox" onchange="toggleAlternateTimes()">
+                            <span>📅 Různý čas pro sudé/liché týdny (směny)</span>
+                        </label>
+                    </div>
+                    
+                    <div id="singleTimeFields">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Čas</label>
+                                <input type="time" id="repeatTimeDetail" step="900">
+                            </div>
+                            <div class="form-group">
+                                <label>Trvání (min)</label>
+                                <input type="number" id="repeatDurationDetail" min="15" step="15">
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>Trvání (min)</label>
-                            <input type="number" id="repeatDurationDetail" min="15" step="15">
+                    </div>
+                    
+                    <div id="alternateTimeFields" style="display: none;">
+                        <div style="background: #dbeafe; padding: 0.75rem; border-radius: 0.375rem; margin-bottom: 0.75rem;">
+                            <div style="font-weight: 600; margin-bottom: 0.5rem; color: #1e40af;">📅 Sudé týdny</div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Čas</label>
+                                    <input type="time" id="repeatTimeEven" step="900">
+                                </div>
+                                <div class="form-group">
+                                    <label>Trvání (min)</label>
+                                    <input type="number" id="repeatDurationEven" min="15" step="15">
+                                </div>
+                            </div>
+                        </div>
+                        <div style="background: #fef3c7; padding: 0.75rem; border-radius: 0.375rem;">
+                            <div style="font-weight: 600; margin-bottom: 0.5rem; color: #92400e;">📆 Liché týdny</div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Čas</label>
+                                    <input type="time" id="repeatTimeOdd" step="900">
+                                </div>
+                                <div class="form-group">
+                                    <label>Trvání (min)</label>
+                                    <input type="number" id="repeatDurationOdd" min="15" step="15">
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div style="font-size: 0.875rem; color: #1e40af; margin-bottom: 1rem;">

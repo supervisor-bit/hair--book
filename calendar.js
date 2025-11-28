@@ -750,7 +750,31 @@ function showRepeatDialog() {
     // Předvyplnit hodnoty z aktuální rezervace
     document.getElementById('repeatTimeDetail').value = currentAppointment.time;
     document.getElementById('repeatDurationDetail').value = currentAppointment.duration;
+    document.getElementById('repeatTimeEven').value = currentAppointment.time;
+    document.getElementById('repeatDurationEven').value = currentAppointment.duration;
+    document.getElementById('repeatTimeOdd').value = currentAppointment.time;
+    document.getElementById('repeatDurationOdd').value = currentAppointment.duration;
+    
+    // Reset checkbox
+    document.getElementById('alternateTimesCheckbox').checked = false;
+    document.getElementById('singleTimeFields').style.display = 'block';
+    document.getElementById('alternateTimeFields').style.display = 'none';
+    
     document.getElementById('repeatOptionsDetail').style.display = 'block';
+}
+
+function toggleAlternateTimes() {
+    const checkbox = document.getElementById('alternateTimesCheckbox');
+    const singleFields = document.getElementById('singleTimeFields');
+    const alternateFields = document.getElementById('alternateTimeFields');
+    
+    if (checkbox.checked) {
+        singleFields.style.display = 'none';
+        alternateFields.style.display = 'block';
+    } else {
+        singleFields.style.display = 'block';
+        alternateFields.style.display = 'none';
+    }
 }
 
 function hideRepeatDialog() {
@@ -762,17 +786,33 @@ async function createRepeatedAppointments() {
     
     const repeatWeeks = parseInt(document.getElementById('repeatWeeksDetail').value);
     const repeatCount = parseInt(document.getElementById('repeatCountDetail').value);
-    const repeatTime = document.getElementById('repeatTimeDetail').value;
-    const repeatDuration = parseInt(document.getElementById('repeatDurationDetail').value);
+    const useAlternateTimes = document.getElementById('alternateTimesCheckbox').checked;
     
     if (!repeatWeeks || repeatWeeks < 1 || !repeatCount || repeatCount < 1) {
         showNotification('Zadejte platné hodnoty', 'error');
         return;
     }
     
-    if (!repeatTime || !repeatDuration) {
-        showNotification('Zadejte čas a trvání', 'error');
-        return;
+    let repeatTime, repeatDuration, repeatTimeEven, repeatDurationEven, repeatTimeOdd, repeatDurationOdd;
+    
+    if (useAlternateTimes) {
+        repeatTimeEven = document.getElementById('repeatTimeEven').value;
+        repeatDurationEven = parseInt(document.getElementById('repeatDurationEven').value);
+        repeatTimeOdd = document.getElementById('repeatTimeOdd').value;
+        repeatDurationOdd = parseInt(document.getElementById('repeatDurationOdd').value);
+        
+        if (!repeatTimeEven || !repeatDurationEven || !repeatTimeOdd || !repeatDurationOdd) {
+            showNotification('Zadejte časy a trvání pro sudé i liché týdny', 'error');
+            return;
+        }
+    } else {
+        repeatTime = document.getElementById('repeatTimeDetail').value;
+        repeatDuration = parseInt(document.getElementById('repeatDurationDetail').value);
+        
+        if (!repeatTime || !repeatDuration) {
+            showNotification('Zadejte čas a trvání', 'error');
+            return;
+        }
     }
     
     let successCount = 0;
@@ -783,12 +823,26 @@ async function createRepeatedAppointments() {
             const repeatDate = new Date(currentAppointment.date);
             repeatDate.setDate(repeatDate.getDate() + (i * repeatWeeks * 7));
             
+            // Určit, jestli je cílový týden sudý nebo lichý
+            const targetWeekNumber = getWeekNumber(repeatDate);
+            const isEvenWeek = targetWeekNumber % 2 === 0;
+            
+            // Vybrat správný čas a trvání podle typu týdne
+            let finalTime, finalDuration;
+            if (useAlternateTimes) {
+                finalTime = isEvenWeek ? repeatTimeEven : repeatTimeOdd;
+                finalDuration = isEvenWeek ? repeatDurationEven : repeatDurationOdd;
+            } else {
+                finalTime = repeatTime;
+                finalDuration = repeatDuration;
+            }
+            
             const repeatedAppointment = {
                 clientId: currentAppointment.clientId,
                 serviceId: currentAppointment.serviceId,
                 date: repeatDate.toISOString().split('T')[0],
-                time: repeatTime,
-                duration: repeatDuration,
+                time: finalTime,
+                duration: finalDuration,
                 note: currentAppointment.note || ''
             };
             
