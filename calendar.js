@@ -528,6 +528,12 @@ function renderAppointments() {
                 
                 const aptElement = document.createElement('div');
                 aptElement.className = `appointment service-${serviceColor}`;
+                
+                // Krátké služby (max 30 min) mají vyšší z-index aby byly vidět nahoře
+                if (apt.duration <= 30) {
+                    aptElement.classList.add('short-service');
+                }
+                
                 aptElement.style.height = `${(apt.duration / SLOT_DURATION) * 25 - 4}px`;
                 aptElement.draggable = true;
                 aptElement.dataset.appointmentId = apt.id;
