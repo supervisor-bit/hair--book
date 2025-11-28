@@ -497,7 +497,7 @@ function renderClientGroups() {
     container.innerHTML = '';
     
     // Přidat položku "Vše" (bez neaktivních)
-    const activeClientsCount = clients.filter(c => c.groupId !== 4).length;
+    const activeClientsCount = clients.filter(c => parseInt(c.groupId) !== 4).length;
     const allItem = document.createElement('div');
     allItem.className = 'category-item' + (selectedClientGroup === null ? ' active' : '');
     allItem.innerHTML = `
@@ -701,7 +701,7 @@ function renderClients() {
     let filteredClients;
     if (selectedClientGroup === null) {
         // "Všichni" - zobrazit všechny kromě neaktivních (groupId 4)
-        filteredClients = clients.filter(c => c.groupId !== 4);
+        filteredClients = clients.filter(c => parseInt(c.groupId) !== 4);
     } else {
         // Konkrétní skupina - zobrazit jen klienty z této skupiny
         filteredClients = clients.filter(c => c.groupId === selectedClientGroup);
@@ -8351,7 +8351,7 @@ function calculateDashboardStats() {
     
     // Celkový počet klientů a aktivních
     const totalClients = clients.length;
-    const activeClients = clients.filter(c => c.groupId !== 4).length;
+    const activeClients = clients.filter(c => parseInt(c.groupId) !== 4).length;
     
     // Produkty pod minimem
     const lowStockProducts = products.filter(p => p.stock < p.minStock).length;
@@ -8620,8 +8620,8 @@ function renderAlerts(stats) {
         });
     }
     
-    // Neaktivní klienti
-    const inactiveClients = clients.filter(c => c.groupId === 4);
+    // Neaktivní klienti (označeni skupinou Neaktivní)
+    const inactiveClients = clients.filter(c => parseInt(c.groupId) === 4);
     if (inactiveClients.length > 0) {
         alerts.push({
             icon: 'fa-user-clock',
