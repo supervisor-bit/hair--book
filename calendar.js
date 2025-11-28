@@ -7,7 +7,7 @@ let currentAppointment = null;
 
 // Konstanty
 const OPENING_HOUR = 8;
-const CLOSING_HOUR = 18;
+const CLOSING_HOUR = 19;
 const SLOT_DURATION = 15; // minuty
 
 // Inicializace
@@ -221,7 +221,7 @@ function renderAppointments() {
                 
                 const aptElement = document.createElement('div');
                 aptElement.className = `appointment service-${serviceColor}`;
-                aptElement.style.height = `${(apt.duration / SLOT_DURATION) * 60 - 4}px`;
+                aptElement.style.height = `${(apt.duration / SLOT_DURATION) * 50 - 4}px`;
                 aptElement.onclick = (e) => {
                     e.stopPropagation();
                     showAppointmentDetail(apt);
