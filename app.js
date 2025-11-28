@@ -248,6 +248,12 @@ let visitTemplates = []; // Šablony návštěv
 // Pagination
 let currentClientsPage = 1;
 const clientsPerPage = 2;
+let currentVisitsPage = 1;
+const visitsPerPage = 10;
+let currentPurchasesPage = 1;
+const purchasesPerPage = 10;
+let currentNotesPage = 1;
+const notesPerPage = 10;
 
 let currentClient = null;
 let currentProduct = null;
@@ -604,6 +610,21 @@ function goToClientsPage(page) {
     renderClients();
 }
 
+function goToVisitsPage(page) {
+    currentVisitsPage = page;
+    if (currentClient) showClientDetail(currentClient);
+}
+
+function goToPurchasesPage(page) {
+    currentPurchasesPage = page;
+    if (currentClient) showClientDetail(currentClient);
+}
+
+function goToNotesPage(page) {
+    currentNotesPage = page;
+    if (currentClient) showClientDetail(currentClient);
+}
+
 function renderClients() {
     const clientList = document.getElementById('clientList');
     clientList.innerHTML = '';
@@ -736,8 +757,16 @@ function showClientDetail(client, event = null) {
         .reduce((sum, v) => sum + (v.price || 0), 0);
     
     let visitsHtml = '';
+    let visitsPaginationHtml = '';
     if (client.visits.length > 0) {
-        visitsHtml = client.visits.map(visit => {
+        const totalPages = Math.ceil(client.visits.length / visitsPerPage);
+        if (currentVisitsPage > totalPages) currentVisitsPage = 1;
+        
+        const startIndex = (currentVisitsPage - 1) * visitsPerPage;
+        const endIndex = startIndex + visitsPerPage;
+        const pageVisits = client.visits.slice(startIndex, endIndex);
+        
+        visitsHtml = pageVisits.map(visit => {
             const statusBadge = visit.closed 
                 ? '<span class="visit-status-badge closed"><i class="fas fa-check-circle"></i> Uzavřeno</span>'
                 : '<span class="visit-status-badge open"><i class="fas fa-clock"></i> Otevřeno</span>';
@@ -803,6 +832,10 @@ function showClientDetail(client, event = null) {
                 </div>
             `;
         }).join('');
+        
+        if (totalPages > 1) {
+            visitsPaginationHtml = '<div id="visitsPaginationContainer"></div>';
+        }
     } else {
         visitsHtml = '<p style="color: var(--text-light); text-align: center; padding: 2rem;">Zatím žádné návštěvy</p>';
     }
@@ -884,6 +917,7 @@ function showClientDetail(client, event = null) {
             <div class="visits-list">
                 ${visitsHtml}
             </div>
+            ${visitsPaginationHtml}
         </div>
         
         <div id="clientTabPurchases" class="client-tab-content" style="display: none;">
@@ -926,6 +960,13 @@ function switchClientTab(clientId, tabName) {
     document.getElementById('clientTabVisits').style.display = tabName === 'visits' ? 'flex' : 'none';
     document.getElementById('clientTabPurchases').style.display = tabName === 'purchases' ? 'flex' : 'none';
     document.getElementById('clientTabNotes').style.display = tabName === 'notes' ? 'flex' : 'none';
+    
+    // Render pagination after DOM is ready
+    setTimeout(() => {
+        if (tabName === 'visits' && currentClient.visits.length > visitsPerPage) {
+            renderPagination('visitsPaginationContainer', currentClient.visits.length, currentVisitsPage, visitsPerPage, 'goToVisitsPage');
+        }
+    }, 0);
 }
 
 function renderClientPurchases(client) {
@@ -933,7 +974,14 @@ function renderClientPurchases(client) {
         return '<p style="color: var(--text-light); text-align: center; padding: 2rem;">Zatím žádné nákupy</p>';
     }
     
-    return client.purchases.map(purchase => {
+    const totalPages = Math.ceil(client.purchases.length / purchasesPerPage);
+    if (currentPurchasesPage > totalPages) currentPurchasesPage = 1;
+    
+    const startIndex = (currentPurchasesPage - 1) * purchasesPerPage;
+    const endIndex = startIndex + purchasesPerPage;
+    const pagePurchases = client.purchases.slice(startIndex, endIndex);
+    
+    const purchasesHtml = pagePurchases.map(purchase => {
         const productsHtml = purchase.items.map(item => 
             `<div style="margin-bottom: 0.25rem;">• ${item.name} - ${item.quantity} ks × ${item.price} Kč = ${item.quantity * item.price} Kč</div>`
         ).join('');
@@ -950,6 +998,16 @@ function renderClientPurchases(client) {
             </div>
         `;
     }).join('');
+    
+    let paginationHtml = '';
+    if (totalPages > 1) {
+        paginationHtml = '<div id="purchasesPaginationContainer"></div>';
+        setTimeout(() => {
+            renderPagination('purchasesPaginationContainer', client.purchases.length, currentPurchasesPage, purchasesPerPage, 'goToPurchasesPage');
+        }, 0);
+    }
+    
+    return purchasesHtml + paginationHtml;
 }
 
 function renderClientNotes(client) {
@@ -957,7 +1015,14 @@ function renderClientNotes(client) {
         return '<p style="color: var(--text-light); text-align: center; padding: 2rem;">Zatím žádné poznámky</p>';
     }
     
-    return client.notes.map(note => {
+    const totalPages = Math.ceil(client.notes.length / notesPerPage);
+    if (currentNotesPage > totalPages) currentNotesPage = 1;
+    
+    const startIndex = (currentNotesPage - 1) * notesPerPage;
+    const endIndex = startIndex + notesPerPage;
+    const pageNotes = client.notes.slice(startIndex, endIndex);
+    
+    const notesHtml = pageNotes.map(note => {
         return `
             <div class="visit-item" style="position: relative;">
                 <div class="visit-date">
@@ -975,6 +1040,16 @@ function renderClientNotes(client) {
             </div>
         `;
     }).join('');
+    
+    let paginationHtml = '';
+    if (totalPages > 1) {
+        paginationHtml = '<div id="notesPaginationContainer"></div>';
+        setTimeout(() => {
+            renderPagination('notesPaginationContainer', client.notes.length, currentNotesPage, notesPerPage, 'goToNotesPage');
+        }, 0);
+    }
+    
+    return notesHtml + paginationHtml;
 }
 
 function openNoteModal(clientId, noteId = null) {
