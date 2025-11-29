@@ -2,13 +2,8 @@
   "name": "hairbook",
   "version": "1.0.0",
   "description": "Profesionální systém pro správu kadeřnictví.",
-  "main": "electron-main.js",
   "scripts": {
-    "start": "electron .",
-    "build": "electron-builder",
-    "build:win": "electron-builder --win",
-    "build:mac": "electron-builder --mac",
-    "build:linux": "electron-builder --linux"
+    "start": "php -S localhost:8888 server-router.php"
   },
   "repository": {
     "type": "git",
@@ -25,60 +20,5 @@
     "name": "HairBook",
     "email": "info@hairbook.cz"
   },
-  "build": {
-    "appId": "com.hairbook.app",
-    "productName": "HairBook",
-    "asar": false,
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "**/*",
-      "!node_modules/**/*",
-      "!dist/**/*",
-      "!.git/**/*",
-      "!*.db",
-      "!*.sqlite"
-    ],
-    "extraResources": [
-      {
-        "from": "api",
-        "to": "api"
-      }
-    ],
-    "mac": {
-      "category": "public.app-category.business",
-      "icon": "icon.icns",
-      "identity": null,
-      "target": [
-        "dmg",
-        "zip"
-      ]
-    },
-    "win": {
-      "icon": "icon.ico",
-      "target": [
-        "nsis"
-      ]
-    },
-    "linux": {
-      "icon": "icon.png",
-      "category": "Office",
-      "target": [
-        "AppImage",
-        "deb"
-      ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
-    }
-  },
-  "devDependencies": {
-    "electron": "^39.2.4",
-    "electron-builder": "^26.0.12",
-    "php-server": "^3.0.0"
-  }
+  "devDependencies": {}
 }

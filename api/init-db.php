@@ -1,15 +1,33 @@
 <?php
-// Inicializace SQLite databáze pro HairBook
+// Inicializace databáze (SQLite nebo MySQL) pro HairBook
 
+$dbType = getenv('DB_TYPE') ?: 'sqlite';
+$dbName = getenv('DB_NAME') ?: 'hairbook';
+$dbHost = getenv('DB_HOST') ?: 'localhost';
+$dbUser = getenv('DB_USER') ?: 'root';
+$dbPass = getenv('DB_PASS') ?: '';
+$dbCharset = getenv('DB_CHARSET') ?: 'utf8mb4';
 $dbFile = __DIR__ . '/hairbook.db';
 
 try {
-    $db = new PDO('sqlite:' . $dbFile);
+    if ($dbType === 'mysql') {
+        $dsn = sprintf('mysql:host=%s;dbname=%s;charset=%s', $dbHost, $dbName, $dbCharset);
+        $db = new PDO($dsn, $dbUser, $dbPass);
+    } else {
+        $db = new PDO('sqlite:' . $dbFile);
+        $db->exec('PRAGMA foreign_keys = ON');
+    }
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    
+    $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+
+    $pkAuto = $dbType === 'mysql' ? 'INT AUTO_INCREMENT PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT';
+    $engine = $dbType === 'mysql' ? ' ENGINE=InnoDB DEFAULT CHARSET=' . $dbCharset : '';
+    $fkCascade = 'ON DELETE CASCADE';
+    $fkSetNull = 'ON DELETE SET NULL';
+
     // Tabulka pro nastavení salonu
     $db->exec("CREATE TABLE IF NOT EXISTS salon_settings (
-        id INTEGER PRIMARY KEY,
+        id INT PRIMARY KEY,
         name TEXT NOT NULL,
         address TEXT,
         phone TEXT,
@@ -17,12 +35,13 @@ try {
         web TEXT,
         ico TEXT,
         dic TEXT,
-        receipt_footer TEXT
-    )");
-    
-    // Tabulka pro klienty
+        receipt_footer TEXT,
+        password TEXT
+    ){$engine}");
+
+    // Klienti
     $db->exec("CREATE TABLE IF NOT EXISTS clients (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id {$pkAuto},
         first_name TEXT NOT NULL,
         last_name TEXT NOT NULL,
         phone TEXT NOT NULL,
@@ -30,28 +49,28 @@ try {
         avatar TEXT,
         group_id INTEGER,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )");
-    
-    // Tabulka pro poznámky klientů
+    ){$engine}");
+
+    // Poznámky klientů
     $db->exec("CREATE TABLE IF NOT EXISTS client_notes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id {$pkAuto},
         client_id INTEGER NOT NULL,
         text TEXT NOT NULL,
         date DATE NOT NULL,
-        FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
-    )");
-    
-    // Tabulka pro kategorie produktů
+        FOREIGN KEY (client_id) REFERENCES clients(id) {$fkCascade}
+    ){$engine}");
+
+    // Kategorie produktů
     $db->exec("CREATE TABLE IF NOT EXISTS product_categories (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id {$pkAuto},
         name TEXT NOT NULL,
         icon TEXT NOT NULL,
         color TEXT NOT NULL
-    )");
-    
-    // Tabulka pro produkty
+    ){$engine}");
+
+    // Produkty
     $db->exec("CREATE TABLE IF NOT EXISTS products (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id {$pkAuto},
         name TEXT NOT NULL,
         barcode TEXT,
         description TEXT,
@@ -67,161 +86,183 @@ try {
         for_work BOOLEAN DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (category_id) REFERENCES product_categories(id)
-    )");
-    
-    // Tabulka pro pohyby skladu
+    ){$engine}");
+
+    // Pohyby skladu
     $db->exec("CREATE TABLE IF NOT EXISTS product_movements (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id {$pkAuto},
         product_id INTEGER NOT NULL,
         date DATE NOT NULL,
         type TEXT NOT NULL,
         quantity REAL NOT NULL,
-        unit_price REAL,
+        unit TEXT NOT NULL,
         note TEXT,
-        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
-    )");
-    
-    // Tabulka pro služby
+        FOREIGN KEY (product_id) REFERENCES products(id) {$fkCascade}
+    ){$engine}");
+
+    // Služby
     $db->exec("CREATE TABLE IF NOT EXISTS services (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id {$pkAuto},
         name TEXT NOT NULL,
         description TEXT,
         duration INTEGER NOT NULL
-    )");
-    
-    // Tabulka pro návštěvy
+    ){$engine}");
+
+    // Návštěvy
     $db->exec("CREATE TABLE IF NOT EXISTS visits (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id {$pkAuto},
         client_id INTEGER NOT NULL,
         date DATE NOT NULL,
         closed BOOLEAN DEFAULT 0,
         price REAL DEFAULT 0,
         note TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
-    )");
-    
-    // Tabulka pro služby v návštěvě
+        FOREIGN KEY (client_id) REFERENCES clients(id) {$fkCascade}
+    ){$engine}");
+
+    // Služby v návštěvě
     $db->exec("CREATE TABLE IF NOT EXISTS visit_services (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id {$pkAuto},
         visit_id INTEGER NOT NULL,
         service_name TEXT NOT NULL,
-        FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE
-    )");
-    
-    // Tabulka pro materiály použité při službě
+        FOREIGN KEY (visit_id) REFERENCES visits(id) {$fkCascade}
+    ){$engine}");
+
+    // Materiály použité při službě
     $db->exec("CREATE TABLE IF NOT EXISTS visit_materials (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id {$pkAuto},
         visit_service_id INTEGER NOT NULL,
         product_id INTEGER NOT NULL,
         product_name TEXT NOT NULL,
         quantity REAL NOT NULL,
         unit TEXT NOT NULL,
         base_unit TEXT NOT NULL,
-        FOREIGN KEY (visit_service_id) REFERENCES visit_services(id) ON DELETE CASCADE,
+        FOREIGN KEY (visit_service_id) REFERENCES visit_services(id) {$fkCascade},
         FOREIGN KEY (product_id) REFERENCES products(id)
-    )");
-    
-    // Tabulka pro prodané produkty v návštěvě
+    ){$engine}");
+
+    // Produkty prodané v návštěvě
     $db->exec("CREATE TABLE IF NOT EXISTS visit_products (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id {$pkAuto},
         visit_id INTEGER NOT NULL,
         product_id INTEGER NOT NULL,
         product_name TEXT NOT NULL,
         quantity REAL NOT NULL,
         price REAL NOT NULL,
-        FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE,
+        unit TEXT,
+        package_size REAL,
+        FOREIGN KEY (visit_id) REFERENCES visits(id) {$fkCascade},
         FOREIGN KEY (product_id) REFERENCES products(id)
-    )");
-    
-    // Tabulka pro nákupy (prodej produktů bez návštěvy)
+    ){$engine}");
+
+    // Prodeje (bez návštěvy)
     $db->exec("CREATE TABLE IF NOT EXISTS purchases (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id {$pkAuto},
         client_id INTEGER,
         date DATE NOT NULL,
         customer_name TEXT NOT NULL,
         total REAL NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL
-    )");
-    
-    // Tabulka pro položky nákupu
+        FOREIGN KEY (client_id) REFERENCES clients(id) {$fkSetNull}
+    ){$engine}");
+
+    // Položky prodeje
     $db->exec("CREATE TABLE IF NOT EXISTS purchase_items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id {$pkAuto},
         purchase_id INTEGER NOT NULL,
         product_id INTEGER NOT NULL,
         name TEXT NOT NULL,
         quantity REAL NOT NULL,
         price REAL NOT NULL,
         purpose TEXT DEFAULT 'sale',
-        FOREIGN KEY (purchase_id) REFERENCES purchases(id) ON DELETE CASCADE,
+        FOREIGN KEY (purchase_id) REFERENCES purchases(id) {$fkCascade},
         FOREIGN KEY (product_id) REFERENCES products(id)
-    )");
-    
-    // Tabulka pro příjemky (příjem zboží)
+    ){$engine}");
+
+    // Příjemky
     $db->exec("CREATE TABLE IF NOT EXISTS stock_receipts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id {$pkAuto},
         date DATE NOT NULL,
         note TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )");
-    
-    // Tabulka pro položky příjemky
+    ){$engine}");
+
+    // Položky příjemek
     $db->exec("CREATE TABLE IF NOT EXISTS stock_receipt_items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id {$pkAuto},
         receipt_id INTEGER NOT NULL,
         product_id INTEGER NOT NULL,
         product_name TEXT NOT NULL,
         quantity REAL NOT NULL,
         unit TEXT NOT NULL,
         note TEXT,
-        FOREIGN KEY (receipt_id) REFERENCES stock_receipts(id) ON DELETE CASCADE,
+        FOREIGN KEY (receipt_id) REFERENCES stock_receipts(id) {$fkCascade},
         FOREIGN KEY (product_id) REFERENCES products(id)
-    )");
-    
-    // Tabulka pro objednávky zboží
+    ){$engine}");
+
+    // Objednávky
     $db->exec("CREATE TABLE IF NOT EXISTS stock_orders (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id {$pkAuto},
         date DATE NOT NULL,
         status TEXT DEFAULT 'pending',
         note TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )");
-    
-    // Tabulka pro položky objednávky
+    ){$engine}");
+
+    // Položky objednávek
     $db->exec("CREATE TABLE IF NOT EXISTS stock_order_items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id {$pkAuto},
         order_id INTEGER NOT NULL,
         product_id INTEGER NOT NULL,
         product_name TEXT NOT NULL,
         quantity REAL NOT NULL,
         unit TEXT NOT NULL,
-        FOREIGN KEY (order_id) REFERENCES stock_orders(id) ON DELETE CASCADE,
+        FOREIGN KEY (order_id) REFERENCES stock_orders(id) {$fkCascade},
         FOREIGN KEY (product_id) REFERENCES products(id)
-    )");
-    
-    // Tabulka pro šablony návštěv
+    ){$engine}");
+
+    // Šablony návštěv
     $db->exec("CREATE TABLE IF NOT EXISTS visit_templates (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id {$pkAuto},
         name TEXT NOT NULL,
         description TEXT,
         services_data TEXT NOT NULL,
         products_data TEXT NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )");
-    
-    // Tabulka pro snapshoty období (uzávěrky)
+    ){$engine}");
+
+    // Snapshoty období
     $db->exec("CREATE TABLE IF NOT EXISTS period_snapshots (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id {$pkAuto},
         period TEXT NOT NULL,
         period_start DATE NOT NULL,
         period_end DATE NOT NULL,
         snapshot_data TEXT NOT NULL,
         note TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )");
-    
-    // Indexy pro rychlejší vyhledávání
+    ){$engine}");
+
+    // Výdejky
+    $db->exec("CREATE TABLE IF NOT EXISTS stock_issues (
+        id {$pkAuto},
+        date DATE NOT NULL,
+        note TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ){$engine}");
+
+    // Položky výdejek
+    $db->exec("CREATE TABLE IF NOT EXISTS stock_issue_items (
+        id {$pkAuto},
+        issue_id INTEGER NOT NULL,
+        product_id INTEGER,
+        product_name TEXT NOT NULL,
+        quantity REAL NOT NULL,
+        unit TEXT NOT NULL,
+        FOREIGN KEY (issue_id) REFERENCES stock_issues(id) {$fkCascade},
+        FOREIGN KEY (product_id) REFERENCES products(id)
+    ){$engine}");
+
+    // Indexy
     $db->exec("CREATE INDEX IF NOT EXISTS idx_clients_phone ON clients(phone)");
     $db->exec("CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode)");
     $db->exec("CREATE INDEX IF NOT EXISTS idx_visits_client ON visits(client_id)");
@@ -233,11 +274,9 @@ try {
     $db->exec("CREATE INDEX IF NOT EXISTS idx_templates_name ON visit_templates(name)");
     $db->exec("CREATE INDEX IF NOT EXISTS idx_snapshots_period ON period_snapshots(period)");
     $db->exec("CREATE INDEX IF NOT EXISTS idx_snapshots_date ON period_snapshots(created_at)");
-    
-    echo "✅ Databáze úspěšně vytvořena: " . $dbFile . "\n";
-    echo "✅ Všechny tabulky vytvořeny\n";
-    
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_issues_date ON stock_issues(date)");
+
+    echo "✅ Databáze úspěšně připravena\n";
 } catch (PDOException $e) {
     die("❌ Chyba při vytváření databáze: " . $e->getMessage() . "\n");
 }
-?>

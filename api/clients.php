@@ -1,11 +1,11 @@
 <?php
+require_once 'config.php';
 session_start();
 if (empty($_SESSION['hairbook_logged_in'])) {
     http_response_code(401);
     echo json_encode(['error' => 'Unauthorized']);
     exit;
 }
-require_once 'config.php';
 
 $db = getDB();
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -82,9 +82,9 @@ switch ($method) {
                 foreach ($client['visits'] as &$visit) {
                     $visit['clientId'] = $visit['client_id'];
                     $visit['createdAt'] = $visit['created_at'];
-                    $visit['closed'] = (bool)$visit['closed']; // Převést na boolean
-                    // price a note už jsou v camelCase
-                    unset($visit['client_id'], $visit['created_at']);
+            $visit['closed'] = (bool)$visit['closed']; // Převést na boolean
+            // price a note už jsou v camelCase
+            unset($visit['client_id'], $visit['created_at'], $visit['is_storno']);
                     
                     // Převést services
                     if (isset($visit['services'])) {
@@ -112,6 +112,8 @@ switch ($method) {
                             $product['visitId'] = $product['visit_id'];
                             $product['productId'] = $product['product_id'];
                             $product['name'] = $product['product_name'];
+                            $product['packageSize'] = $product['package_size'] ?? null;
+                            $product['unit'] = $product['unit'] ?? null;
                             unset($product['visit_id'], $product['product_id'], $product['product_name']);
                         }
                     }
@@ -155,18 +157,35 @@ switch ($method) {
         break;
         
     case 'PUT':
-        // Aktualizovat klienta
+        // Aktualizovat klienta (upsert)
         $data = getJsonInput();
-        $stmt = $db->prepare("UPDATE clients SET first_name = ?, last_name = ?, phone = ?, email = ?, avatar = ?, group_id = ? WHERE id = ?");
-        $stmt->execute([
-            $data['firstName'],
-            $data['lastName'],
-            $data['phone'],
-            $data['email'] ?? null,
-            $data['avatar'] ?? null,
-            $data['groupId'] ?? null,
-            $data['id']
-        ]);
+        $stmt = $db->prepare("SELECT COUNT(*) FROM clients WHERE id = ?");
+        $stmt->execute([$data['id']]);
+        $exists = $stmt->fetchColumn() > 0;
+
+        if ($exists) {
+            $stmt = $db->prepare("UPDATE clients SET first_name = ?, last_name = ?, phone = ?, email = ?, avatar = ?, group_id = ? WHERE id = ?");
+            $stmt->execute([
+                $data['firstName'],
+                $data['lastName'],
+                $data['phone'],
+                $data['email'] ?? null,
+                $data['avatar'] ?? null,
+                $data['groupId'] ?? null,
+                $data['id']
+            ]);
+        } else {
+            $stmt = $db->prepare("INSERT INTO clients (id, first_name, last_name, phone, email, avatar, group_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([
+                $data['id'],
+                $data['firstName'],
+                $data['lastName'],
+                $data['phone'],
+                $data['email'] ?? null,
+                $data['avatar'] ?? null,
+                $data['groupId'] ?? null
+            ]);
+        }
         sendJson(['success' => true]);
         break;
         

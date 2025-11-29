@@ -35,36 +35,65 @@ Komplexní desktop aplikace pro správu kadeřnického salonu s offline-first p�
 - **Frontend**: Vanilla JavaScript (10,500+ řádků)
 - **Backend**: PHP 8.2
 - **Databáze**: SQLite 3
-- **Desktop**: Electron
-- **Server**: MAMP/Apache
+- **Server**: MAMP/Apache nebo vestavěný PHP server
 
 ## 🛠️ Instalace
 
 ### Požadavky
-- Node.js 16+
 - PHP 8.2+
 - MAMP nebo jiný PHP server (development)
+- SQLite nebo MySQL/MariaDB (lze přepínat)
 
-### Development
+### Development (bez Electronu)
 
 ```bash
-# Instalace závislostí
-npm install
-
-# Spuštění aplikace
-npm start
-
-# Build pro Windows
-npm run build:win
-
-# Build pro macOS
-npm run build:mac
+# Spuštění lokálního PHP serveru (např. port 8888)
+php -S localhost:8888 server-router.php
 ```
 
 ### První spuštění
 
-1. Databáze se automaticky vytvoří při prvním spuštění
-2. Pokud migrujete z localStorage, migrace proběhne automaticky
+1. Otevři `http://localhost:8888/api/setup.html` (setup wizard)
+2. Vyber DB (SQLite/MySQL), otestuj připojení a ulož `.env`
+3. Klikni „Vytvořit tabulky“ (init-db)
+4. Volitelně vlož JSON z localStorage a spusť migraci
+5. Hotovo – otevři aplikaci na `http://localhost:8888/`
+
+> Bezpečnost: pokud chceš chránit setup/reset endpointy, nastav v `.env` proměnnou `WIZARD_TOKEN` (lze zadat ve wizardu). Volání pak vyžaduje header `X-Setup-Token`.
+
+## 🗄️ Databáze (SQLite / MySQL)
+
+### Přepínání typu DB
+Backend čte typ DB z proměnné `DB_TYPE` (`sqlite` nebo `mysql`). Pokud není nastavena, používá se SQLite (soubor `api/hairbook.db`).
+
+Další proměnné pro MySQL/MariaDB:
+```
+DB_TYPE=mysql
+DB_HOST=localhost
+DB_NAME=hairbook
+DB_USER=root
+DB_PASS=heslo
+DB_CHARSET=utf8mb4
+```
+
+### MySQL na MAMPu
+1) Vytvoř DB (např. v phpMyAdmin nebo CLI):
+```
+CREATE DATABASE hairbook CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+```
+2) Naimportuj dump (viz níže) nebo spusť `api/init-db.php` s nastavenými proměnnými `DB_TYPE=mysql` atd.
+3) Přidej env proměnné do startu (např. `.env` nebo export v shellu), aby PHP používalo MySQL (lze nastavit i přes `api/setup.html`).
+
+### MySQL dump
+Vytvořil jsem SQL dump schématu pro MySQL v `/tmp/hairbook_mysql_dump.sql` (InnoDB, utf8mb4). Import:
+```
+mysql -u USER -p hairbook < /tmp/hairbook_mysql_dump.sql
+```
+Pokud dump nepoužiješ, `api/init-db.php` tabulky vytvoří také (přes PDO).
+
+### Poznámky
+- SQLite používá `api/hairbook.db` (přenosné, offline). MySQL zvol pro sdílené prostředí/hosting.
+- Tabulky pro výdejky (`stock_issues`, `stock_issue_items`) a další entity se vytvoří automaticky v `init-db.php` nebo při volání příslušných endpointů (např. `api/issues.php`).
 
 ## 📁 Struktura projektu
 
@@ -87,8 +116,7 @@ HairBook/
 │   └── styles.css         # Styly
 ├── index.html             # Hlavní HTML
 ├── modals.html            # Modální okna
-├── main.js                # Electron main process
-├── preload.js             # Electron preload
+├── server-router.php      # Router pro vestavěný PHP server
 └── package.json           # NPM konfigurace
 ```
 

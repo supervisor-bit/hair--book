@@ -1,11 +1,11 @@
 <?php
+require_once 'config.php';
 session_start();
 if (empty($_SESSION['hairbook_logged_in'])) {
     http_response_code(401);
     echo json_encode(['error' => 'Unauthorized']);
     exit;
 }
-require_once 'config.php';
 
 $db = getDB();
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -25,8 +25,18 @@ switch ($method) {
         
     case 'PUT':
         $data = getJsonInput();
-        $stmt = $db->prepare("UPDATE services SET name = ?, description = ?, duration = ? WHERE id = ?");
-        $stmt->execute([$data['name'], $data['description'] ?? '', $data['duration'], $data['id']]);
+        // Upsert
+        $stmt = $db->prepare("SELECT COUNT(*) FROM services WHERE id = ?");
+        $stmt->execute([$data['id']]);
+        $exists = $stmt->fetchColumn() > 0;
+
+        if ($exists) {
+            $stmt = $db->prepare("UPDATE services SET name = ?, description = ?, duration = ? WHERE id = ?");
+            $stmt->execute([$data['name'], $data['description'] ?? '', $data['duration'], $data['id']]);
+        } else {
+            $stmt = $db->prepare("INSERT INTO services (id, name, description, duration) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$data['id'], $data['name'], $data['description'] ?? '', $data['duration']]);
+        }
         sendJson(['success' => true]);
         break;
         

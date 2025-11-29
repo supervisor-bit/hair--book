@@ -16,9 +16,16 @@
         
         // Kontrola přihlášení
         window.addEventListener('DOMContentLoaded', async function() {
-            const isLoggedIn = sessionStorage.getItem('hairbook_logged_in') || localStorage.getItem('hairbook_remember');
-            
-            if (!isLoggedIn) {
+            try {
+                const authResponse = await fetch('api/settings.php', { credentials: 'include' });
+                if (!authResponse.ok) throw new Error('Auth check failed');
+                const authData = await authResponse.json();
+                if (!authData.authenticated) {
+                    window.location.href = 'login.html';
+                    return;
+                }
+            } catch (err) {
+                console.error('Auth check error:', err);
                 window.location.href = 'login.html';
                 return;
             }
@@ -58,7 +65,7 @@
                 if (attempts >= 50) {
                     console.error('❌ Element productVatRate NOT found after 500ms');
                     // Debug - vypsat všechny modaly
-                    const allModals = document.querySelectorAll('[id$="Modal"]');
+                    const allModals = document.querySelectorAll('[id$=\"Modal\"]');
                     console.log('Found modals:', Array.from(allModals).map(m => m.id));
                 }
                 
@@ -408,9 +415,15 @@
             <div id="page-services" class="page">
                 <div class="page-header">
                     <h2>Služby</h2>
-                    <button class="btn btn-primary" onclick="addNewService()">
-                        <i class="fas fa-plus"></i> Nová služba
-                    </button>
+                    <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+                        <div class="search-box" style="min-width: 220px;">
+                            <i class="fas fa-search"></i>
+                            <input type="text" placeholder="Hledat službu..." id="serviceListSearch">
+                        </div>
+                        <button class="btn btn-primary" onclick="addNewService()">
+                            <i class="fas fa-plus"></i> Nová služba
+                        </button>
+                    </div>
                 </div>
                 <div class="services-list" id="servicesList">
                     <!-- Služby budou přidány přes JavaScript -->
@@ -1443,8 +1456,8 @@
                                     <thead>
                                         <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
                                             <th style="padding: 0.75rem; text-align: left;">Produkt</th>
-                                            <th style="padding: 0.75rem; text-align: right;">Nákupní cena</th>
-                                            <th style="padding: 0.75rem; text-align: right;">Prodejní cena</th>
+                                            <th style="padding: 0.75rem; text-align: right;">Náklady</th>
+                                            <th style="padding: 0.75rem; text-align: right;">Tržby</th>
                                             <th style="padding: 0.75rem; text-align: right;">Marže</th>
                                         </tr>
                                     </thead>
@@ -1452,6 +1465,42 @@
                                         <tr><td colspan="4" style="padding: 1rem; text-align: center; color: #9ca3af;">Načítání...</td></tr>
                                     </tbody>
                                 </table>
+                            </div>
+                            
+                            <div style="background: white; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-top: 1.5rem; margin-bottom: 1.5rem;">
+                                <h4 style="margin: 0 0 1rem 0;">Marže na službách</h4>
+                                <table id="serviceMarginsTable" style="width: 100%; border-collapse: collapse;">
+                                    <thead>
+                                        <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                                            <th style="padding: 0.75rem; text-align: left;">Služba</th>
+                                            <th style="padding: 0.75rem; text-align: right;">Náklady (materiál)</th>
+                                            <th style="padding: 0.75rem; text-align: right;">Tržby</th>
+                                            <th style="padding: 0.75rem; text-align: right;">Marže</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr><td colspan="4" style="padding: 1rem; text-align: center; color: #9ca3af;">Načítání...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+                                <div style="background: white; border-radius: 0.75rem; padding: 1.25rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                    <h4 style="margin: 0 0 0.5rem 0;">Příjemky (období)</h4>
+                                    <div style="font-size: 0.875rem; color: #6b7280;">Počet dokladů</div>
+                                    <div style="font-size: 1.5rem; font-weight: 700;" id="accountingReceiptsCount">0</div>
+                                    <div style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">Hodnota dle nákupních cen</div>
+                                    <div style="font-size: 1.25rem; font-weight: 700; color: #111827;" id="accountingReceiptsValue">0 Kč</div>
+                                </div>
+                                <div style="background: white; border-radius: 0.75rem; padding: 1.25rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                    <h4 style="margin: 0 0 0.5rem 0;">Výdejky (období)</h4>
+                                    <div style="font-size: 0.875rem; color: #6b7280;">Počet dokladů</div>
+                                    <div style="font-size: 1.5rem; font-weight: 700;" id="accountingIssuesCount">0</div>
+                                    <div style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">Hodnota spotřeby (doklady)</div>
+                                    <div style="font-size: 1.25rem; font-weight: 700; color: #111827;" id="accountingIssuesValue">0 Kč</div>
+                                    <div style="margin-top: 0.5rem; font-size: 0.75rem; color: #6b7280;">Návštěvy: <span id="accountingIssuesVisit">0 Kč</span> · Prodej (náklad): <span id="accountingIssuesSale">0 Kč</span> · Ruční: <span id="accountingIssuesManual">0 Kč</span></div>
+                                    <div style="margin-top: 0.25rem; font-size: 0.75rem; color: #6b7280;">Tržby z prodeje: <span id="accountingIssuesSaleRevenue">0 Kč</span></div>
+                                </div>
                             </div>
                             
                             <div style="background: white; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
@@ -1701,6 +1750,12 @@
                                 <i class="fas fa-clipboard-list" style="width: 20px;"></i>
                                 <span>Šablony návštěv</span>
                             </a>
+                            <a href="#" onclick="showSettingsSection('dbstats'); return false;" 
+                               class="settings-nav-item" data-section="dbstats"
+                               style="padding: 0.75rem 1rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: var(--text-dark); transition: all 0.2s;">
+                                <i class="fas fa-database" style="width: 20px;"></i>
+                                <span>Statistiky DB/API</span>
+                            </a>
                             <a href="#" onclick="showSettingsSection('backup'); return false;" 
                                class="settings-nav-item" data-section="backup"
                                style="padding: 0.75rem 1rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: var(--text-dark); transition: all 0.2s;">
@@ -1882,7 +1937,7 @@
                         <!-- Sekce: Záloha dat -->
                         <!-- Sekce: Šablony návštěv -->
                         <div id="settings-section-templates" class="settings-section" style="display: none;">
-                            <div style="background: white; border-radius: 1rem; padding: 2.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);">
+                    <div style="background: white; border-radius: 1rem; padding: 2.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);">
                                 <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid #f3f4f6;">
                                     <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.5rem;">
                                         <i class="fas fa-clipboard-list"></i>
@@ -1895,6 +1950,29 @@
                                 
                                 <div id="settingsTemplatesList">
                                     <!-- Seznam šablon -->
+                                </div>
+                                <div id="templatesPagination" style="margin-top: 1rem;"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Sekce: Statistiky DB/API -->
+                        <div id="settings-section-dbstats" class="settings-section" style="display: none;">
+                            <div style="background: white; border-radius: 1rem; padding: 2.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);">
+                                <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+                                    <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.5rem;">
+                                        <i class="fas fa-database"></i>
+                                    </div>
+                                    <div>
+                                        <h3 style="margin: 0; font-size: 1.5rem; color: #111827;">Statistiky databáze</h3>
+                                        <p style="margin: 0.25rem 0 0 0; font-size: 0.875rem; color: #6b7280;">Přehled velikosti a počtu záznamů v tabulkách</p>
+                                    </div>
+                                </div>
+                                
+                                <div id="dbStatsContainer" style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.75rem; padding: 1rem;">
+                                    <div style="text-align: center; padding: 1.5rem; color: #9ca3af;">
+                                        <i class="fas fa-spinner fa-spin" style="font-size: 1.25rem; margin-bottom: 0.5rem;"></i>
+                                        <div>Načítám statistiky...</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1950,6 +2028,7 @@
                                                 <li>Import zálohy přepíše všechna aktuální data</li>
                                                 <li>Před importem si vytvořte zálohu aktuálních dat</li>
                                                 <li>Importujte pouze soubory vytvořené touto aplikací</li>
+                                                <li>Po importu bude nutné znovu nastavit přihlašovací heslo (heslo se do zálohy neukládá)</li>
                                             </ul>
                                         </div>
                                     </div>

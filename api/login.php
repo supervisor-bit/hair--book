@@ -1,6 +1,6 @@
 <?php
-session_start();
 require_once 'config.php';
+session_start();
 
 $db = getDB();
 $method = $_SERVER['REQUEST_METHOD'] ?? 'POST';
@@ -23,12 +23,23 @@ if (!$row || !$row['password']) {
     exit;
 }
 
-// Pokud je heslo hashované, použij password_verify
-if (strlen($row['password']) === 60 && preg_match('/^\$2y\$/', $row['password'])) {
-    $valid = password_verify($password, $row['password']);
+// Použij password_verify na hash
+$storedPassword = $row['password'];
+$valid = false;
+if (strlen($storedPassword) === 60 && preg_match('/^\$2y\$/', $storedPassword)) {
+    $valid = password_verify($password, $storedPassword);
 } else {
-    // fallback pro staré plaintext heslo
-    $valid = ($password === $row['password']);
+    // Fallback pro starý plaintext – ověřit a hned převést na hash
+    if ($password === $storedPassword) {
+        $valid = true;
+        try {
+            $newHash = password_hash($storedPassword, PASSWORD_BCRYPT);
+            $update = $db->prepare("UPDATE salon_settings SET password = ? WHERE id = 1");
+            $update->execute([$newHash]);
+        } catch (Exception $e) {
+            // Pokud migrace hashe selže, necháme valid=true a pokračujeme
+        }
+    }
 }
 
 if ($valid) {

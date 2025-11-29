@@ -1,13 +1,14 @@
 <?php
+require_once 'config.php';
 session_start();
 if (empty($_SESSION['hairbook_logged_in'])) {
     http_response_code(401);
     echo json_encode(['error' => 'Unauthorized']);
     exit;
 }
-require_once 'config.php';
 
 $db = getDB();
+$dbType = getenv('DB_TYPE') ?: 'sqlite';
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $action = $_GET['action'] ?? 'visit';
 
@@ -84,13 +85,15 @@ if ($action === 'note') {
                 // Přidat prodané produkty
                 if (isset($data['products'])) {
                     foreach ($data['products'] as $product) {
-                        $stmt = $db->prepare("INSERT INTO visit_products (visit_id, product_id, product_name, quantity, price) VALUES (?, ?, ?, ?, ?)");
+                        $stmt = $db->prepare("INSERT INTO visit_products (visit_id, product_id, product_name, quantity, price, unit, package_size) VALUES (?, ?, ?, ?, ?, ?, ?)");
                         $stmt->execute([
                             $visitId,
                             $product['productId'],
                             $product['name'],
                             $product['quantity'],
-                            $product['price']
+                            $product['price'],
+                            $product['unit'] ?? null,
+                            $product['packageSize'] ?? null
                         ]);
                     }
                 }
@@ -157,13 +160,15 @@ if ($action === 'note') {
                     // Přidat nové produkty
                     if (isset($data['products'])) {
                         foreach ($data['products'] as $product) {
-                            $stmt = $db->prepare("INSERT INTO visit_products (visit_id, product_id, product_name, quantity, price) VALUES (?, ?, ?, ?, ?)");
+                            $stmt = $db->prepare("INSERT INTO visit_products (visit_id, product_id, product_name, quantity, price, unit, package_size) VALUES (?, ?, ?, ?, ?, ?, ?)");
                             $stmt->execute([
                                 $visitId,
                                 $product['productId'],
                                 $product['name'],
                                 $product['quantity'],
-                                $product['price']
+                                $product['price'],
+                                $product['unit'] ?? null,
+                                $product['packageSize'] ?? null
                             ]);
                         }
                     }

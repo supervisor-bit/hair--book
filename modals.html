@@ -86,7 +86,7 @@
 
 <!-- Potvrzovací modální okno -->
 <div id="confirmModal" class="modal">
-    <div class="modal-content" style="max-width: 400px;">
+    <div class="modal-content" style="max-width: 520px;">
         <div class="modal-header">
             <h3 id="confirmModalTitle">Potvrdit akci</h3>
             <button class="modal-close" onclick="closeConfirmModal()">
@@ -95,6 +95,9 @@
         </div>
         <div class="modal-body">
             <p id="confirmModalMessage" style="margin: 0; line-height: 1.6;"></p>
+            <div id="confirmModalList" style="display: none; margin-top: 1rem; max-height: 240px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 0.5rem; padding: 0.75rem; background: var(--bg-secondary);">
+                <!-- Dynamický seznam položek (např. při dokončení příjemky) -->
+            </div>
         </div>
         <div class="modal-footer">
             <button type="button" class="btn btn-secondary" onclick="closeConfirmModal()">

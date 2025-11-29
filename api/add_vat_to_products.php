@@ -1,4 +1,5 @@
 <?php
+require_once 'config.php';
 session_start();
 if (empty($_SESSION['hairbook_logged_in'])) {
     http_response_code(401);

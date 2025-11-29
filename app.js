@@ -13,6 +13,17 @@ function escapeHtml(text) {
         }[c];
     });
 }
+
+function escapeRegex(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function highlightMatch(text, query) {
+    if (!query) return escapeHtml(text);
+    const safe = escapeHtml(text);
+    const pattern = new RegExp(`(${escapeRegex(query)})`, 'ig');
+    return safe.replace(pattern, '<mark>$1</mark>');
+}
 function printSelectedVisitReceipt(visitId) {
     // Najít návštěvu a klienta
     let selectedVisit = null;
@@ -24,6 +35,32 @@ function printSelectedVisitReceipt(visitId) {
             client = c;
             break;
         }
+
+    if (issueHistoryData && issueHistoryData.length) {
+        issueHistoryData.forEach(issue => {
+            const issueDate = new Date(issue.date);
+            const iy = issueDate.getFullYear();
+            const im = issueDate.getMonth() + 1;
+            if (iy !== year || (month && im !== parseInt(month))) return;
+            totalIssuesCount++;
+            (issue.items || []).forEach(item => {
+                const product = products.find(p => p.id === item.productId);
+                if (!product || !product.pricePurchase) return;
+                const unitCost = costPerBaseUnit(product);
+                let qty = parseFloat(item.quantity) || 0;
+                const unit = item.unit || product.unit;
+                if (unit && product.unit && unit !== product.unit) {
+                    const converted = convertToBaseUnit(qty, unit, product.unit, product);
+                    if (converted !== null && !isNaN(converted)) qty = converted;
+                }
+                const cost = qty * unitCost;
+                totalIssuesValue += cost;
+                totalIssuesManual += cost;
+                // manuální výdejky bereme jako práce
+                totalIssuesWork += cost;
+            });
+        });
+    }
     }
     if (!selectedVisit || !client) {
         alert('Návštěva nebyla nalezena.');
@@ -386,6 +423,7 @@ let currentServicesPage = 1;
 const servicesPerPage = 20;
 let currentMovementsPage = 1;
 const movementsPerPage = 20;
+let movementFilterMode = 'all';
 
 let currentClient = null;
 let currentProduct = null;
@@ -401,8 +439,15 @@ let selectedProductCategory = null;
 let selectedClientGroup = null;
 let clientSearchQuery = '';
 let productSearchQuery = '';
+let serviceSearchQuery = '';
 let selectedServiceIndex = -1;
 let showOnlyLowStock = false;
+
+// Obnovit vybranou skupinu klientů z sessionStorage
+const storedClientGroup = sessionStorage.getItem('selectedClientGroup');
+if (storedClientGroup !== null) {
+    selectedClientGroup = storedClientGroup === 'null' ? null : parseInt(storedClientGroup, 10);
+}
 
 // Funkce pro výpočet kusů ze základní jednotky
 function calculatePieces(stock, unit, packageSize) {
@@ -445,10 +490,24 @@ function logout() {
 }
 
 function confirmLogout() {
-    closeConfirmModal();
-    sessionStorage.removeItem('hairbook_logged_in');
-    localStorage.removeItem('hairbook_remember');
-    window.location.href = 'login.html';
+    const btn = document.getElementById('confirmModalBtn');
+    btn.textContent = 'Odhlašuji...';
+    btn.disabled = true;
+    fetch('api/logout.php', { method: 'POST', credentials: 'include' })
+        .then(() => {
+            showNotification('Byli jste odhlášeni', 'success');
+        })
+        .catch(() => {
+            showNotification('Odhlášení se nepodařilo, ukončuji relaci lokálně', 'error');
+        })
+        .finally(() => {
+            closeConfirmModal();
+            sessionStorage.removeItem('hairbook_logged_in');
+            localStorage.removeItem('hairbook_remember');
+            setTimeout(() => {
+                window.location.href = 'login.html';
+            }, 600);
+        });
 }
 
 // Rozbalovací menu
@@ -637,6 +696,7 @@ function renderClientGroups() {
     `;
     allItem.addEventListener('click', () => {
         selectedClientGroup = null;
+        sessionStorage.setItem('selectedClientGroup', 'null');
         renderClientGroups();
         renderClients();
     });
@@ -657,6 +717,7 @@ function renderClientGroups() {
         `;
         item.addEventListener('click', () => {
             selectedClientGroup = group.id;
+            sessionStorage.setItem('selectedClientGroup', String(group.id));
             renderClientGroups();
             renderClients();
         });
@@ -793,21 +854,34 @@ function goToProductsPage(page) {
     renderProducts();
 }
 
+async function goToMovementsPage(page) {
+    currentMovementsPage = page;
+    if (currentProduct) {
+        await showProductDetail(currentProduct, null, true);
+    }
+}
+
+function setMovementFilterMode(mode) {
+    movementFilterMode = mode;
+    currentMovementsPage = 1;
+    if (currentProduct) {
+        showProductDetail(currentProduct, null, true);
+    }
+}
+
 function goToServicesPage(page) {
     currentServicesPage = page;
     renderServices();
 }
 
-function goToMovementsPage(page) {
-    currentMovementsPage = page;
-    if (currentProduct) {
-        showProductDetail(currentProduct);
-    }
-}
-
 function renderClients() {
     const clientList = document.getElementById('clientList');
-    clientList.innerHTML = '';
+    clientList.innerHTML = `
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem; color: #9ca3af;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 1.25rem; margin-bottom: 0.5rem;"></i>
+            <div>Načítám...</div>
+        </div>
+    `;
     
     // Pokud nejsou žádní klienti vůbec
     if (clients.length === 0) {
@@ -827,29 +901,16 @@ function renderClients() {
     
     // Filtrovat podle vybrané skupiny (neaktivní se zobrazují jen když je vybraná jejich skupina)
     let filteredClients;
-    if (selectedClientGroup === null) {
-        // "Všichni" - zobrazit aktivní klienty (s návštěvou za poslední 3 měsíce)
-        const threeMonthsAgo = new Date();
-        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-        
-        filteredClients = clients.filter(client => {
-            if (!client.visits || client.visits.length === 0) return false;
-            const closedVisits = client.visits.filter(v => v.closed);
-            if (closedVisits.length === 0) return false;
-            const lastVisit = closedVisits.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-            return new Date(lastVisit.date) >= threeMonthsAgo;
-        });
-    } else {
-        // Konkrétní skupina - zobrazit jen klienty z této skupiny
-        filteredClients = clients.filter(c => c.groupId === selectedClientGroup);
-    }
+    filteredClients = selectedClientGroup === null
+        ? clients
+        : clients.filter(c => c.groupId === selectedClientGroup);
     
     // Filtrovat podle vyhledávání
     if (clientSearchQuery) {
         const query = clientSearchQuery.toLowerCase();
         filteredClients = filteredClients.filter(c => {
             const fullName = `${c.firstName} ${c.lastName}`.toLowerCase();
-            const phone = c.phone.toLowerCase();
+            const phone = (c.phone || '').toLowerCase();
             return fullName.includes(query) || phone.includes(query);
         });
     }
@@ -877,13 +938,20 @@ function renderClients() {
     const startIndex = (currentClientsPage - 1) * clientsPerPage;
     const endIndex = startIndex + clientsPerPage;
     const pageClients = filteredClients.slice(startIndex, endIndex);
-    
+
+    // Vyčistit loader před vykreslením položek
+    clientList.innerHTML = '';
+
     pageClients.forEach(client => {
         const initials = client.firstName[0] + client.lastName[0];
         const group = clientGroups.find(g => g.id === client.groupId);
+        const query = (clientSearchQuery || '').toLowerCase();
+        const displayName = highlightMatch(`${client.firstName} ${client.lastName}`, query);
+        const displayPhone = highlightMatch(client.phone || '', query);
         
         const item = document.createElement('div');
         item.className = 'client-item';
+        item.dataset.clientId = client.id;
         item.draggable = true;
         item.innerHTML = `
             <div class="client-avatar">
@@ -891,10 +959,10 @@ function renderClients() {
             </div>
             <div class="client-info">
                 <div class="client-name">
-                    ${client.firstName} ${client.lastName}
+                    ${displayName}
                     ${group ? `<i class="fas ${group.icon}" style="color: ${group.color}; font-size: 0.75rem; margin-left: 0.25rem;"></i>` : ''}
                 </div>
-                <div class="client-phone">${client.phone}</div>
+                <div class="client-phone">${displayPhone}</div>
             </div>
         `;
         
@@ -936,6 +1004,14 @@ function showClientDetail(client, event = null) {
     }
     
     const detailPanel = document.getElementById('clientDetail');
+    if (detailPanel) {
+        detailPanel.innerHTML = `
+            <div style="padding: 2rem; text-align: center; color: var(--text-light);">
+                <i class="fas fa-spinner fa-spin" style="font-size: 1.25rem; margin-bottom: 0.5rem;"></i>
+                <div>Načítám detail klienta...</div>
+            </div>
+        `;
+    }
     const initials = client.firstName[0] + client.lastName[0];
     
     // Vypočítat statistiky
@@ -980,7 +1056,7 @@ function showClientDetail(client, event = null) {
             let productsHtml = '';
             if (visit.products && visit.products.length > 0) {
                 const productsList = visit.products.map(p => 
-                    `<div style="margin-bottom: 0.25rem;">• ${p.name} - ${p.quantity} ks (${p.packageSize} ${p.unit}/ks)</div>`
+                    `<div style="margin-bottom: 0.25rem;">• ${p.name} - ${p.quantity} ks ${p.packageSize ? `(${p.packageSize} ${p.unit || ''}/ks)` : ''}</div>`
                 ).join('');
                 productsHtml = `<div class="visit-services" style="margin-top: 0.5rem;"><strong>Prodané produkty:</strong></div>${productsList}`;
             }
@@ -998,6 +1074,9 @@ function showClientDetail(client, event = null) {
                         <button class="btn btn-success" style="font-size: 0.8125rem; padding: 0.375rem 0.75rem;" onclick="writeOffMaterials(${client.id}, ${visit.id})">
                             <i class="fas fa-check-circle"></i> Uzavřít návštěvu a odepsat materiál
                         </button>
+                        <button class="btn btn-danger" style="font-size: 0.8125rem; padding: 0.375rem 0.75rem; color: #fff; background: #dc2626; border: 1px solid #b91c1c;" onclick="deleteVisit(${client.id}, ${visit.id})">
+                            <i class="fas fa-trash"></i> Smazat návštěvu
+                        </button>
                     </div>
                 `;
             } else {
@@ -1011,6 +1090,9 @@ function showClientDetail(client, event = null) {
                             </button>
                         <button class="btn btn-secondary" style="font-size: 0.8125rem; padding: 0.375rem 0.75rem;" onclick="copyVisitToNew(${client.id}, ${visit.id})">
                             <i class="fas fa-copy"></i> Zkopírovat do nové návštěvy
+                        </button>
+                        <button class="btn btn-danger" style="font-size: 0.8125rem; padding: 0.375rem 0.75rem; color: #fff; background: #dc2626; border: 1px solid #b91c1c;" onclick="deleteVisit(${client.id}, ${visit.id})">
+                            <i class="fas fa-trash"></i> Smazat návštěvu
                         </button>
                     </div>
                 `;
@@ -1515,6 +1597,11 @@ async function confirmDeleteClient() {
 
 function closeConfirmModal() {
     document.getElementById('confirmModal').classList.remove('show');
+    const list = document.getElementById('confirmModalList');
+    if (list) {
+        list.style.display = 'none';
+        list.innerHTML = '';
+    }
 }
 
 // Zobrazit informační modal
@@ -1690,6 +1777,15 @@ function renderTemplatesList() {
         (t.description && t.description.toLowerCase().includes(searchValue))
     );
     
+    // Pagination pro šablony
+    const templatesPerPage = 10;
+    const totalPages = Math.ceil(filtered.length / templatesPerPage) || 1;
+    const templatePage = Math.min(window.templatePage || 1, totalPages);
+    window.templatePage = templatePage;
+    const startIndex = (templatePage - 1) * templatesPerPage;
+    const endIndex = startIndex + templatesPerPage;
+    const pageTemplates = filtered.slice(startIndex, endIndex);
+    
     if (filtered.length === 0) {
         container.style.display = 'none';
         emptyState.style.display = 'block';
@@ -1699,7 +1795,7 @@ function renderTemplatesList() {
     container.style.display = 'block';
     emptyState.style.display = 'none';
     
-    container.innerHTML = filtered.map(template => {
+    container.innerHTML = pageTemplates.map(template => {
         const createdDate = new Date(template.created_at || template.createdAt).toLocaleDateString('cs-CZ');
         // Spočítat materiály ve službách
         const materialsCount = template.services.reduce((sum, service) => {
@@ -1732,6 +1828,55 @@ function renderTemplatesList() {
             </div>
         `;
     }).join('');
+    
+    // Pagination render
+    const paginationEl = document.getElementById('templatesPagination');
+    if (paginationEl) {
+        if (totalPages > 1) {
+            renderPaginationInline(paginationEl, filtered.length, templatePage, templatesPerPage, 'goToTemplatePage');
+        } else {
+            paginationEl.innerHTML = '';
+        }
+    }
+}
+
+function renderPaginationInline(container, totalItems, currentPage, itemsPerPage, fnName) {
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    if (totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+    let html = '<div class="pagination" style="justify-content:flex-start; padding: 0;">';
+    if (currentPage > 1) {
+        html += `<button class="pagination-btn" onclick="${fnName}(${currentPage - 1})"><i class="fas fa-chevron-left"></i></button>`;
+    }
+    const maxVisible = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+    if (endPage - startPage < maxVisible - 1) {
+        startPage = Math.max(1, endPage - maxVisible + 1);
+    }
+    if (startPage > 1) {
+        html += `<button class="pagination-btn" onclick="${fnName}(1)">1</button>`;
+        if (startPage > 2) html += '<span class="pagination-ellipsis">...</span>';
+    }
+    for (let i = startPage; i <= endPage; i++) {
+        html += `<button class="pagination-btn ${i === currentPage ? 'active' : ''}" onclick="${fnName}(${i})">${i}</button>`;
+    }
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) html += '<span class="pagination-ellipsis">...</span>';
+        html += `<button class="pagination-btn" onclick="${fnName}(${totalPages})">${totalPages}</button>`;
+    }
+    if (currentPage < totalPages) {
+        html += `<button class="pagination-btn" onclick="${fnName}(${currentPage + 1})"><i class="fas fa-chevron-right"></i></button>`;
+    }
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function goToTemplatePage(page) {
+    window.templatePage = page;
+    renderTemplatesList();
 }
 
 function filterTemplates() {
@@ -1825,6 +1970,42 @@ function editVisit(clientId, visitId) {
     updateSelectedProducts();
     filterProductsForSale();
     updateVisitButtons();
+}
+
+// Smazat návštěvu bez zásahu do skladu (pohyby ponechány)
+async function deleteVisit(clientId, visitId) {
+    const client = clients.find(c => c.id === clientId);
+    if (!client) return;
+    const visit = client.visits.find(v => v.id === visitId);
+    if (!visit) return;
+
+    // Použít potvrzovací modal místo browser confirm
+    document.getElementById('confirmModalTitle').textContent = 'Smazat návštěvu?';
+    document.getElementById('confirmModalMessage').innerHTML = `
+        <p>Chystáte se smazat návštěvu ze dne <strong>${formatDate(visit.date)}</strong>.</p>
+        <p>Smazáním odstraníte služby, produkty a cenu návštěvy.</p>
+        <p style="margin-top:0.5rem; color:#ef4444; font-weight:600;">
+            Skladové pohyby zůstanou beze změny (zásoby se neupraví).
+        </p>`;
+    document.getElementById('confirmModalBtn').textContent = 'Ano, smazat';
+    document.getElementById('confirmModalBtn').className = 'btn btn-danger';
+    document.getElementById('confirmModalBtn').onclick = async () => {
+        closeConfirmModal();
+        try {
+            await apiCall(`visits.php?id=${visitId}`, 'DELETE');
+            client.visits = client.visits.filter(v => v.id !== visitId);
+            if (currentClient && currentClient.id === clientId) {
+                currentClient.visits = currentClient.visits.filter(v => v.id !== visitId);
+            }
+            showClientDetail(client);
+            showNotification('Návštěva byla smazána (zásoby beze změny)', 'success');
+        } catch (err) {
+            console.error('Chyba při mazání návštěvy:', err);
+            showNotification('Chyba při mazání návštěvy: ' + err.message, 'error');
+        }
+    };
+    document.getElementById('confirmModal').classList.add('show');
+
 }
 
 function renderServiceRows() {
@@ -2246,6 +2427,7 @@ window.clearPreparedMaterials = function() {
     };
     document.getElementById('confirmModal').classList.add('show');
 }
+
 
 // Přidat všechny připravené materiály do vybrané služby
 window.addPreparedMaterialsToService = function() {
@@ -3575,7 +3757,12 @@ function renderProductCategories() {
 
 function renderProducts() {
     const container = document.getElementById('productsList');
-    container.innerHTML = '';
+    container.innerHTML = `
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem; color: #9ca3af;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 1.25rem; margin-bottom: 0.5rem;"></i>
+            <div>Načítám...</div>
+        </div>
+    `;
     
     // Pokud nejsou žádné produkty vůbec
     if (products.length === 0) {
@@ -3643,11 +3830,17 @@ function renderProducts() {
     const endIndex = startIndex + productsPerPage;
     const pageProducts = filteredProducts.slice(startIndex, endIndex);
     
+    // Smazat loader před vykreslením položek
+    container.innerHTML = '';
+
     pageProducts.forEach(product => {
         const category = productCategories.find(c => c.id === product.categoryId);
         const categoryColor = category ? category.color : '#10b981';
         const firstLetter = product.name[0].toUpperCase();
         const isLowStock = product.stock < product.minStock;
+        const query = (productSearchQuery || '').toLowerCase();
+        const displayName = highlightMatch(product.name, query);
+        const displayDesc = product.description ? highlightMatch(product.description, query) : '';
         const item = document.createElement('div');
         item.className = 'client-item';
         item.innerHTML = `
@@ -3656,16 +3849,17 @@ function renderProducts() {
             </div>
             <div class="client-info">
                 <div class="client-name">
-                    ${product.name}
+                    ${displayName}
                     ${isLowStock ? '<i class="fas fa-exclamation-triangle" style="color: #ef4444; margin-left: 0.5rem;" title="Nízká zásoba!"></i>' : ''}
                 </div>
                 <div class="client-phone" style="${isLowStock ? 'color: #ef4444; font-weight: 600;' : ''}">
                     Sklad: ${formatStockDisplay(product)}
                 </div>
+                ${product.description ? `<div class="client-phone" style="color: #6b7280; font-size: 0.875rem;">${displayDesc}</div>` : ''}
             </div>
         `;
         
-        item.addEventListener('click', () => showProductDetail(product));
+        item.addEventListener('click', (e) => showProductDetail(product, e.currentTarget, false));
         container.appendChild(item);
     });
     
@@ -3679,44 +3873,69 @@ function renderProducts() {
     }
 }
 
-function showProductDetail(product) {
+async function showProductDetail(product, clickedElement = null, keepMovementsPage = false) {
+    if (!keepMovementsPage) {
+        currentMovementsPage = 1; // Reset pagination při výběru jiného produktu
+        movementFilterMode = 'all'; // Výchozí filtr pro nový produkt
+    }
     currentProduct = product;
-    currentMovementsPage = 1; // Reset pagination při výběru produktu
     
     // Aktualizovat aktivní produkt v seznamu
     document.querySelectorAll('#productsList .client-item').forEach(item => {
         item.classList.remove('active');
     });
-    event.currentTarget.classList.add('active');
+    if (clickedElement) {
+        clickedElement.classList.add('active');
+    }
     
     const detailPanel = document.getElementById('productDetail');
+    if (keepMovementsPage && detailPanel) {
+        const movementsSection = detailPanel.querySelector('#movementsSection');
+        if (movementsSection) {
+            movementsSection.innerHTML = `
+                <div style="padding: 1rem; text-align: center; color: var(--text-light);">
+                    <i class="fas fa-spinner fa-spin" style="margin-right: 0.5rem;"></i>
+                    Načítám pohyby...
+                </div>
+            `;
+        }
+    } else if (detailPanel) {
+        detailPanel.innerHTML = `
+            <div style="padding: 2rem; text-align: center; color: var(--text-light);">
+                <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; margin-bottom: 0.5rem;"></i>
+                <div>Načítám detail produktu...</div>
+            </div>
+        `;
+    }
+
     const category = productCategories.find(c => c.id === product.categoryId);
     const categoryName = category ? category.name : 'Bez kategorie';
     const categoryColor = category ? category.color : '#10b981';
     const firstLetter = product.name[0].toUpperCase();
     
     let movementsHtml = '';
-    if (product.movements && product.movements.length > 0) {
-        // Pagination pro pohyby
-        const totalPages = Math.ceil(product.movements.length / movementsPerPage);
-        if (currentMovementsPage > totalPages) currentMovementsPage = 1;
-        
-        const startIndex = (currentMovementsPage - 1) * movementsPerPage;
-        const endIndex = startIndex + movementsPerPage;
-        const pageMovements = product.movements.slice(startIndex, endIndex);
-        
-        movementsHtml = `
-            <table class="movements-table">
-                <thead>
-                    <tr>
-                        <th>Datum</th>
-                        <th>Typ</th>
-                        <th>Množství</th>
-                        <th>Poznámka</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${pageMovements.map(movement => {
+    let movementsTotal = 0;
+    try {
+        const movementResponse = await loadProductMovements(product.id, currentMovementsPage, movementFilterMode);
+        const pageMovements = movementResponse.items || [];
+        movementsTotal = movementResponse.total ?? pageMovements.length;
+        product.movements = pageMovements; // uchovat poslední stránku pro další operace
+
+        if (pageMovements.length > 0) {
+            const totalPages = Math.ceil(movementsTotal / movementsPerPage);
+            movementsHtml = `
+                <div class="movements-scroll" style="max-height: 520px; overflow-y: auto;">
+                    <table class="movements-table">
+                        <thead>
+                            <tr>
+                                <th>Datum</th>
+                                <th>Typ</th>
+                                <th>Množství</th>
+                                <th>Poznámka</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${pageMovements.map(movement => {
                         const typeLabel = movement.type === 'purchase' ? 'Příjem' : 'Výdej';
                         const typeClass = movement.type === 'purchase' ? 'movement-in' : 'movement-out';
                         const quantitySign = movement.quantity > 0 ? '+' : '';
@@ -3724,27 +3943,34 @@ function showProductDetail(product) {
                         
                         // Přepočet na balení (ks)
                         const packageSize = product.packageSize || 1;
-                        const packagesCount = (movement.quantity / packageSize).toFixed(2);
+                        const packagesCount = (movement.unit === 'ks'
+                            ? movement.quantity
+                            : movement.quantity / packageSize).toFixed(2);
                         const packagesDisplay = packagesCount !== '1.00' ? `${packagesCount} ks` : '1 ks';
                         
                         return `
                             <tr>
                                 <td>${formatDate(movement.date)}</td>
-                                <td><span class="movement-badge ${typeClass}">${typeLabel}</span></td>
-                                <td class="${typeClass}">
-                                    <strong>${quantitySign}${packagesDisplay}</strong>
-                                    <span style="color: #9ca3af; font-size: 0.875rem; margin-left: 0.5rem;">(${movement.quantity} ${displayUnit})</span>
-                                </td>
-                                <td>${movement.note}</td>
-                            </tr>
-                        `;
-                    }).join('')}
-                </tbody>
-            </table>
-            ${totalPages > 1 ? '<div id="movementsPagination"></div>' : ''}
-        `;
-    } else {
-        movementsHtml = '<p style="color: var(--text-light); text-align: center; padding: 2rem;">Zatím žádné pohyby</p>';
+                                        <td><span class="movement-badge ${typeClass}">${typeLabel}</span></td>
+                                        <td class="${typeClass}">
+                                            <strong>${quantitySign}${packagesDisplay}</strong>
+                                            <span style="color: #9ca3af; font-size: 0.875rem; margin-left: 0.5rem;">(${movement.quantity} ${displayUnit})</span>
+                                        </td>
+                                        <td>${movement.note}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                ${totalPages > 1 ? '<div id="movementsPagination"></div>' : ''}
+            `;
+        } else {
+            movementsHtml = '<p style="color: var(--text-light); text-align: center; padding: 2rem;">Zatím žádné pohyby</p>';
+        }
+    } catch (error) {
+        console.error('Nepodařilo se načíst pohyby produktu:', error);
+        movementsHtml = '<p style="color: var(--text-light); text-align: center; padding: 2rem;">Pohyby se nepodařilo načíst</p>';
     }
     
     detailPanel.innerHTML = `
@@ -3777,23 +4003,28 @@ function showProductDetail(product) {
             </div>
         </div>
         
-        <div class="visits-section">
+        <div class="visits-section" id="movementsSection">
             <h4>
                 Historie pohybů
                 <span style="font-size: 0.875rem; font-weight: 400; color: var(--text-medium);">
-                    (${product.movements ? product.movements.length : 0})
+                    (${movementsTotal})
                 </span>
             </h4>
+            <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; justify-content: flex-end;">
+                <button class="btn btn-outline" id="movementsFilterAll" style="padding: 0.375rem 0.75rem;${movementFilterMode==='all'?'background:#8b5cf6;color:#fff;':''}" onclick="setMovementFilterMode('all')">Vše</button>
+                <button class="btn btn-outline" id="movementsFilterIn" style="padding: 0.375rem 0.75rem;${movementFilterMode==='purchase'?'background:#8b5cf6;color:#fff;':''}" onclick="setMovementFilterMode('purchase')">Příjem</button>
+                <button class="btn btn-outline" id="movementsFilterOut" style="padding: 0.375rem 0.75rem;${movementFilterMode==='usage'?'background:#8b5cf6;color:#fff;':''}" onclick="setMovementFilterMode('usage')">Výdej</button>
+            </div>
             ${movementsHtml}
         </div>
     `;
     
     // Renderovat pagination pokud je potřeba
-    if (product.movements && product.movements.length > 0) {
-        const totalPages = Math.ceil(product.movements.length / movementsPerPage);
+    if (movementsTotal > 0) {
+        const totalPages = Math.ceil(movementsTotal / movementsPerPage);
         if (totalPages > 1) {
             setTimeout(() => {
-                renderPagination('movementsPagination', product.movements.length, currentMovementsPage, movementsPerPage, 'goToMovementsPage');
+                renderPagination('movementsPagination', movementsTotal, currentMovementsPage, movementsPerPage, 'goToMovementsPage');
             }, 0);
         }
     }
@@ -4237,7 +4468,12 @@ async function confirmDeleteProduct() {
 
 function renderServices() {
     const container = document.getElementById('servicesList');
-    container.innerHTML = '';
+    container.innerHTML = `
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem; color: #9ca3af;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 1.25rem; margin-bottom: 0.5rem;"></i>
+            <div>Načítám...</div>
+        </div>
+    `;
     
     // Pokud nejsou žádné služby
     if (services.length === 0) {
@@ -4255,21 +4491,34 @@ function renderServices() {
         return;
     }
     
+    // Filtrovat podle vyhledávání
+    let filteredServices = services;
+    if (serviceSearchQuery) {
+        const query = serviceSearchQuery.toLowerCase();
+        filteredServices = services.filter(s => 
+            s.name.toLowerCase().includes(query) ||
+            (s.description && s.description.toLowerCase().includes(query))
+        );
+    }
+    
     // Pagination
-    const totalPages = Math.ceil(services.length / servicesPerPage);
+    const totalPages = Math.ceil(filteredServices.length / servicesPerPage);
     if (currentServicesPage > totalPages) currentServicesPage = 1;
     
     const startIndex = (currentServicesPage - 1) * servicesPerPage;
     const endIndex = startIndex + servicesPerPage;
-    const pageServices = services.slice(startIndex, endIndex);
+    const pageServices = filteredServices.slice(startIndex, endIndex);
+    
+    // Vyčistit loader
+    container.innerHTML = '';
     
     pageServices.forEach(service => {
         const item = document.createElement('div');
         item.className = 'service-item';
         item.innerHTML = `
             <div class="service-info">
-                <h4>${service.name}</h4>
-                <p>${service.description} • Doba trvání: ${service.duration} minut</p>
+                <h4>${highlightMatch(service.name, (serviceSearchQuery || '').toLowerCase())}</h4>
+                <p>${highlightMatch(service.description || '', (serviceSearchQuery || '').toLowerCase())} • Doba trvání: ${service.duration} minut</p>
             </div>
             <div style="display: flex; gap: 0.5rem;">
                 <button class="btn btn-secondary" onclick="editService(${service.id})">
@@ -4421,11 +4670,16 @@ function formatDate(dateString) {
 // Vyhledávání
 document.addEventListener('DOMContentLoaded', function() {
     const clientSearch = document.getElementById('clientSearch');
+    let clientSearchTimeout = null;
     if (clientSearch) {
         clientSearch.addEventListener('input', function(e) {
-            clientSearchQuery = e.target.value;
-            currentClientsPage = 1; // Reset to first page
-            renderClients();
+            if (clientSearchTimeout) clearTimeout(clientSearchTimeout);
+            const value = e.target.value;
+            clientSearchTimeout = setTimeout(() => {
+                clientSearchQuery = value;
+                currentClientsPage = 1; // Reset to first page
+                renderClients();
+            }, 200);
         });
     }
     
@@ -4441,13 +4695,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const serviceSearch = document.getElementById('serviceSearch');
     if (serviceSearch) {
         serviceSearch.addEventListener('input', function(e) {
-            const query = e.target.value.toLowerCase();
-            const items = document.querySelectorAll('.service-row');
-            
-            items.forEach(item => {
-                const text = item.textContent.toLowerCase();
-                item.style.display = text.includes(query) ? 'flex' : 'none';
-            });
+            serviceSearchQuery = e.target.value;
+            currentServicesPage = 1;
+            renderServices();
+        });
+    }
+    
+    const serviceListSearch = document.getElementById('serviceListSearch');
+    if (serviceListSearch) {
+        serviceListSearch.addEventListener('input', function(e) {
+            serviceSearchQuery = e.target.value;
+            currentServicesPage = 1;
+            renderServices();
         });
     }
     
@@ -4957,6 +5216,16 @@ function saveStockReceipt() {
     // Zobrazit potvrzovací modal
     document.getElementById('confirmModalTitle').textContent = 'Potvrdit příjem';
     document.getElementById('confirmModalMessage').innerHTML = `<p>Opravdu chcete přijmout <strong>${receiptItems.length} položek</strong> do skladu?</p><p style="margin-top: 1rem;">Tato akce zvýší stav skladu.</p>`;
+    const listEl = document.getElementById('confirmModalList');
+    if (listEl) {
+        listEl.innerHTML = receiptItems.map(item => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.35rem 0; border-bottom: 1px dashed var(--border-color);">
+                <div style="font-weight: 600;">${item.productName}</div>
+                <div style="color: var(--text-light); white-space: nowrap;">${item.quantity} ${item.unit}</div>
+            </div>
+        `).join('');
+        listEl.style.display = 'block';
+    }
     document.getElementById('confirmModalBtn').textContent = 'Přijmout';
     document.getElementById('confirmModalBtn').className = 'btn btn-success';
     document.getElementById('confirmModalBtn').onclick = confirmSaveStockReceipt;
@@ -5044,6 +5313,12 @@ async function confirmSaveStockReceipt() {
         document.getElementById('receiptPurchasePrice').value = '';
         document.getElementById('receiptNote').value = '';
         document.getElementById('receiptProductInfo').style.display = 'none';
+        filteredSuggestions = [];
+        hideProductSuggestions();
+        const receiptSearch = document.getElementById('receiptProductSearch');
+        if (receiptSearch) {
+            receiptSearch.blur(); // nevyvolávat znovu našeptávač po dokončení příjemky
+        }
         
         // Aktualizovat produkty
         renderProductCategories();
@@ -5699,6 +5974,7 @@ function toggleReceiptDetail(receiptId) {
 
 let salesHistory = [];
 let filteredReceipts = [];
+let issueHistoryData = [];
 let filteredIssues = [];
 let filteredSales = [];
 let filteredOrders = [];
@@ -6958,7 +7234,23 @@ function completeSale() {
     
     // Zobrazit potvrzovací modal
     document.getElementById('confirmModalTitle').textContent = 'Dokončit prodej';
-    document.getElementById('confirmModalMessage').innerHTML = `<p><strong>Zákazník:</strong> ${customerName}</p><p><strong>Celková cena:</strong> ${total} Kč</p><p><strong>Počet položek:</strong> ${salesCart.length}</p><p style="margin-top: 1rem;">Produkty budou odepsány ze skladu.</p>`;
+    document.getElementById('confirmModalMessage').innerHTML = `
+        <p><strong>Zákazník:</strong> ${customerName}</p>
+        <p><strong>Celková cena:</strong> ${total} Kč</p>
+        <p><strong>Počet položek:</strong> ${salesCart.length}</p>
+        <p style="margin-top: 0.5rem;">Produkty budou odepsány ze skladu.</p>`;
+    const listEl = document.getElementById('confirmModalList');
+    if (listEl) {
+        listEl.innerHTML = salesCart.map(item => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.35rem 0; border-bottom: 1px dashed var(--border-color);">
+                <div style="font-weight: 600;">${item.name}</div>
+                <div style="color: var(--text-light); white-space: nowrap;">
+                    ${item.quantity} ks ${item.price ? `• ${item.price} Kč/ks` : ''}
+                </div>
+            </div>
+        `).join('');
+        listEl.style.display = 'block';
+    }
     document.getElementById('confirmModalBtn').textContent = 'Dokončit prodej';
     document.getElementById('confirmModalBtn').className = 'btn btn-success';
     document.getElementById('confirmModalBtn').onclick = confirmCompleteSale;
@@ -7500,16 +7792,23 @@ function completeMaterialIssue() {
     }
     
     const itemsList = issueCart.map(item => 
-        `<li>${item.productName}: ${item.quantity} ${item.customUnit || item.unit}</li>`
+        `<div style="display: flex; justify-content: space-between; align-items: center; padding: 0.35rem 0; border-bottom: 1px dashed var(--border-color);">
+            <div style="font-weight: 600;">${item.productName}</div>
+            <div style="color: var(--text-light); white-space: nowrap;">${item.quantity} ${item.customUnit || item.unit}</div>
+        </div>`
     ).join('');
     
     document.getElementById('confirmModalTitle').textContent = 'Dokončit výdej';
     document.getElementById('confirmModalMessage').innerHTML = `
         <p><strong>Počet položek:</strong> ${totalItems}</p>
-        <ul style="margin: 1rem 0; padding-left: 1.5rem;">${itemsList}</ul>
         ${note ? `<p><strong>Poznámka:</strong> ${note}</p>` : ''}
-        <p style="margin-top: 1rem;">Materiál bude odepsán ze skladu.</p>
+        <p style="margin-top: 0.5rem;">Materiál bude odepsán ze skladu.</p>
     `;
+    const listEl = document.getElementById('confirmModalList');
+    if (listEl) {
+        listEl.innerHTML = itemsList;
+        listEl.style.display = 'block';
+    }
     document.getElementById('confirmModalBtn').textContent = 'Dokončit výdej';
     document.getElementById('confirmModalBtn').className = 'btn btn-success';
     document.getElementById('confirmModalBtn').onclick = confirmCompleteMaterialIssue;
@@ -7552,6 +7851,11 @@ async function confirmCompleteMaterialIssue() {
                 // Ale pokud ano: odepsal 150ml, packageSize je 250ml
                 // Odečíst: 150 / 250 = 0.6 ks
                 stockDecrease = item.quantity / (product.packageSize || 1);
+            }
+            
+            if (product.stock < stockDecrease) {
+                showNotification(`Nedostatečný stav u produktu ${product.name} (k dispozici ${formatStockDisplay(product)})`, 'error');
+                throw new Error('Nedostatečný stav skladových zásob');
             }
             
             // Snížení stavu skladu (v základní jednotce produktu)
@@ -7605,24 +7909,18 @@ async function confirmCompleteMaterialIssue() {
             console.log(`✅ Produkt ${product.name} aktualizován, nový sklad: ${product.stock}, pohyb zaznamenán`);
         }
         
-        // Uložení historie výdeje do localStorage
-        const issueHistory = JSON.parse(localStorage.getItem('issueHistory') || '[]');
-        issueHistory.unshift({
+        // Uložení výdejky do DB
+        await apiCall('issues.php', 'POST', {
             date: currentDate,
+            note: note,
             items: issueCart.map(item => ({
+                productId: item.productId,
                 productName: item.productName,
                 quantity: item.quantity,
                 unit: item.customUnit || item.unit
-            })),
-            note: note
+            }))
         });
-        
-        // Omezit historii na posledních 100 výdejů
-        if (issueHistory.length > 100) {
-            issueHistory.length = 100;
-        }
-        
-        localStorage.setItem('issueHistory', JSON.stringify(issueHistory));
+        await loadIssueHistory();
         
         // Vyčištění košíku a UI
         issueCart = [];
@@ -7685,9 +7983,22 @@ async function confirmCompleteMaterialIssue() {
 }
 
 // Načtení a zobrazení historie výdejů
-function loadIssueHistory() {
-    const issueHistory = JSON.parse(localStorage.getItem('issueHistory') || '[]');
-    filteredIssues = [...issueHistory];
+async function loadIssueHistory() {
+    try {
+        await migrateLocalIssueHistory();
+        issueHistoryData = await apiCall('issues.php');
+        // Fallback na productName
+        filteredIssues = issueHistoryData.map(issue => ({
+            ...issue,
+            items: (issue.items || []).map(item => ({
+                ...item,
+                productName: item.productName || 'Neznámý produkt'
+            }))
+        }));
+    } catch (error) {
+        console.error('Chyba při načítání historie výdejů:', error);
+        filteredIssues = [];
+    }
     populateIssueMonthSelect();
     renderIssueHistory();
     updateIssueStats();
@@ -7722,8 +8033,7 @@ function filterIssueBySpecificMonth() {
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0);
     
-    const issueHistory = JSON.parse(localStorage.getItem('issueHistory') || '[]');
-    filteredIssues = issueHistory.filter(issue => {
+    filteredIssues = issueHistoryData.filter(issue => {
         const date = new Date(issue.date);
         return date >= startDate && date <= endDate;
     });
@@ -7746,7 +8056,7 @@ function updateIssueStats() {
 }
 
 function filterIssueByMonth(period) {
-    const issueHistory = JSON.parse(localStorage.getItem('issueHistory') || '[]');
+    const issueHistory = issueHistoryData || [];
     const now = new Date();
     let startDate;
     
@@ -7826,6 +8136,13 @@ function renderIssueHistory() {
     const container = document.getElementById('issueHistoryList');
     if (!container) return;
     
+    container.innerHTML = `
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem; color: #9ca3af;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 1.25rem; margin-bottom: 0.5rem;"></i>
+            <div>Načítám...</div>
+        </div>
+    `;
+    
     if (filteredIssues.length === 0) {
         container.innerHTML = `
             <div style="text-align: center; padding: 3rem; color: var(--text-light);">
@@ -7844,7 +8161,7 @@ function renderIssueHistory() {
     const pageIssues = filteredIssues.slice(startIndex, endIndex);
     
     container.innerHTML = pageIssues.map((issue, index) => {
-        const issueId = `issue-${Date.parse(issue.date)}-${index}`;
+        const issueId = `issue-${issue.id || Date.parse(issue.date)}-${index}`;
         const totalItems = issue.items.length;
         const totalQuantity = issue.items.reduce((sum, item) => sum + parseFloat(item.quantity), 0);
         
@@ -7882,7 +8199,7 @@ function renderIssueHistory() {
                         <tbody>
                             ${issue.items.map(item => `
                                 <tr>
-                                    <td style="padding: 0.5rem;">${item.productName}</td>
+                                    <td style="padding: 0.5rem;">${item.productName || 'Neznámý produkt'}</td>
                                     <td style="text-align: right; padding: 0.5rem; font-weight: 500;">${item.quantity} ${item.unit}</td>
                                 </tr>
                             `).join('')}
@@ -8211,9 +8528,8 @@ async function changePassword(event) {
     const currentPassword = document.getElementById('currentPassword').value;
     const newPassword = document.getElementById('newPassword').value;
     
-    // Kontrola současného hesla
-    if (currentPassword !== salonSettings.password) {
-        showNotification('Nesprávné současné heslo', 'error');
+    if (!currentPassword) {
+        showNotification('Zadejte současné heslo', 'error');
         return;
     }
     
@@ -8223,8 +8539,7 @@ async function changePassword(event) {
     }
     
     try {
-        salonSettings.password = newPassword;
-        await apiCall('settings.php', 'PUT', salonSettings);
+        await apiCall('settings.php', 'PUT', { ...salonSettings, password: newPassword, currentPassword });
         
         // Vyčistit formulář
         document.getElementById('currentPassword').value = '';
@@ -8238,94 +8553,59 @@ async function changePassword(event) {
 }
 
 function exportBackup() {
-    const backup = {
-        version: '1.0',
-        exportDate: new Date().toISOString(),
-        data: {
-            clients: clients,
-            products: products,
-            productCategories: productCategories,
-            services: services,
-            salonSettings: salonSettings
+    // Serverový export všech tabulek
+    (async () => {
+        try {
+            const res = await fetch('api/backup.php', { headers: { 'Content-Type': 'application/json' } });
+            const data = await res.json();
+            if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const dateStr = new Date().toISOString().split('T')[0];
+            a.download = `hairbook-backup-${dateStr}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showNotification('Záloha stažena (serverový export)', 'success');
+        } catch (err) {
+            console.error('Chyba při exportu zálohy:', err);
+            showNotification('Chyba při exportu zálohy: ' + err.message, 'error');
         }
-    };
-    
-    const dataStr = JSON.stringify(backup, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    
-    const dateStr = new Date().toISOString().split('T')[0];
-    a.download = `hairbook-backup-${dateStr}.json`;
-    
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    showNotification('Záloha byla úspěšně vytvořena', 'success');
+    })();
 }
 
 async function importBackup(event) {
     const file = event.target.files[0];
     if (!file) return;
     
-    if (!confirm('VAROVÁNÍ: Import zálohy přepíše všechna aktuální data. Opravdu chcete pokračovat?')) {
-        event.target.value = '';
-        return;
-    }
-    
     const reader = new FileReader();
     reader.onload = async (e) => {
         try {
             const backup = JSON.parse(e.target.result);
-            
-            if (!backup.version || !backup.data) {
-                throw new Error('Neplatný formát záložního souboru');
+            if (!backup.data) {
+                throw new Error('Neplatný formát záložního souboru (chybí data)');
             }
             
-            // Importovat data
-            if (backup.data.clients) {
-                clients.length = 0;
-                clients.push(...backup.data.clients);
+            if (!confirm('VAROVÁNÍ: Import zálohy přepíše všechna aktuální data v DB. Pokračovat?')) {
+                event.target.value = '';
+                return;
             }
-            
-            if (backup.data.products) {
-                products.length = 0;
-                products.push(...backup.data.products);
-            }
-            
-            if (backup.data.productCategories) {
-                productCategories.length = 0;
-                productCategories.push(...backup.data.productCategories);
-            }
-            
-            if (backup.data.services) {
-                services.length = 0;
-                services.push(...backup.data.services);
-            }
-            
-            if (backup.data.salonSettings) {
-                Object.assign(salonSettings, backup.data.salonSettings);
-            }
-            
-            // Uložit do databáze
-            await Promise.all([
-                ...clients.map(c => apiCall('clients.php', 'PUT', c)),
-                ...products.map(p => apiCall('products.php', 'PUT', p)),
-                ...productCategories.map(c => apiCall('categories.php', 'PUT', c)),
-                ...services.map(s => apiCall('services.php', 'PUT', s)),
-                apiCall('settings.php', 'PUT', salonSettings)
-            ]);
-            
-            showNotification('Data byla úspěšně obnovena ze zálohy', 'success');
-            
-            // Reload aplikace
+
+            const res = await fetch('api/backup.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(backup)
+            });
+            const resp = await res.json();
+            if (!res.ok || resp.error) throw new Error(resp.error || res.statusText);
+
+            showNotification('Data byla úspěšně obnovena ze zálohy (server)', 'success');
             setTimeout(() => {
                 location.reload();
             }, 1500);
-            
         } catch (error) {
             console.error('Chyba při importu zálohy:', error);
             showNotification('Chyba při importu zálohy: ' + error.message, 'error');
@@ -8376,6 +8656,12 @@ async function apiCall(endpoint, method = 'GET', data = null) {
         showNotification('Chyba při komunikaci se serverem: ' + error.message, 'error');
         throw error;
     }
+}
+
+async function loadProductMovements(productId, page = 1, type = 'all') {
+    const offset = (page - 1) * movementsPerPage;
+    const typeParam = type && type !== 'all' ? `&type=${type}` : '';
+    return apiCall(`product_movements.php?id=${productId}&limit=${movementsPerPage}&offset=${offset}${typeParam}`);
 }
 
 // Načítání dat z API
@@ -8446,6 +8732,7 @@ function calculateDashboardStats() {
     // Dnešní tržby z návštěv
     let todayRevenueFromVisits = 0;
     let todayVisitsCount = 0;
+    let totalProductSalesRevenue = 0; // tržby z prodeje produktů (purchases + prodané položky v návštěvách)
     clients.forEach(client => {
         if (client.visits) {
             client.visits.forEach(visit => {
@@ -8956,6 +9243,9 @@ function showSettingsSection(sectionId) {
     if (sectionId === 'templates') {
         renderSettingsTemplates();
     }
+    if (sectionId === 'dbstats') {
+        loadDbStats();
+    }
     
     // Aktualizovat aktivní menu položku
     document.querySelectorAll('.settings-nav-item').forEach(item => {
@@ -9224,6 +9514,60 @@ function generateRevenueChart(year) {
             }
         }
     });
+}
+
+async function loadDbStats() {
+    const container = document.getElementById('dbStatsContainer');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div style="text-align: center; padding: 1.5rem; color: #9ca3af;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 1.25rem; margin-bottom: 0.5rem;"></i>
+            <div>Načítám statistiky...</div>
+        </div>
+    `;
+    
+    try {
+        const stats = await apiCall('db_stats.php');
+        const dbSizeMb = (stats.dbSizeBytes / (1024 * 1024)).toFixed(2);
+        const rowsHtml = stats.tables.map(t => `
+            <tr>
+                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb; font-weight: 600;">${t.name}</td>
+                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb; text-align: right;">${t.rows.toLocaleString('cs-CZ')}</td>
+            </tr>
+        `).join('');
+        
+        container.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <div>
+                    <div style="font-size: 0.875rem; color: var(--text-light);">Velikost databáze</div>
+                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);">${dbSizeMb} MB</div>
+                </div>
+                <div style="font-size: 0.875rem; color: var(--text-medium);">Tabulek: ${stats.tables.length}</div>
+            </div>
+            <div style="border: 1px solid #e5e7eb; border-radius: 0.75rem; overflow: hidden;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead style="background: #f3f4f6;">
+                        <tr>
+                            <th style="text-align: left; padding: 0.75rem; color: #6b7280; font-size: 0.875rem; text-transform: uppercase;">Tabulka</th>
+                            <th style="text-align: right; padding: 0.75rem; color: #6b7280; font-size: 0.875rem; text-transform: uppercase;">Počet záznamů</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    } catch (error) {
+        console.error('Chyba při načítání statistik DB:', error);
+        container.innerHTML = `
+            <div style="text-align: center; padding: 1.5rem; color: #ef4444;">
+                <i class="fas fa-times-circle" style="font-size: 1.25rem; margin-bottom: 0.5rem;"></i>
+                <div>Nepodařilo se načíst statistiky DB</div>
+            </div>
+        `;
+    }
 }
 
 function generateAccountingReport() {
@@ -10955,6 +11299,7 @@ function generateCostsReport() {
     const month = document.getElementById('accountingMonth').value;
     
     // Celkové tržby
+    let totalProductSalesRevenue = 0; // tržby z prodeje produktů (purchases + prodané položky v návštěvách)
     let totalRevenue = 0;
     clients.forEach(client => {
         if (client.visits) {
@@ -10976,13 +11321,16 @@ function generateCostsReport() {
                 const purchaseMonth = purchaseDate.getMonth() + 1;
                 if (purchaseYear !== year || (month && purchaseMonth !== parseInt(month))) return;
                 
-                totalRevenue += purchase.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                const revenue = purchase.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                totalProductSalesRevenue += revenue;
+                totalRevenue += revenue;
             });
         }
     });
     
     // Celkové nákupy - spočítat z příjmů materiálu (stockReceipts)
     let totalPurchases = 0;
+    let totalReceiptsCount = 0;
     if (stockReceipts && stockReceipts.length > 0) {
         stockReceipts.forEach(receipt => {
             // Filtr podle období
@@ -10990,6 +11338,7 @@ function generateCostsReport() {
             const receiptYear = receiptDate.getFullYear();
             const receiptMonth = receiptDate.getMonth() + 1;
             if (receiptYear !== year || (month && receiptMonth !== parseInt(month))) return;
+            totalReceiptsCount++;
             
             if (receipt.items) {
                 receipt.items.forEach(item => {
@@ -11003,8 +11352,23 @@ function generateCostsReport() {
         });
     }
     
-    // Celková hodnota výdejů materiálu - spočítat z uzavřených návštěv
-    let totalIssues = 0;
+    // Helper na jednotkovou nákupku (přepočet na základní jednotku)
+    const unitCost = (product) => {
+        const pkg = product.packageSize || 1;
+        return product.unit && product.unit !== 'ks'
+            ? (product.pricePurchase || 0) / pkg
+            : (product.pricePurchase || 0);
+    };
+
+    // Celková hodnota výdejů materiálu - rozdělit na práce/prodej/ruční výdejky
+    let totalIssuesWork = 0;      // práce (materiál ve službách + ruční výdejky, pokud nejsou prodej)
+    let totalIssuesSale = 0;      // prodej (COGS z prodejů a prodejních položek z návštěv)
+    let totalIssuesVisit = 0;     // materiál + prodané položky v návštěvách (součet)
+    let totalIssuesManual = 0;    // ruční výdejky (issue history)
+    let totalIssuesCount = 0;     // počet ručních výdejek
+    let totalIssuesValue = 0;     // hodnota ručních výdejek (dle dokladů)
+    let totalIssues = 0;          // celkové náklady na materiál (work + sale)
+    // totalProductSalesRevenue je kvůli tržbám z prodejů, bude spočítáno později
     clients.forEach(client => {
         if (client.visits) {
             client.visits.forEach(visit => {
@@ -11022,15 +11386,59 @@ function generateCostsReport() {
                             service.materials.forEach(material => {
                                 const product = products.find(p => p.id === material.productId);
                                 if (product && product.pricePurchase) {
-                                    totalIssues += material.quantity * product.pricePurchase;
+                                    let qty = material.quantity || 0;
+                                    if (material.unit && product.unit && material.unit !== product.unit) {
+                                        const converted = convertToBaseUnit(material.quantity, material.unit, product.unit, product);
+                                        if (converted !== null && !isNaN(converted)) qty = converted;
+                                    }
+                                    const cost = qty * unitCost(product);
+                                    totalIssuesWork += cost;
+                                    totalIssuesVisit += cost;
                                 }
                             });
+                        }
+                    });
+                }
+                // Prodané produkty v návštěvě (odepsat náklad na prodané zboží)
+                if (visit.products) {
+                    visit.products.forEach(p => {
+                        const product = products.find(prod => prod.id === p.productId);
+                        if (product && product.pricePurchase) {
+                            const pkg = p.packageSize || product.packageSize || 1;
+                            const qtyBase = product.unit === 'ks' ? p.quantity : p.quantity * pkg;
+                            const cost = qtyBase * unitCost(product);
+                            totalIssuesSale += cost;
+                            totalIssuesVisit += cost;
+                        }
+                    });
+                }
+            });
+        }
+        // Prodeje z purchases (košík prodeje)
+        if (client.purchases) {
+            client.purchases.forEach(purchase => {
+                const purchaseDate = new Date(purchase.date);
+                const py = purchaseDate.getFullYear();
+                const pm = purchaseDate.getMonth() + 1;
+                if (py !== year || (month && pm !== parseInt(month))) return;
+                if (purchase.items) {
+                    purchase.items.forEach(item => {
+                        const product = products.find(prod => prod.id === item.productId);
+                        if (product && product.pricePurchase) {
+                            const purpose = item.purpose || 'sale';
+                            const cost = (item.quantity || 0) * unitCost(product);
+                            if (purpose === 'sale') {
+                                totalIssuesSale += cost;
+                            } else {
+                                totalIssuesWork += cost;
+                            }
                         }
                     });
                 }
             });
         }
     });
+    totalIssues = totalIssuesWork + totalIssuesSale;
     
     // Celkový zisk (tržby - nákupy materiálu - použitý materiál)
     // Poznámka: totalIssues je již zahrnuto v totalPurchases (materiál jsme koupili),
@@ -11047,23 +11455,170 @@ function generateCostsReport() {
     if (issuesEl) issuesEl.textContent = totalIssues.toLocaleString() + ' Kč';
     if (profitEl) profitEl.textContent = totalProfit.toLocaleString() + ' Kč';
     
-    // Marže produktů - zobrazit pouze produkty určené k prodeji s marží
-    const productMargins = products.map(p => {
-        if (p.pricePurchase && p.priceRetail && p.pricePurchase > 0 && p.priceRetail > 0 && p.forSale) {
-            const margin = ((p.priceRetail - p.pricePurchase) / p.pricePurchase * 100).toFixed(1);
-            const profit = p.priceRetail - p.pricePurchase;
-            return { name: p.name, purchase: p.pricePurchase, sale: p.priceRetail, margin, profit };
+// Marže produktů - podle skutečných prodejů (purchases + prodané produkty v návštěvách)
+    const productTotals = new Map();
+    const costPerBaseUnit = (product) => {
+        const pkg = product.packageSize || 1;
+        return product.unit && product.unit !== 'ks'
+            ? (product.pricePurchase || 0) / pkg
+            : (product.pricePurchase || 0);
+    };
+    clients.forEach(client => {
+        // Prodeje (purchases)
+        if (client.purchases) {
+            client.purchases.forEach(purchase => {
+                const purchaseDate = new Date(purchase.date);
+                const py = purchaseDate.getFullYear();
+                const pm = purchaseDate.getMonth() + 1;
+                if (py !== year || (month && pm !== parseInt(month))) return;
+                (purchase.items || []).forEach(item => {
+                    const product = products.find(p => p.id === item.productId);
+                    if (!product || !product.pricePurchase) return;
+                    if (item.purpose && item.purpose !== 'sale') return; // marže jen na prodejních položkách
+                    const revenue = (item.price || 0) * (item.quantity || 0);
+                    const cost = (item.quantity || 0) * costPerBaseUnit(product);
+                    const rec = productTotals.get(product.id) || { name: product.name, revenue: 0, cost: 0 };
+                    rec.revenue += revenue;
+                    rec.cost += cost;
+                    productTotals.set(product.id, rec);
+                });
+            });
         }
-        return null;
+
+        // Prodávané produkty v návštěvách
+        if (client.visits) {
+            client.visits.forEach(visit => {
+                if (!visit.closed || !visit.products) return;
+                const vd = new Date(visit.date);
+                const vy = vd.getFullYear();
+                const vm = vd.getMonth() + 1;
+                if (vy !== year || (month && vm !== parseInt(month))) return;
+                visit.products.forEach(p => {
+                    const product = products.find(prod => prod.id === p.productId);
+                    if (!product || !product.pricePurchase) return;
+                    const revenue = (p.price || 0) * (p.quantity || 0);
+                    // přepočet nákladu podle jednotky/balení
+                    const pkg = p.packageSize || product.packageSize || 1;
+                    let qtyBase = p.quantity || 0;
+                    if (product.unit !== 'ks') {
+                        qtyBase = (p.quantity || 0) * pkg;
+                    }
+                    const cost = qtyBase * costPerBaseUnit(product);
+                    const rec = productTotals.get(product.id) || { name: product.name, revenue: 0, cost: 0 };
+                    rec.revenue += revenue;
+                    rec.cost += cost;
+                    productTotals.set(product.id, rec);
+                });
+            });
+        }
+    });
+    // COGS z prodejů (purchases + prodané položky v návštěvách) podle skutečných nákladů
+    const cogsFromSales = Array.from(productTotals.values()).reduce((sum, p) => sum + (p.cost || 0), 0);
+    totalIssuesSale = cogsFromSales;
+    totalIssues = totalIssuesWork + totalIssuesSale;
+    let productMargins = Array.from(productTotals.values()).map(p => {
+        if (!p.cost || !p.revenue) return null;
+        const marginPct = ((p.revenue - p.cost) / p.cost * 100).toFixed(1);
+        return { name: p.name, revenue: p.revenue, cost: p.cost, margin: marginPct };
     }).filter(p => p !== null).sort((a, b) => b.margin - a.margin).slice(0, 10);
+
+    // Fallback: pokud nejsou reálné prodeje, použij statické ceny produktů
+    if (productMargins.length === 0) {
+        productMargins = products
+            .filter(p => p.forSale && p.pricePurchase > 0 && p.priceRetail > 0)
+            .map(p => {
+                const marginPct = ((p.priceRetail - p.pricePurchase) / p.pricePurchase * 100).toFixed(1);
+                return {
+                    name: p.name,
+                    revenue: p.priceRetail,
+                    cost: p.pricePurchase,
+                    margin: marginPct
+                };
+            })
+            .sort((a, b) => b.margin - a.margin)
+            .slice(0, 10);
+    }
+
+    // Marže služeb - podle reálné spotřeby materiálu na službách v uzavřených návštěvách
+    const serviceTotals = new Map();
+    clients.forEach(client => {
+        if (!client.visits) return;
+        client.visits.forEach(visit => {
+            if (!visit.closed || !visit.services) return;
+            const vd = new Date(visit.date);
+            const vy = vd.getFullYear();
+            const vm = vd.getMonth() + 1;
+            if (vy !== year || (month && vm !== parseInt(month))) return;
+
+            visit.services.forEach(service => {
+                const serviceName = service.name || 'Neznámá služba';
+                // Získat tržbu za službu:
+                // 1) preferuj ceníkovou cenu služby (services.price)
+                // 2) pokud není, rozděl cenu návštěvy rovnoměrně mezi služby
+                let revenue = 0;
+                const def = service.serviceId ? services.find(s => s.id === service.serviceId) : services.find(s => s.name === serviceName);
+                if (def && def.price) {
+                    revenue = def.price;
+                } else if (visit.price && visit.services && visit.services.length > 0) {
+                    revenue = visit.price / visit.services.length;
+                }
+                if (!revenue) return;
+
+                // Náklad = součet materiálů (nákupní cena za základní jednotku * množství v základní jednotce)
+                let cost = 0;
+                (service.materials || []).forEach(mat => {
+                    const product = products.find(p => p.id === mat.productId);
+                    if (!product || !product.pricePurchase) return;
+                    const unitCost = costPerBaseUnit(product);
+                    let qty = mat.quantity || 0;
+                    if (mat.unit && product.unit && mat.unit !== product.unit) {
+                        const converted = convertToBaseUnit(mat.quantity, mat.unit, product.unit, product);
+                        if (converted !== null && !isNaN(converted)) qty = converted;
+                    }
+                    cost += qty * unitCost;
+                });
+
+                const rec = serviceTotals.get(serviceName) || { name: serviceName, revenue: 0, cost: 0 };
+                rec.revenue += revenue;
+                rec.cost += cost;
+                serviceTotals.set(serviceName, rec);
+            });
+        });
+    });
+    const serviceMargins = Array.from(serviceTotals.values()).map(s => {
+        if (!s.cost || !s.revenue) return null;
+        const marginPct = ((s.revenue - s.cost) / s.cost * 100).toFixed(1);
+        return { name: s.name, revenue: s.revenue, cost: s.cost, margin: marginPct };
+    }).filter(Boolean).sort((a, b) => b.margin - a.margin).slice(0, 10);
+
+    // Přehled příjemek / výdejek pro účetnictví
+    const receiptsCountEl = document.getElementById('accountingReceiptsCount');
+    const receiptsValueEl = document.getElementById('accountingReceiptsValue');
+    const issuesCountEl = document.getElementById('accountingIssuesCount');
+    const issuesValueEl = document.getElementById('accountingIssuesValue');
+    const issuesWorkEl = document.getElementById('accountingIssuesWork');
+    const issuesSaleEl = document.getElementById('accountingIssuesSale');
+    const issuesVisitEl = document.getElementById('accountingIssuesVisit');
+    const issuesManualEl = document.getElementById('accountingIssuesManual');
+    const issuesSaleRevenueEl = document.getElementById('accountingIssuesSaleRevenue');
+
+    if (receiptsCountEl) receiptsCountEl.textContent = totalReceiptsCount;
+    if (receiptsValueEl) receiptsValueEl.textContent = totalPurchases.toLocaleString('cs-CZ') + ' Kč';
+    if (issuesCountEl) issuesCountEl.textContent = totalIssuesCount;
+    if (issuesValueEl) issuesValueEl.textContent = totalIssuesValue.toLocaleString('cs-CZ') + ' Kč';
+    if (issuesWorkEl) issuesWorkEl.textContent = totalIssuesWork.toLocaleString('cs-CZ') + ' Kč';
+    if (issuesSaleEl) issuesSaleEl.textContent = totalIssuesSale.toLocaleString('cs-CZ') + ' Kč';
+    if (issuesVisitEl) issuesVisitEl.textContent = totalIssuesVisit.toLocaleString('cs-CZ') + ' Kč';
+    if (issuesManualEl) issuesManualEl.textContent = totalIssuesManual.toLocaleString('cs-CZ') + ' Kč';
+    if (issuesSaleRevenueEl) issuesSaleRevenueEl.textContent = totalProductSalesRevenue.toLocaleString('cs-CZ') + ' Kč';
     
     let marginsHTML = '';
     productMargins.forEach(p => {
         marginsHTML += `
             <tr>
                 <td style="padding: 0.75rem;">${p.name}</td>
-                <td style="padding: 0.75rem; text-align: right;">${p.purchase} Kč</td>
-                <td style="padding: 0.75rem; text-align: right;">${p.sale} Kč</td>
+                <td style="padding: 0.75rem; text-align: right;">${p.cost.toLocaleString('cs-CZ')} Kč</td>
+                <td style="padding: 0.75rem; text-align: right;">${p.revenue.toLocaleString('cs-CZ')} Kč</td>
                 <td style="padding: 0.75rem; text-align: right; font-weight: 600; color: var(--success-color);">${p.margin}%</td>
             </tr>
         `;
@@ -11072,6 +11627,23 @@ function generateCostsReport() {
     if (marginsTable) {
         marginsTable.innerHTML = marginsHTML || '<tr><td colspan="4" style="padding: 1rem; text-align: center;">Žádná data</td></tr>';
     }
+
+    // Marže služeb
+    let serviceMarginsHTML = '';
+    serviceMargins.forEach(s => {
+        serviceMarginsHTML += `
+            <tr>
+                <td style="padding: 0.75rem;">${s.name}</td>
+                <td style="padding: 0.75rem; text-align: right;">${s.cost.toLocaleString('cs-CZ')} Kč</td>
+                <td style="padding: 0.75rem; text-align: right;">${s.revenue.toLocaleString('cs-CZ')} Kč</td>
+                <td style="padding: 0.75rem; text-align: right; font-weight: 600; color: var(--success-color);">${s.margin}%</td>
+            </tr>
+        `;
+    });
+    const serviceTable = document.querySelector('#serviceMarginsTable tbody');
+    if (serviceTable) {
+        serviceTable.innerHTML = serviceMarginsHTML || '<tr><td colspan="4" style="padding: 1rem; text-align: center;">Žádná data</td></tr>';
+    }
     
     // Rozložení nákladů - vizualizace
     const costsBreakdownEl = document.getElementById('costsBreakdown');
@@ -11079,6 +11651,8 @@ function generateCostsReport() {
         const total = totalRevenue;
         const profitPercentage = total > 0 ? (totalProfit / total * 100).toFixed(1) : 0;
         const issuesPercentage = total > 0 ? (totalIssues / total * 100).toFixed(1) : 0;
+        const issuesWorkPct = totalIssues > 0 ? (totalIssuesWork / totalIssues * 100).toFixed(1) : 0;
+        const issuesSalePct = totalIssues > 0 ? (totalIssuesSale / totalIssues * 100).toFixed(1) : 0;
         
         costsBreakdownEl.innerHTML = `
             <div style="margin-bottom: 1.5rem;">
@@ -11098,6 +11672,10 @@ function generateCostsReport() {
                 </div>
                 <div style="height: 24px; background: #e5e7eb; border-radius: 12px; overflow: hidden;">
                     <div style="height: 100%; background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%); width: ${issuesPercentage}%; transition: width 0.3s;"></div>
+                </div>
+                <div style="display:flex; gap:0.75rem; margin-top:0.4rem; font-size:0.85rem; color:#6b7280;">
+                    <span>Práce: ${totalIssuesWork.toLocaleString()} Kč (${issuesWorkPct}%)</span>
+                    <span>Prodej: ${totalIssuesSale.toLocaleString()} Kč (${issuesSalePct}%)</span>
                 </div>
             </div>
             
@@ -11355,14 +11933,24 @@ async function createSnapshot(period, periodStart, periodEnd, note) {
         const year = parseInt(document.getElementById('accountingYear').value);
         const month = document.getElementById('accountingMonth').value;
         
-        // Spočítat všechna data (použít stejnou logiku jako v generateCostsReport)
+        // Spočítat všechna data (stejná logika jako generateCostsReport)
         let totalRevenue = 0;
         let serviceRevenue = 0;
         let productRevenue = 0;
         let totalVisits = 0;
         let totalPurchases = 0;
         let totalIssues = 0;
-        
+        let totalIssuesWork = 0;
+        let totalIssuesSale = 0;
+
+        // Helper na jednotkovou nákupku
+        const unitCost = (product) => {
+            const pkg = product.packageSize || 1;
+            return product.unit && product.unit !== 'ks'
+                ? (product.pricePurchase || 0) / pkg
+                : (product.pricePurchase || 0);
+        };
+
         clients.forEach(client => {
             if (client.visits) {
                 client.visits.forEach(visit => {
@@ -11377,18 +11965,36 @@ async function createSnapshot(period, periodStart, periodEnd, note) {
                     totalRevenue += visit.price;
                     
                     // Náklady na materiál
-                    if (visit.services) {
-                        visit.services.forEach(service => {
-                            if (service.materials) {
-                                service.materials.forEach(material => {
-                                    const product = products.find(p => p.id === material.productId);
-                                    if (product && product.pricePurchase) {
-                                        totalIssues += material.quantity * product.pricePurchase;
-                                    }
-                                });
+                    (visit.services || []).forEach(service => {
+                        (service.materials || []).forEach(material => {
+                            const product = products.find(p => p.id === material.productId);
+                            if (product && product.pricePurchase) {
+                                let qty = material.quantity || 0;
+                                if (material.unit && product.unit && material.unit !== product.unit) {
+                                    const converted = convertToBaseUnit(material.quantity, material.unit, product.unit, product);
+                                    if (converted !== null && !isNaN(converted)) qty = converted;
+                                }
+                                const cost = qty * unitCost(product);
+                                totalIssues += cost;
+                                totalIssuesWork += cost;
                             }
                         });
-                    }
+                    });
+                    
+                    // Prodané produkty v návštěvě (náklad na prodané zboží)
+                    (visit.products || []).forEach(p => {
+                        const product = products.find(prod => prod.id === p.productId);
+                        if (product && product.pricePurchase) {
+                            const pkg = p.packageSize || product.packageSize || 1;
+                            let qtyBase = p.quantity || 0;
+                            if (product.unit !== 'ks') qtyBase = (p.quantity || 0) * pkg;
+                            const cost = qtyBase * unitCost(product);
+                            totalIssues += cost;
+                            totalIssuesSale += cost;
+                            productRevenue += (p.price || 0) * (p.quantity || 0);
+                            totalRevenue += (p.price || 0) * (p.quantity || 0);
+                        }
+                    });
                 });
             }
             if (client.purchases) {
@@ -11401,6 +12007,17 @@ async function createSnapshot(period, periodStart, periodEnd, note) {
                     const revenue = purchase.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
                     productRevenue += revenue;
                     totalRevenue += revenue;
+                    
+                    (purchase.items || []).forEach(item => {
+                        const product = products.find(p => p.id === item.productId);
+                        if (product && product.pricePurchase) {
+                            const purpose = item.purpose || 'sale';
+                            const cost = (item.quantity || 0) * unitCost(product);
+                            totalIssues += cost;
+                            if (purpose === 'sale') totalIssuesSale += cost;
+                            else totalIssuesWork += cost;
+                        }
+                    });
                 });
             }
         });
@@ -11417,7 +12034,7 @@ async function createSnapshot(period, periodStart, periodEnd, note) {
                     receipt.items.forEach(item => {
                         const product = products.find(p => p.id === item.productId);
                         if (product && product.pricePurchase) {
-                            totalPurchases += item.quantity * product.pricePurchase;
+                            totalPurchases += item.quantity * unitCost(product);
                         }
                     });
                 }
@@ -11439,7 +12056,9 @@ async function createSnapshot(period, periodStart, periodEnd, note) {
                 },
                 costs: {
                     purchases: totalPurchases,
-                    issues: totalIssues
+                    issues: totalIssues,
+                    issuesWork: totalIssuesWork,
+                    issuesSale: totalIssuesSale
                 },
                 profit,
                 stats: {
@@ -11525,7 +12144,7 @@ function viewSnapshot(id) {
     
     // Náklady
     document.getElementById('viewSnapshotCosts').textContent = data.costs.issues.toLocaleString() + ' Kč';
-    document.getElementById('viewSnapshotPurchases').textContent = data.costs.purchases.toLocaleString() + ' Kč';
+    document.getElementById('viewSnapshotPurchases').textContent = (data.costs.purchases || 0).toLocaleString() + ' Kč';
     document.getElementById('viewSnapshotIssues').textContent = data.costs.issues.toLocaleString() + ' Kč';
     
     // Zisk a marže
@@ -11545,14 +12164,38 @@ function closeViewSnapshotModal() {
 }
 
 // Globální režim filtru návštěv a funkce pro jeho nastavení
-window.visitFilterMode = window.visitFilterMode || 'all';
+window.visitFilterMode = sessionStorage.getItem('visitFilterMode') || 'all';
 window.setVisitFilterMode = function(mode) {
     window.visitFilterMode = mode;
+    sessionStorage.setItem('visitFilterMode', mode);
     if (typeof currentClient !== 'undefined' && currentClient) {
         showClientDetail(currentClient);
     } else {
         if (typeof renderClients === 'function') {
             renderClients();
         }
+    }
+}
+// Migrace staré historie výdejů z localStorage do DB
+async function migrateLocalIssueHistory() {
+    const legacy = JSON.parse(localStorage.getItem('issueHistory') || '[]');
+    if (!legacy.length) return;
+    try {
+        for (const issue of legacy) {
+            await apiCall('issues.php', 'POST', {
+                date: issue.date || new Date().toISOString().split('T')[0],
+                note: issue.note || '',
+                items: (issue.items || []).map(item => ({
+                    productId: item.productId || null,
+                    productName: item.productName || '',
+                    quantity: item.quantity || 0,
+                    unit: item.unit || ''
+                }))
+            });
+        }
+        localStorage.removeItem('issueHistory');
+        showNotification('Historie výdejů byla přesunuta do databáze', 'success');
+    } catch (err) {
+        console.error('Migrace historie výdejů selhala:', err);
     }
 }

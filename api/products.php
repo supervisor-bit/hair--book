@@ -1,11 +1,11 @@
 <?php
+require_once 'config.php';
 session_start();
 if (empty($_SESSION['hairbook_logged_in'])) {
     http_response_code(401);
     echo json_encode(['error' => 'Unauthorized']);
     exit;
 }
-require_once 'config.php';
 
 $db = getDB();
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -73,25 +73,49 @@ switch ($method) {
         break;
         
     case 'PUT':
-        // Aktualizovat produkt
+        // Aktualizovat produkt (upsert pro importy)
         $data = getJsonInput();
-        $stmt = $db->prepare("UPDATE products SET name = ?, barcode = ?, description = ?, category_id = ?, stock = ?, unit = ?, package_size = ?, minimal_stock = ?, purchase_price = ?, sale_price = ?, vat_rate = ?, for_sale = ?, for_work = ? WHERE id = ?");
-        $stmt->execute([
-            $data['name'],
-            $data['barcode'] ?? null,
-            $data['description'] ?? '',
-            $data['categoryId'] ?? null,
-            $data['stock'] ?? 0,
-            $data['unit'],
-            $data['packageSize'],
-            $data['minStock'] ?? 0,
-            $data['pricePurchase'] ?? 0,
-            $data['priceRetail'] ?? 0,
-            $data['vatRate'] ?? 21,
-            $data['forSale'] ? 1 : 0,
-            $data['forWork'] ? 1 : 0,
-            $data['id']
-        ]);
+        $stmt = $db->prepare("SELECT COUNT(*) FROM products WHERE id = ?");
+        $stmt->execute([$data['id']]);
+        $exists = $stmt->fetchColumn() > 0;
+
+        if ($exists) {
+            $stmt = $db->prepare("UPDATE products SET name = ?, barcode = ?, description = ?, category_id = ?, stock = ?, unit = ?, package_size = ?, minimal_stock = ?, purchase_price = ?, sale_price = ?, vat_rate = ?, for_sale = ?, for_work = ? WHERE id = ?");
+            $stmt->execute([
+                $data['name'],
+                $data['barcode'] ?? null,
+                $data['description'] ?? '',
+                $data['categoryId'] ?? null,
+                $data['stock'] ?? 0,
+                $data['unit'],
+                $data['packageSize'],
+                $data['minStock'] ?? 0,
+                $data['pricePurchase'] ?? 0,
+                $data['priceRetail'] ?? 0,
+                $data['vatRate'] ?? 21,
+                $data['forSale'] ? 1 : 0,
+                $data['forWork'] ? 1 : 0,
+                $data['id']
+            ]);
+        } else {
+            $stmt = $db->prepare("INSERT INTO products (id, name, barcode, description, category_id, stock, unit, package_size, minimal_stock, purchase_price, sale_price, vat_rate, for_sale, for_work) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([
+                $data['id'],
+                $data['name'],
+                $data['barcode'] ?? null,
+                $data['description'] ?? '',
+                $data['categoryId'] ?? null,
+                $data['stock'] ?? 0,
+                $data['unit'],
+                $data['packageSize'],
+                $data['minStock'] ?? 0,
+                $data['pricePurchase'] ?? 0,
+                $data['priceRetail'] ?? 0,
+                $data['vatRate'] ?? 21,
+                $data['forSale'] ? 1 : 0,
+                $data['forWork'] ? 1 : 0
+            ]);
+        }
         
         // Uložit movements pokud jsou
         if (isset($data['movements']) && is_array($data['movements'])) {

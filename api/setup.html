@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <title>HairBook Setup</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; padding: 20px; }
+        h1 { margin-top: 0; }
+        .card { background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+        label { display: block; margin: 6px 0 2px; }
+        input, textarea, select { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #1f2937; background: #0b1220; color: #e2e8f0; }
+        textarea { min-height: 120px; resize: vertical; }
+        button { margin-top: 10px; padding: 10px 16px; border: none; border-radius: 8px; background: #2563eb; color: white; cursor: pointer; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .row { display: flex; gap: 12px; }
+        .row > div { flex: 1; }
+        .log { background: #0b1220; border: 1px solid #1f2937; border-radius: 8px; padding: 10px; min-height: 140px; white-space: pre-line; }
+        .pill { display: inline-block; padding: 2px 8px; border-radius: 12px; background: #1f2937; margin-right: 6px; font-size: 12px; color: #cbd5e1; }
+    </style>
+</head>
+<body>
+    <h1>HairBook Setup Wizard</h1>
+    <p class="pill">DB: SQLite / MySQL</p><p class="pill">Kroky: test → vytvořit tabulky → migrace → wipe</p>
+
+    <div class="card">
+        <h2>1) Připojení k DB a uložení .env</h2>
+        <div class="row">
+            <div>
+                <label>Typ databáze</label>
+                <select id="dbType">
+                    <option value="sqlite">SQLite (výchozí)</option>
+                    <option value="mysql">MySQL / MariaDB</option>
+                </select>
+            </div>
+            <div>
+                <label>Token (WIZARD_TOKEN, volitelné)</label>
+                <input id="token" placeholder="pokud je nastaven WIZARD_TOKEN">
+            </div>
+        </div>
+        <div id="mysqlFields">
+            <div class="row">
+                <div>
+                    <label>Host</label>
+                    <input id="dbHost" value="localhost">
+                </div>
+                <div>
+                    <label>DB název</label>
+                    <input id="dbName" value="hairbook">
+                </div>
+            </div>
+            <div class="row">
+                <div>
+                    <label>Uživatel</label>
+                    <input id="dbUser" value="root">
+                </div>
+                <div>
+                    <label>Heslo</label>
+                    <input id="dbPass" type="password" value="">
+                </div>
+                <div>
+                    <label>Charset</label>
+                    <input id="dbCharset" value="utf8mb4">
+                </div>
+            </div>
+            <div>
+                <label>Nový WIZARD_TOKEN (uloží se do .env, volitelné)</label>
+                <input id="wizardToken" placeholder="např. silne-heslo">
+            </div>
+        </div>
+        <button onclick="testConnection()">Otestovat a uložit .env</button>
+    </div>
+
+    <div class="card">
+        <h2>2) Vytvořit tabulky</h2>
+        <p>Spustí <code>api/init-db.php</code> podle nastavení z .env.</p>
+        <button onclick="runInit()">Vytvořit schéma</button>
+    </div>
+
+    <div class="card">
+        <h2>3) Migrace dat (JSON z localStorage)</h2>
+        <textarea id="migrateInput" placeholder='Vlož JSON s daty (clients, products, categories, services, visits, purchases...)'></textarea>
+        <button onclick="runMigrate()">Importovat</button>
+    </div>
+
+    <div class="card">
+        <h2>4) Vymazat všechna data</h2>
+        <p>Volá <code>reset-db.php</code> a smaže obsah všech tabulek. Vyžaduje potvrzení a (pokud je nastaven) WIZARD_TOKEN.</p>
+        <button style="background:#dc2626" onclick="runReset()">Smazat vše</button>
+    </div>
+
+    <div class="card">
+        <h2>5) Kompletní záloha / obnova (všechny tabulky)</h2>
+        <p>Export/Import přes <code>backup.php</code>. Vyžaduje token, pokud je nastaven <code>WIZARD_TOKEN</code>.</p>
+        <div class="row">
+            <div>
+                <button onclick="downloadBackup()">Stáhnout zálohu (JSON)</button>
+            </div>
+            <div>
+                <label>Nahrát zálohu (JSON)</label>
+                <input type="file" id="backupFile" accept=".json" />
+                <button onclick="uploadBackup()">Obnovit ze zálohy</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Log</h2>
+        <div id="log" class="log"></div>
+    </div>
+
+    <script>
+        const logEl = document.getElementById('log');
+        const dbTypeEl = document.getElementById('dbType');
+        const mysqlFields = document.getElementById('mysqlFields');
+
+        function log(msg, type = 'info') {
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+            logEl.textContent = `${prefix} ${msg}\n` + logEl.textContent;
+        }
+
+        function headersWithToken() {
+            const token = document.getElementById('token').value.trim();
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers['X-Setup-Token'] = token;
+            return headers;
+        }
+
+        dbTypeEl.addEventListener('change', () => {
+            mysqlFields.style.display = dbTypeEl.value === 'mysql' ? 'block' : 'none';
+        });
+        mysqlFields.style.display = dbTypeEl.value === 'mysql' ? 'block' : 'none';
+
+        async function testConnection() {
+            const payload = {
+                type: dbTypeEl.value,
+                host: document.getElementById('dbHost').value,
+                name: document.getElementById('dbName').value,
+                user: document.getElementById('dbUser').value,
+                pass: document.getElementById('dbPass').value,
+                charset: document.getElementById('dbCharset').value
+            };
+            const newToken = document.getElementById('wizardToken').value.trim();
+            if (newToken) payload.wizardToken = newToken;
+            try {
+                const res = await fetch('setup-test.php', {
+                    method: 'POST',
+                    headers: headersWithToken(),
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+                log(`DB uložena do .env (${data.db.type})`, 'success');
+            } catch (err) {
+                log(`Test/uložení selhalo: ${err.message}`, 'error');
+            }
+        }
+
+        async function runInit() {
+            try {
+                const res = await fetch('init-db.php');
+                const text = await res.text();
+                if (!res.ok) throw new Error(text || res.statusText);
+                log(`init-db: ${text.trim() || 'hotovo'}`, 'success');
+            } catch (err) {
+                log(`init-db selhalo: ${err.message}`, 'error');
+            }
+        }
+
+        async function runMigrate() {
+            const raw = document.getElementById('migrateInput').value.trim();
+            if (!raw) return log('Vlož JSON pro migraci', 'error');
+            let parsed;
+            try {
+                parsed = JSON.parse(raw);
+            } catch (e) {
+                return log('Neplatný JSON: ' + e.message, 'error');
+            }
+            try {
+                const res = await fetch('migrate.php', {
+                    method: 'POST',
+                    headers: headersWithToken(),
+                    body: JSON.stringify(parsed)
+                });
+                const data = await res.json();
+                if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+                log(`Migrace OK: ${JSON.stringify(data.stats)}`, 'success');
+            } catch (err) {
+                log(`Migrace selhala: ${err.message}`, 'error');
+            }
+        }
+
+        async function runReset() {
+            if (!confirm('Opravdu smazat všechna data?')) return;
+            const payload = { confirm: 'DELETE_ALL' };
+            try {
+                const res = await fetch('reset-db.php', {
+                    method: 'POST',
+                    headers: headersWithToken(),
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+                log('DB vymazána', 'success');
+            } catch (err) {
+                log(`Reset selhal: ${err.message}`, 'error');
+            }
+        }
+
+        async function downloadBackup() {
+            try {
+                const res = await fetch('backup.php', {
+                    headers: headersWithToken()
+                });
+                const data = await res.json();
+                if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `hairbook-backup-${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                log('Záloha stažena', 'success');
+            } catch (err) {
+                log('Download selhal: ' + err.message, 'error');
+            }
+        }
+
+        async function uploadBackup() {
+            const fileInput = document.getElementById('backupFile');
+            const file = fileInput.files[0];
+            if (!file) return log('Vyber soubor zálohy', 'error');
+            const text = await file.text();
+            let parsed;
+            try {
+                parsed = JSON.parse(text);
+            } catch (e) {
+                return log('Neplatný JSON: ' + e.message, 'error');
+            }
+            if (!parsed.data) {
+                return log('Chybí data v JSON (očekává se {data:{...}})', 'error');
+            }
+            if (!confirm('Obnovit všechna data ze zálohy? Toto přepíše aktuální data.')) return;
+            try {
+                const res = await fetch('backup.php', {
+                    method: 'POST',
+                    headers: headersWithToken(),
+                    body: JSON.stringify(parsed)
+                });
+                const data = await res.json();
+                if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+                log('Obnova dokončena: ' + JSON.stringify(data.counts), 'success');
+            } catch (err) {
+                log('Obnova selhala: ' + err.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

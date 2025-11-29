@@ -1,11 +1,11 @@
 <?php
+require_once 'config.php';
 session_start();
 if (empty($_SESSION['hairbook_logged_in'])) {
     http_response_code(401);
     echo json_encode(['error' => 'Unauthorized']);
     exit;
 }
-require_once 'config.php';
 
 $db = getDB();
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -25,8 +25,18 @@ switch ($method) {
         
     case 'PUT':
         $data = getJsonInput();
-        $stmt = $db->prepare("UPDATE product_categories SET name = ?, icon = ?, color = ? WHERE id = ?");
-        $stmt->execute([$data['name'], $data['icon'], $data['color'], $data['id']]);
+        // Upsert: pokud kategorie neexistuje, vlož ji
+        $stmt = $db->prepare("SELECT COUNT(*) FROM product_categories WHERE id = ?");
+        $stmt->execute([$data['id']]);
+        $exists = $stmt->fetchColumn() > 0;
+
+        if ($exists) {
+            $stmt = $db->prepare("UPDATE product_categories SET name = ?, icon = ?, color = ? WHERE id = ?");
+            $stmt->execute([$data['name'], $data['icon'], $data['color'], $data['id']]);
+        } else {
+            $stmt = $db->prepare("INSERT INTO product_categories (id, name, icon, color) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$data['id'], $data['name'], $data['icon'], $data['color']]);
+        }
         sendJson(['success' => true]);
         break;
         

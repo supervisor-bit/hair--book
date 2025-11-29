@@ -307,13 +307,19 @@
 
         async function loadSettings() {
             try {
-                const response = await fetch('api/settings.php');
+                const response = await fetch('api/settings.php', { credentials: 'include' });
                 if (!response.ok) {
                     throw new Error('API error: ' + response.status);
                 }
                 const data = await response.json();
                 settings = data;
                 console.log('Loaded settings:', settings);
+                
+                if (settings.authenticated) {
+                    sessionStorage.setItem('hairbook_logged_in', 'true');
+                    window.location.href = 'index.html';
+                    return;
+                }
                 
                 // Pokud není heslo nastaveno, zobrazit formulář pro vytvoření
                 if (settings.hasPassword === false) {
@@ -363,6 +369,7 @@
                 const response = await fetch('api/settings.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
                     body: JSON.stringify(settingsData)
                 });
                 
@@ -434,14 +441,15 @@
 
         // Kontrola, jestli je uživatel již přihlášen
         window.addEventListener('DOMContentLoaded', async function() {
-            const isLoggedIn = sessionStorage.getItem('hairbook_logged_in') || localStorage.getItem('hairbook_remember');
-            
-            if (isLoggedIn) {
-                window.location.href = 'index.html';
-                return;
+            try {
+                await loadSettings();
+            } catch (e) {
+                console.error('Login init error:', e);
+                const isLoggedIn = sessionStorage.getItem('hairbook_logged_in') || localStorage.getItem('hairbook_remember');
+                if (isLoggedIn) {
+                    window.location.href = 'index.html';
+                }
             }
-            
-            await loadSettings();
         });
 
         // Animace třesení
