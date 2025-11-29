@@ -85,7 +85,7 @@
 </div>
 
 <!-- Potvrzovací modální okno -->
-<div id="confirmModal" class="modal">
+<div id="confirmModal" class="modal" style="z-index: 1400;">
     <div class="modal-content" style="max-width: 520px;">
         <div class="modal-header">
             <h3 id="confirmModalTitle">Potvrdit akci</h3>
@@ -105,6 +105,163 @@
             </button>
             <button type="button" id="confirmModalBtn" class="btn btn-primary">
                 <i class="fas fa-check"></i> Potvrdit
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modální okno pro kalendářovou rezervaci -->
+<div id="calendarEventModal" class="modal">
+    <div class="modal-content" style="max-width: 520px;">
+        <div class="modal-header">
+            <h3 id="calendarModalTitle">Nová rezervace</h3>
+            <button class="modal-close" onclick="closeCalendarModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="calendarForm" onsubmit="saveCalendarEvent(event)">
+                <input type="hidden" id="calendarEventId">
+
+                <input type="hidden" id="calendarClientId">
+
+                <div class="form-group" style="position: relative;">
+                    <label for="calendarClientName">Jméno klienta *</label>
+                    <input type="text" id="calendarClientName" required placeholder="Jméno a příjmení" autocomplete="off" oninput="handleCalendarClientInput()" onfocus="handleCalendarClientInput()">
+                    <div id="calendarClientSuggestions" style="display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; max-height: 220px; overflow-y: auto; background: white; border: 1px solid #e5e7eb; border-radius: 0.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.08); z-index: 1100;"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="calendarClientPhone">Telefon</label>
+                    <input type="tel" id="calendarClientPhone" placeholder="+420 123 456 789">
+                </div>
+
+                <div class="form-group">
+                    <label for="calendarService">Na co se objednává</label>
+                    <input type="text" id="calendarService" placeholder="Např. Barvení, Střih, Foukání...">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="calendarEventDate">Datum *</label>
+                        <input type="date" id="calendarEventDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="calendarEventTime">Čas od *</label>
+                        <input type="time" id="calendarEventTime" step="600" required onchange="syncCalendarEndTime()">
+                    </div>
+                    <div class="form-group">
+                        <label for="calendarEventTimeEnd">Čas do *</label>
+                        <input type="time" id="calendarEventTimeEnd" step="600" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="calendarEventNote">Poznámka</label>
+                    <textarea id="calendarEventNote" rows="2" placeholder="Poznámka ke schůzce..."></textarea>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeCalendarModal()">
+                        <i class="fas fa-times"></i> Zrušit
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Uložit
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modální okno pro detail rezervace -->
+<div id="calendarEventViewModal" class="modal">
+    <div class="modal-content" style="max-width: 520px;">
+        <div class="modal-header">
+            <h3 id="calendarViewTitle">Rezervace</h3>
+            <button class="modal-close" onclick="closeCalendarViewModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div style="display: grid; gap: 0.5rem;">
+                <div><strong>Klient:</strong> <span id="calendarViewClient"></span></div>
+                <div><strong>Telefon:</strong> <span id="calendarViewPhone"></span></div>
+                <div><strong>Účel:</strong> <span id="calendarViewService"></span></div>
+                <div><strong>Datum:</strong> <span id="calendarViewDate"></span></div>
+                <div><strong>Čas:</strong> <span id="calendarViewTime"></span></div>
+                <div><strong>Poznámka:</strong> <span id="calendarViewNote"></span></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeCalendarViewModal()">
+                <i class="fas fa-times"></i> Zavřít
+            </button>
+            <button type="button" class="btn btn-primary" id="calendarViewEditBtn">
+                <i class="fas fa-pen"></i> Upravit
+            </button>
+            <button type="button" class="btn btn-primary" id="calendarViewRepeatBtn" onclick="openCalendarRepeatModal()">
+                <i class="fas fa-redo"></i> Opakovat
+            </button>
+            <button type="button" class="btn btn-danger" id="calendarViewDeleteBtn" onclick="confirmDeleteCalendarEvent()">
+                <i class="fas fa-trash"></i> Smazat
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modální okno pro opakování rezervace -->
+<div id="calendarRepeatModal" class="modal">
+    <div class="modal-content" style="max-width: 520px;">
+        <div class="modal-header">
+            <h3>Opakovat rezervaci</h3>
+            <button class="modal-close" onclick="closeCalendarRepeatModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div id="calendarRepeatSummary" style="padding:0.75rem; border-radius:0.5rem; background:#f9fafb; border:1px solid #e5e7eb; margin-bottom:0.75rem;">
+                <!-- naplní JS -->
+            </div>
+            <div class="form-group">
+                <label>Posunout o (týdny)</label>
+                <input type="number" id="calendarRepeatWeeks" min="1" value="6">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="calendarRepeatDate">Datum</label>
+                    <input type="date" id="calendarRepeatDate">
+                </div>
+                <div class="form-group">
+                    <label for="calendarRepeatTime">Čas od</label>
+                    <input type="time" id="calendarRepeatTime" step="600">
+                </div>
+                <div class="form-group">
+                    <label for="calendarRepeatTimeEnd">Čas do</label>
+                    <input type="time" id="calendarRepeatTimeEnd" step="600">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Poznámka k opakování</label>
+                <input type="text" id="calendarRepeatNote" placeholder="Např. tónování + střih za 6 týdnů">
+            </div>
+            <div class="form-group">
+                <label>Směna klientky</label>
+                <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                    <label><input type="radio" name="calendarRepeatShift" value="all" checked> Celý den</label>
+                    <label><input type="radio" name="calendarRepeatShift" value="morning"> Ranní (8–13)</label>
+                    <label><input type="radio" name="calendarRepeatShift" value="afternoon"> Odpolední (13–19)</label>
+                </div>
+            </div>
+            <div id="calendarRepeatConflict" style="display:none; padding:0.75rem; border-radius:0.5rem; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca;"></div>
+            <div id="calendarRepeatSuggestion" style="display:none; margin-top:0.5rem; padding:0.75rem; border-radius:0.5rem; background:#f0fdf4; color:#166534; border:1px solid #bbf7d0;"></div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeCalendarRepeatModal()">
+                <i class="fas fa-times"></i> Zavřít
+            </button>
+            <button type="button" class="btn btn-primary" onclick="submitCalendarRepeat()">
+                <i class="fas fa-check"></i> Vytvořit
             </button>
         </div>
     </div>

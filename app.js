@@ -169,6 +169,34 @@ let salonSettings = {
 // Režim pořizování produktů
 let isEntryMode = false;
 
+// Kalendář
+let calendarEvents = [];
+let calendarViewMode = 'day';
+let calendarSelectedDate = new Date();
+let currentCalendarEventId = null;
+let currentCalendarRepeatBase = null;
+let calendarShiftFilter = 'all'; // all, morning, afternoon
+
+// Pomocná funkce pro práci s časem HH:MM
+function addMinutesToTime(time, minutes) {
+    const [h, m] = time.split(':').map(Number);
+    const date = new Date();
+    date.setHours(h, m, 0, 0);
+    date.setMinutes(date.getMinutes() + minutes);
+    const hh = String(date.getHours()).padStart(2, '0');
+    const mm = String(date.getMinutes()).padStart(2, '0');
+    return `${hh}:${mm}`;
+}
+
+function timeToMinutes(time) {
+    const [h, m] = time.split(':').map(Number);
+    return h * 60 + m;
+}
+
+function isOverlap(startA, endA, startB, endB) {
+    return startA < endB && startB < endA;
+}
+
 // Ukázková data (zakomentováno - odkomentuj pro testování)
 /*
 let clients = [
@@ -575,6 +603,16 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 });
 
+// Zavření návrhů klientů při kliknutí mimo modal
+document.addEventListener('click', (e) => {
+    const box = document.getElementById('calendarClientSuggestions');
+    const input = document.getElementById('calendarClientName');
+    if (!box || !input) return;
+    if (!box.contains(e.target) && e.target !== input) {
+        hideCalendarClientSuggestions();
+    }
+});
+
 // Navigace mezi stránkami
 function initNavigation() {
     const navItems = document.querySelectorAll('.nav-item');
@@ -661,8 +699,729 @@ function initNavigation() {
             if (pageName === 'issue-history') {
                 loadIssueHistory();
             }
+
+            // Kalendář
+            if (pageName === 'calendar') {
+                initializeCalendarPage();
+            }
         });
     });
+}
+
+// === KALENDÁŘ ===
+const CAL_START_HOUR = 8;
+const CAL_END_HOUR = 19;
+
+function getWeekNumber(dateObj) {
+    const dt = new Date(dateObj);
+    dt.setHours(0,0,0,0);
+    const tmp = new Date(dt.getTime());
+    tmp.setDate(tmp.getDate() + 3 - ((tmp.getDay() + 6) % 7));
+    const week1 = new Date(tmp.getFullYear(),0,4);
+    const week = 1 + Math.round(((tmp.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6)%7)) / 7);
+    return week;
+}
+
+function updateCalendarTodayInfo() {
+    const el = document.getElementById('calendarTodayInfo');
+    if (!el) return;
+    const today = new Date();
+    const week = getWeekNumber(today);
+    const parity = week % 2 === 0 ? 'sudý' : 'lichý';
+    const formatter = new Intl.DateTimeFormat('cs-CZ', { weekday: 'long', day: 'numeric', month: 'numeric', year: 'numeric' });
+    el.textContent = `Dnes: ${formatter.format(today)} • týden ${week} (${parity})`;
+}
+
+function applyCalendarWeekOffset() {
+    const offsetInput = document.getElementById('calendarWeekOffset');
+    const dateInput = document.getElementById('calendarDate');
+    if (!offsetInput || !dateInput) return;
+    const weeks = parseInt(offsetInput.value, 10);
+    if (isNaN(weeks) || weeks < 0) return;
+    const base = dateInput.value ? new Date(dateInput.value) : new Date();
+    const target = new Date(base.getTime());
+    target.setDate(target.getDate() + weeks * 7);
+    dateInput.value = toDateInputValue(target);
+    calendarSelectedDate = target;
+    loadCalendar();
+}
+
+function applyCalendarShiftFilter() {
+    const select = document.getElementById('calendarShiftFilter');
+    calendarShiftFilter = select ? select.value : 'all';
+    renderCalendar();
+}
+
+function goToToday() {
+    const today = new Date();
+    calendarSelectedDate = today;
+    const dateInput = document.getElementById('calendarDate');
+    if (dateInput) dateInput.value = toDateInputValue(today);
+    switchCalendarView('day');
+    loadCalendar();
+}
+
+async function findNextAvailableSlot() {
+    const shift = calendarShiftFilter || 'all';
+    const windowStart = shift === 'morning' ? 8 * 60 : shift === 'afternoon' ? 13 * 60 : CAL_START_HOUR * 60;
+    const windowEnd = shift === 'morning' ? 13 * 60 : shift === 'afternoon' ? 19 * 60 : CAL_END_HOUR * 60;
+    const duration = 30;
+    let current = new Date(calendarSelectedDate);
+    current.setHours(0,0,0,0);
+    const maxDays = 90;
+    for (let i = 0; i < maxDays; i++) {
+        const dateStr = toDateInputValue(current);
+        try {
+            const dayEvents = await apiCall(`calendar.php?date=${dateStr}`, 'GET');
+            const slots = [];
+            for (let m = windowStart; m + duration <= windowEnd; m += 30) {
+                slots.push(m);
+            }
+            const freeSlot = slots.find(startMin => {
+                const endMin = startMin + duration;
+                return !dayEvents.some(ev => {
+                    const evStart = timeToMinutes(ev.time);
+                    const evEnd = timeToMinutes(ev.end_time || addMinutesToTime(ev.time, ev.duration_minutes || 30));
+                    return isOverlap(startMin, endMin, evStart, evEnd);
+                });
+            });
+            if (freeSlot !== undefined) {
+                const startH = String(Math.floor(freeSlot/60)).padStart(2,'0');
+                const startM = String(freeSlot%60).padStart(2,'0');
+                const startStr = `${startH}:${startM}`;
+                const endStr = addMinutesToTime(startStr, duration);
+                calendarSelectedDate = new Date(current);
+                const dateInput = document.getElementById('calendarDate');
+                if (dateInput) dateInput.value = dateStr;
+                await loadCalendar();
+                openCalendarForm({ id: null, date: dateStr, time: startStr, end_time: endStr, duration_minutes: duration });
+                showNotification(`Nejbližší volný termín: ${dateStr} ${startStr}`, 'success');
+                return;
+            }
+        } catch (err) {
+            console.error('Chyba při hledání volného termínu', err);
+            break;
+        }
+        current.setDate(current.getDate() + 1);
+    }
+    showNotification('Nenašel jsem volný termín v příštích 90 dnech pro tuto směnu.', 'warning');
+}
+
+function initializeCalendarPage() {
+    const dateInput = document.getElementById('calendarDate');
+    if (dateInput && !dateInput.value) {
+        dateInput.value = toDateInputValue(calendarSelectedDate);
+    }
+    renderCalendarTimeOptions();
+    syncCalendarEndTime();
+    hideCalendarClientSuggestions();
+    updateCalendarTodayInfo();
+    const shiftSelect = document.getElementById('calendarShiftFilter');
+    if (shiftSelect) {
+        calendarShiftFilter = shiftSelect.value;
+    }
+    switchCalendarView(calendarViewMode);
+    loadCalendar();
+    if (dateInput && !dateInput.dataset.listenerAttached) {
+        dateInput.addEventListener('change', () => {
+            calendarSelectedDate = new Date(dateInput.value);
+            loadCalendar();
+        });
+        dateInput.dataset.listenerAttached = 'true';
+    }
+}
+
+function toDateInputValue(dateObj) {
+    return dateObj.toISOString().split('T')[0];
+}
+
+function renderCalendarTimeOptions() {
+    const startInput = document.getElementById('calendarEventTime');
+    const endInput = document.getElementById('calendarEventTimeEnd');
+    if (startInput) {
+        startInput.min = `${String(CAL_START_HOUR).padStart(2,'0')}:00`;
+        startInput.max = `${String(CAL_END_HOUR).padStart(2,'0')}:00`;
+        if (!startInput.value) startInput.value = `${String(CAL_START_HOUR).padStart(2,'0')}:00`;
+    }
+    if (endInput) {
+        endInput.min = `${String(CAL_START_HOUR).padStart(2,'0')}:10`;
+        endInput.max = `${String(CAL_END_HOUR).padStart(2,'0')}:00`;
+        if (!endInput.value) endInput.value = `${String(CAL_START_HOUR).padStart(2,'0')}:30`;
+    }
+}
+
+function syncCalendarEndTime() {
+    const startInput = document.getElementById('calendarEventTime');
+    const endInput = document.getElementById('calendarEventTimeEnd');
+    if (!startInput || !endInput) return;
+    const start = startInput.value;
+    const currentEnd = endInput.value;
+    const minEnd = addMinutesToTime(start, 30);
+    const startDate = new Date(`1970-01-01T${start}:00`);
+    const endDate = new Date(`1970-01-01T${currentEnd || minEnd}:00`);
+    if (!currentEnd || endDate <= startDate) {
+        endInput.value = minEnd;
+    }
+}
+
+function hideCalendarClientSuggestions() {
+    const box = document.getElementById('calendarClientSuggestions');
+    if (box) {
+        box.style.display = 'none';
+        box.innerHTML = '';
+    }
+}
+
+function renderCalendarClientSuggestions(query) {
+    const box = document.getElementById('calendarClientSuggestions');
+    if (!box) return;
+    const value = (query || '').trim().toLowerCase();
+    if (!value) {
+        hideCalendarClientSuggestions();
+        return;
+    }
+    const matches = clients.filter(c => {
+        const name = `${c.firstName || ''} ${c.lastName || ''}`.trim().toLowerCase();
+        const phone = (c.phone || '').toLowerCase();
+        return name.includes(value) || phone.includes(value);
+    }).slice(0, 8);
+
+    if (matches.length === 0) {
+        box.innerHTML = `<div style="padding: 0.5rem 0.75rem; color: #9ca3af;">Nenalezeno</div>`;
+        box.style.display = 'block';
+        return;
+    }
+
+    box.innerHTML = matches.map(c => {
+        const name = `${c.firstName || ''} ${c.lastName || ''}`.trim();
+        const phone = c.phone ? ` • ${c.phone}` : '';
+        return `<div class="calendar-client-suggestion" data-id="${c.id}" style="padding: 0.6rem 0.8rem; cursor: pointer; border-bottom: 1px solid #f3f4f6;">${escapeHtml(name)}${escapeHtml(phone)}</div>`;
+    }).join('');
+    box.style.display = 'block';
+
+    box.querySelectorAll('.calendar-client-suggestion').forEach(item => {
+        item.addEventListener('click', () => {
+            const id = item.getAttribute('data-id');
+            const client = clients.find(c => String(c.id) === String(id));
+            selectCalendarClient(client);
+            hideCalendarClientSuggestions();
+        });
+    });
+}
+
+function selectCalendarClient(client) {
+    if (!client) return;
+    document.getElementById('calendarClientId').value = client.id || '';
+    document.getElementById('calendarClientName').value = `${client.firstName || ''} ${client.lastName || ''}`.trim();
+    if (client.phone) document.getElementById('calendarClientPhone').value = client.phone;
+}
+
+function handleCalendarClientInput() {
+    const nameInput = document.getElementById('calendarClientName');
+    if (!nameInput) return;
+    const value = nameInput.value;
+    renderCalendarClientSuggestions(value);
+    if (!value) {
+        document.getElementById('calendarClientId').value = '';
+    }
+}
+
+function switchCalendarView(mode) {
+    calendarViewMode = mode;
+    const dayBtn = document.getElementById('calendarViewDay');
+    const weekBtn = document.getElementById('calendarViewWeek');
+    const dayView = document.getElementById('calendarDayView');
+    const weekView = document.getElementById('calendarWeekView');
+    if (dayBtn && weekBtn) {
+        if (mode === 'day') {
+            dayBtn.style.background = '#6366f1';
+            dayBtn.style.color = 'white';
+            weekBtn.style.background = '#f3f4f6';
+            weekBtn.style.color = '#374151';
+        } else {
+            weekBtn.style.background = '#6366f1';
+            weekBtn.style.color = 'white';
+            dayBtn.style.background = '#f3f4f6';
+            dayBtn.style.color = '#374151';
+        }
+    }
+    if (dayView && weekView) {
+        dayView.style.display = mode === 'day' ? 'block' : 'none';
+        weekView.style.display = mode === 'week' ? 'block' : 'none';
+    }
+    loadCalendar();
+}
+
+function getWeekParam(dateObj) {
+    const dt = new Date(dateObj);
+    dt.setHours(0,0,0,0);
+    const tmp = new Date(dt.getTime());
+    tmp.setDate(tmp.getDate() + 3 - ((tmp.getDay() + 6) % 7));
+    const week1 = new Date(tmp.getFullYear(),0,4);
+    const week = 1 + Math.round(((tmp.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6)%7)) / 7);
+    return `${tmp.getFullYear()}-W${String(week).padStart(2,'0')}`;
+}
+
+async function loadCalendar() {
+    const dateInput = document.getElementById('calendarDate');
+    if (dateInput && dateInput.value) {
+        calendarSelectedDate = new Date(dateInput.value);
+    }
+    const dateStr = toDateInputValue(calendarSelectedDate);
+    try {
+        let endpoint = `calendar.php?date=${dateStr}`;
+        if (calendarViewMode === 'week') {
+            endpoint = `calendar.php?week=${getWeekParam(calendarSelectedDate)}`;
+        }
+        calendarEvents = await apiCall(endpoint, 'GET');
+        renderCalendar();
+    } catch (err) {
+        console.error('Chyba při načítání kalendáře:', err);
+        showNotification('Chyba při načítání kalendáře', 'error');
+    }
+}
+
+function renderCalendar() {
+    if (calendarViewMode === 'day') {
+        renderCalendarDay();
+    } else {
+        renderCalendarWeek();
+    }
+}
+
+function renderCalendarDay() {
+    const container = document.getElementById('calendarDayView');
+    if (!container) return;
+    container.style.display = 'block';
+    container.style.maxHeight = 'calc(100vh - 160px)';
+    container.style.overflowY = 'auto';
+    const dateStr = toDateInputValue(calendarSelectedDate);
+    const events = calendarEvents.filter(ev => ev.date === dateStr);
+    const slots = [];
+    const windowStart = calendarShiftFilter === 'morning' ? 8 * 60 : calendarShiftFilter === 'afternoon' ? 13 * 60 : CAL_START_HOUR * 60;
+    const windowEnd = calendarShiftFilter === 'morning' ? 13 * 60 : calendarShiftFilter === 'afternoon' ? 19 * 60 : CAL_END_HOUR * 60;
+    for (let minutes = windowStart; minutes < windowEnd; minutes += 30) {
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+        slots.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+    }
+    let html = '<div style="border: 1px solid #e5e7eb; border-radius: 0.75rem; overflow: hidden;">';
+    slots.forEach(time => {
+        const slotStartMin = timeToMinutes(time);
+        const ev = events.find(e => {
+            const start = timeToMinutes(e.time);
+            const end = timeToMinutes(e.end_time || addMinutesToTime(e.time, e.duration_minutes || 30));
+            return slotStartMin >= start && slotStartMin < end;
+        });
+        if (ev) {
+            const startMin = timeToMinutes(ev.time);
+            const isStartSlot = slotStartMin === startMin;
+            const end = ev.end_time || addMinutesToTime(ev.time, ev.duration_minutes || 30);
+            html += `
+                <div class="calendar-slot filled" style="padding: 0.75rem 1rem; border-bottom: 1px solid #e5e7eb; background: #eef2ff; cursor: pointer;" onclick="openCalendarDetail(${ev.id})">
+                    <div style="font-weight: 700; color: #3730a3;">${ev.time} – ${end}</div>
+                    <div style="font-weight: 600;">${escapeHtml(ev.client_name || '')}</div>
+                    <div style="color: #6b7280; font-size: 0.875rem;">${escapeHtml(ev.client_phone || '')}</div>
+                    <div style="color: #4b5563; font-size: 0.9rem;">${escapeHtml(ev.service || '')}</div>
+                    ${!isStartSlot ? '<div style="color:#9ca3af; font-size:0.8rem;">(blokováno)</div>' : ''}
+                </div>
+            `;
+        } else {
+            html += `
+                <div class="calendar-slot empty" style="padding: 0.75rem 1rem; border-bottom: 1px solid #f3f4f6; cursor: pointer;" onclick="openCalendarFormFromSlot('${time}', '${dateStr}')">
+                    <div style="font-weight: 600; color: #374151;">${time}</div>
+                    <div style="color: #9ca3af; font-size: 0.875rem;">Volno</div>
+                </div>
+            `;
+        }
+    });
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function renderCalendarWeek() {
+    const container = document.getElementById('calendarWeekView');
+    if (!container) return;
+    container.style.display = 'block';
+    container.style.maxHeight = 'calc(100vh - 160px)';
+    container.style.overflowY = 'auto';
+    const start = new Date(calendarSelectedDate);
+    const day = start.getDay() || 7;
+    start.setDate(start.getDate() - day + 1); // pondělí
+    const days = [];
+    for (let i=0;i<7;i++){
+        const d = new Date(start);
+        d.setDate(start.getDate()+i);
+        days.push(d);
+    }
+    let html = '<div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.75rem;">';
+    days.forEach(d => {
+        const dateStr = toDateInputValue(d);
+        const evs = calendarEvents
+            .filter(ev => ev.date === dateStr)
+            .filter(ev => {
+                if (calendarShiftFilter === 'all') return true;
+                const startMin = timeToMinutes(ev.time);
+                if (calendarShiftFilter === 'morning') return startMin < 13 * 60;
+                if (calendarShiftFilter === 'afternoon') return startMin >= 13 * 60;
+                return true;
+            })
+            .sort((a,b)=>a.time.localeCompare(b.time));
+        html += `<div style="background: white; border:1px solid #e5e7eb; border-radius:0.75rem; min-height: 200px; padding: 0.75rem;">`;
+        html += `<div style="font-weight:700; margin-bottom:0.5rem;">${d.toLocaleDateString('cs-CZ', { weekday:'short', day:'numeric', month:'numeric' })}</div>`;
+        if (evs.length === 0) {
+            html += `<div style="color:#9ca3af; font-size:0.9rem;">Žádné rezervace</div>`;
+        } else {
+            evs.forEach(ev => {
+                const end = ev.end_time || addMinutesToTime(ev.time, ev.duration_minutes || 30);
+                html += `
+                    <div style="padding:0.5rem; margin-bottom:0.4rem; background:#eef2ff; border-radius:0.5rem; cursor:pointer;" onclick="openCalendarDetail(${ev.id})">
+                        <div style="font-weight:700; color:#3730a3;">${ev.time} – ${end}</div>
+                        <div style="font-weight:600;">${escapeHtml(ev.client_name || '')}</div>
+                        <div style="color:#6b7280; font-size:0.85rem;">${escapeHtml(ev.service || '')}</div>
+                    </div>
+                `;
+            });
+        }
+        html += `</div>`;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function openCalendarFormFromSlot(time, dateStr) {
+    openCalendarForm({ id: null, time, date: dateStr });
+}
+
+function openCalendarDetail(eventIdOrObj) {
+    const modal = document.getElementById('calendarEventViewModal');
+    if (!modal) return;
+    const ev = typeof eventIdOrObj === 'number'
+        ? calendarEvents.find(e => e.id === eventIdOrObj)
+        : eventIdOrObj;
+    if (!ev) return;
+    currentCalendarEventId = ev.id;
+
+    const endTime = ev.end_time || addMinutesToTime(ev.time, ev.duration_minutes || 30);
+    document.getElementById('calendarViewTitle').textContent = 'Rezervace';
+    document.getElementById('calendarViewClient').textContent = ev.client_name || '';
+    document.getElementById('calendarViewPhone').textContent = ev.client_phone || '';
+    document.getElementById('calendarViewService').textContent = ev.service || '';
+    document.getElementById('calendarViewDate').textContent = ev.date || '';
+    document.getElementById('calendarViewTime').textContent = `${ev.time} – ${endTime}`;
+    document.getElementById('calendarViewNote').textContent = ev.note || '';
+
+    const editBtn = document.getElementById('calendarViewEditBtn');
+    if (editBtn) {
+        editBtn.onclick = () => {
+            closeCalendarViewModal();
+            openCalendarForm(ev);
+        };
+    }
+
+    const repeatBtn = document.getElementById('calendarViewRepeatBtn');
+    if (repeatBtn) {
+        repeatBtn.onclick = () => {
+            openCalendarRepeatModal(ev);
+        };
+    }
+
+    modal.classList.add('show');
+}
+
+function closeCalendarViewModal() {
+    const modal = document.getElementById('calendarEventViewModal');
+    if (modal) modal.classList.remove('show');
+    currentCalendarEventId = null;
+}
+
+function openCalendarRepeatModal(ev) {
+    const base = ev || calendarEvents.find(e => e.id === currentCalendarEventId);
+    if (!base) return;
+    currentCalendarRepeatBase = base;
+    const modal = document.getElementById('calendarRepeatModal');
+    if (!modal) return;
+    // Default posun +6 týdnů
+    const weeksInput = document.getElementById('calendarRepeatWeeks');
+    if (weeksInput) weeksInput.value = 6;
+    const baseDate = new Date(base.date);
+    const targetDate = new Date(baseDate.getTime());
+    targetDate.setDate(targetDate.getDate() + 7 * (parseInt(weeksInput.value, 10) || 6));
+    document.getElementById('calendarRepeatDate').value = toDateInputValue(targetDate);
+    document.getElementById('calendarRepeatTime').value = base.time;
+    const endVal = base.end_time || addMinutesToTime(base.time, base.duration_minutes || 30);
+    document.getElementById('calendarRepeatTimeEnd').value = endVal;
+    document.getElementById('calendarRepeatNote').value = '';
+    // Nastavit směnu defaultně podle současného slotu
+    const startMin = timeToMinutes(base.time);
+    const shiftDefault = startMin < 13 * 60 ? 'morning' : 'afternoon';
+    const radios = document.querySelectorAll('input[name="calendarRepeatShift"]');
+    radios.forEach(r => { r.checked = (r.value === shiftDefault); });
+    const summary = document.getElementById('calendarRepeatSummary');
+    if (summary) {
+        summary.innerHTML = `
+            <strong>Původní:</strong> ${escapeHtml(base.client_name || '')} • ${escapeHtml(base.service || '') || 'bez služby'}<br>
+            ${base.date} ${base.time} – ${endVal}
+        `;
+    }
+    const conflictBox = document.getElementById('calendarRepeatConflict');
+    const suggestionBox = document.getElementById('calendarRepeatSuggestion');
+    if (conflictBox) conflictBox.style.display = 'none';
+    if (suggestionBox) suggestionBox.style.display = 'none';
+    modal.classList.add('show');
+}
+
+function closeCalendarRepeatModal() {
+    const modal = document.getElementById('calendarRepeatModal');
+    if (modal) modal.classList.remove('show');
+    currentCalendarRepeatBase = null;
+}
+
+function openCalendarForm(eventIdOrObj) {
+    const modal = document.getElementById('calendarEventModal');
+    if (!modal) return;
+    const isEdit = typeof eventIdOrObj === 'number' || (eventIdOrObj && eventIdOrObj.id);
+    const ev = typeof eventIdOrObj === 'number'
+        ? calendarEvents.find(e => e.id === eventIdOrObj)
+        : eventIdOrObj;
+    currentCalendarEventId = isEdit && ev ? ev.id : null;
+
+    document.getElementById('calendarModalTitle').textContent = isEdit ? 'Upravit rezervaci' : 'Nová rezervace';
+
+    const dateVal = ev && ev.date ? ev.date : toDateInputValue(calendarSelectedDate);
+    const timeVal = ev && ev.time ? ev.time : '08:00';
+    const duration = ev && ev.duration_minutes ? ev.duration_minutes : 30;
+    const endVal = ev && ev.end_time ? ev.end_time : addMinutesToTime(timeVal, duration);
+    document.getElementById('calendarClientId').value = ev?.client_id || ev?.clientId || '';
+    document.getElementById('calendarClientName').value = ev?.client_name || ev?.clientName || '';
+    document.getElementById('calendarClientPhone').value = ev?.client_phone || ev?.clientPhone || '';
+    document.getElementById('calendarService').value = ev?.service || '';
+    document.getElementById('calendarEventDate').value = dateVal;
+    renderCalendarTimeOptions();
+    document.getElementById('calendarEventTime').value = timeVal;
+    document.getElementById('calendarEventTimeEnd').value = endVal;
+    document.getElementById('calendarEventNote').value = ev?.note || '';
+
+    hideCalendarClientSuggestions();
+    modal.classList.add('show');
+}
+
+function closeCalendarModal() {
+    const modal = document.getElementById('calendarEventModal');
+    if (modal) modal.classList.remove('show');
+    currentCalendarEventId = null;
+}
+
+async function saveCalendarEvent(event) {
+    event.preventDefault();
+    const startTime = document.getElementById('calendarEventTime').value;
+    const endTime = document.getElementById('calendarEventTimeEnd').value;
+    const duration = Math.max(0, (new Date(`1970-01-01T${endTime}:00`) - new Date(`1970-01-01T${startTime}:00`)) / 60000);
+    if (!startTime || !endTime || duration <= 0) {
+        showNotification('Čas od/do musí být vyplněn a konec musí být po začátku.', 'warning');
+        return;
+    }
+    const selectedDate = document.getElementById('calendarEventDate').value;
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const selDate = new Date(selectedDate);
+    if (selDate < today) {
+        showNotification('Nelze vytvářet ani měnit rezervace v minulosti.', 'warning');
+        return;
+    }
+    const payload = {
+        id: currentCalendarEventId,
+        clientId: document.getElementById('calendarClientId').value || null,
+        clientName: document.getElementById('calendarClientName').value.trim(),
+        clientPhone: document.getElementById('calendarClientPhone').value.trim(),
+        service: document.getElementById('calendarService').value.trim(),
+        date: document.getElementById('calendarEventDate').value,
+        time: startTime,
+        endTime,
+        note: document.getElementById('calendarEventNote').value.trim(),
+        duration
+    };
+    if (!payload.clientName || !payload.date || !payload.time) {
+        showNotification('Vyplňte prosím jméno, datum a čas', 'warning');
+        return;
+    }
+    try {
+        if (payload.id) {
+            await apiCall('calendar.php', 'PUT', payload);
+        } else {
+            await apiCall('calendar.php', 'POST', payload);
+        }
+        showNotification('Rezervace uložena', 'success');
+        closeCalendarModal();
+        calendarSelectedDate = new Date(payload.date);
+        const dateInput = document.getElementById('calendarDate');
+        if (dateInput) dateInput.value = payload.date;
+        await loadCalendar();
+    } catch (err) {
+        console.error('Chyba při ukládání rezervace:', err);
+        const conflict = err.body && err.body.conflict;
+        if (err.status === 409 || (err.message && err.message.includes('409'))) {
+            showCalendarConflict(conflict);
+        } else {
+            showNotification('Chyba při ukládání rezervace', 'error');
+        }
+    }
+}
+
+function confirmDeleteCalendarEvent() {
+    if (!currentCalendarEventId) return;
+    document.getElementById('confirmModalTitle').textContent = 'Smazat rezervaci?';
+    document.getElementById('confirmModalMessage').textContent = 'Opravdu chcete smazat tuto rezervaci?';
+    document.getElementById('confirmModalBtn').textContent = 'Smazat';
+    document.getElementById('confirmModalBtn').className = 'btn btn-danger';
+    document.getElementById('confirmModalBtn').onclick = deleteCalendarEvent;
+    document.getElementById('confirmModal').classList.add('show');
+}
+
+async function deleteCalendarEvent() {
+    closeConfirmModal();
+    if (!currentCalendarEventId) return;
+    try {
+        await apiCall(`calendar.php?id=${currentCalendarEventId}`, 'DELETE');
+        showNotification('Rezervace smazána', 'success');
+        closeCalendarModal();
+        closeCalendarViewModal();
+        await loadCalendar();
+    } catch (err) {
+        console.error('Chyba při mazání rezervace:', err);
+        showNotification('Chyba při mazání rezervace', 'error');
+    }
+}
+
+async function submitCalendarRepeat() {
+    if (!currentCalendarRepeatBase) {
+        showNotification('Chybí základní rezervace pro opakování.', 'warning');
+        return;
+    }
+    const weeks = parseInt(document.getElementById('calendarRepeatWeeks').value, 10) || 6;
+    const dateInput = document.getElementById('calendarRepeatDate');
+    const timeInput = document.getElementById('calendarRepeatTime');
+    const endInput = document.getElementById('calendarRepeatTimeEnd');
+    const noteInput = document.getElementById('calendarRepeatNote');
+    const shiftRadio = document.querySelector('input[name="calendarRepeatShift"]:checked');
+    const shift = shiftRadio ? shiftRadio.value : 'all';
+    const conflictBox = document.getElementById('calendarRepeatConflict');
+    const suggestionBox = document.getElementById('calendarRepeatSuggestion');
+
+    const targetDate = dateInput.value;
+    const startTime = timeInput.value;
+    const endTime = endInput.value;
+    const duration = Math.max(0, (new Date(`1970-01-01T${endTime}:00`) - new Date(`1970-01-01T${startTime}:00`)) / 60000);
+    if (!targetDate || !startTime || duration <= 0) {
+        showNotification('Vyplňte datum a čas.', 'warning');
+        return;
+    }
+    // rychlý check minulosti
+    const today = new Date(); today.setHours(0,0,0,0);
+    if (new Date(targetDate) < today) {
+        showNotification('Nelze plánovat do minulosti.', 'warning');
+        return;
+    }
+
+    // Omezit na směnu (např. klientka s odpolední směnou = může přijít ráno)
+    const windowStart = shift === 'morning' ? 8 * 60 : shift === 'afternoon' ? 13 * 60 : CAL_START_HOUR * 60;
+    const windowEnd = shift === 'morning' ? 13 * 60 : shift === 'afternoon' ? 19 * 60 : CAL_END_HOUR * 60;
+    let adjStart = timeToMinutes(startTime);
+    let adjEnd = timeToMinutes(endTime);
+    if (adjStart < windowStart) {
+        adjStart = windowStart;
+        adjEnd = adjStart + duration;
+    }
+    if (adjEnd > windowEnd) {
+        adjEnd = windowEnd;
+        adjStart = adjEnd - duration;
+    }
+    const startFormatted = `${String(Math.floor(adjStart/60)).padStart(2,'0')}:${String(adjStart%60).padStart(2,'0')}`;
+    const endFormatted = `${String(Math.floor(adjEnd/60)).padStart(2,'0')}:${String(adjEnd%60).padStart(2,'0')}`;
+    timeInput.value = startFormatted;
+    endInput.value = endFormatted;
+
+    // Načíst události pro cílový den a ověřit kolizi
+    try {
+        const dayEvents = await apiCall(`calendar.php?date=${targetDate}`, 'GET');
+        const startMin = adjStart;
+        const endMin = adjEnd;
+        const conflict = dayEvents.find(ev => {
+            const evStart = timeToMinutes(ev.time);
+            const evEnd = timeToMinutes(ev.end_time || addMinutesToTime(ev.time, ev.duration_minutes || 30));
+            return isOverlap(startMin, endMin, evStart, evEnd);
+        });
+
+        if (conflict) {
+            if (conflictBox) {
+                conflictBox.style.display = 'block';
+                conflictBox.textContent = `Kolize s rezervací: ${conflict.time} – ${conflict.end_time || addMinutesToTime(conflict.time, conflict.duration_minutes || 30)} (${conflict.client_name || 'obsazeno'})`;
+            }
+            showCalendarConflict(conflict);
+            // Zkus najít nejbližší volný slot (30min kroky)
+            let suggestion = null;
+            for (let offset = 0; offset <= 180; offset += 30) {
+                const candidateStartMin = startMin + offset;
+                const candidateEndMin = candidateStartMin + duration;
+                if (candidateEndMin > windowEnd) continue;
+                const candidateStart = `${String(Math.floor(candidateStartMin/60)).padStart(2,'0')}:${String(candidateStartMin%60).padStart(2,'0')}`;
+                const candidateEnd = `${String(Math.floor(candidateEndMin/60)).padStart(2,'0')}:${String(candidateEndMin%60).padStart(2,'0')}`;
+                const cStartMin = timeToMinutes(candidateStart);
+                const cEndMin = timeToMinutes(candidateEnd);
+                const overlap = dayEvents.some(ev => {
+                    const evStart = timeToMinutes(ev.time);
+                    const evEnd = timeToMinutes(ev.end_time || addMinutesToTime(ev.time, ev.duration_minutes || 30));
+                    return isOverlap(cStartMin, cEndMin, evStart, evEnd);
+                });
+                if (!overlap && cEndMin <= CAL_END_HOUR * 60) {
+                    suggestion = { start: candidateStart, end: candidateEnd, date: targetDate };
+                    break;
+                }
+            }
+            if (!suggestion) {
+                // nabídni další den ve stejný čas
+                const nextDate = new Date(targetDate);
+                nextDate.setDate(nextDate.getDate() + 1);
+                suggestion = { start: startFormatted, end: endFormatted, date: toDateInputValue(nextDate) };
+            }
+            if (suggestion && suggestionBox) {
+                suggestionBox.style.display = 'block';
+                suggestionBox.textContent = `Navržený volný termín: ${suggestion.date} ${suggestion.start} – ${suggestion.end}`;
+                // přepni formulář na navržený slot
+                dateInput.value = suggestion.date;
+                timeInput.value = suggestion.start;
+                endInput.value = suggestion.end;
+            }
+            return;
+        }
+
+        const payload = {
+            clientId: currentCalendarRepeatBase.client_id || currentCalendarRepeatBase.clientId || null,
+            clientName: currentCalendarRepeatBase.client_name,
+            clientPhone: currentCalendarRepeatBase.client_phone,
+            service: currentCalendarRepeatBase.service,
+            date: targetDate,
+            time: startTime,
+            endTime: endTime,
+            duration,
+            note: noteInput.value || currentCalendarRepeatBase.note
+        };
+        await apiCall('calendar.php', 'POST', payload);
+        showNotification('Opakovaná rezervace vytvořena', 'success');
+        closeCalendarRepeatModal();
+        calendarSelectedDate = new Date(payload.date);
+        const dateInputCtrl = document.getElementById('calendarDate');
+        if (dateInputCtrl) dateInputCtrl.value = payload.date;
+        await loadCalendar();
+    } catch (err) {
+        console.error('Chyba při opakování rezervace:', err);
+        const conflict = err.body && err.body.conflict;
+        if (err.status === 409 || (err.message && err.message.includes('409'))) {
+            showCalendarConflict(conflict);
+        } else {
+            showNotification('Chyba při vytváření opakované rezervace', 'error');
+        }
+    }
 }
 
 // === KLIENTI ===
@@ -1611,6 +2370,36 @@ function showInfoModal(title, message) {
     document.getElementById('confirmModalBtn').textContent = 'OK';
     document.getElementById('confirmModalBtn').className = 'btn btn-primary';
     document.getElementById('confirmModalBtn').onclick = closeConfirmModal;
+    document.getElementById('confirmModal').classList.add('show');
+}
+
+// Modal pro konflikt termínu
+function showCalendarConflict(conflict) {
+    const title = document.getElementById('confirmModalTitle');
+    const message = document.getElementById('confirmModalMessage');
+    const btn = document.getElementById('confirmModalBtn');
+    const list = document.getElementById('confirmModalList');
+    if (list) {
+        list.style.display = 'none';
+        list.innerHTML = '';
+    }
+    if (title) title.textContent = 'Termín je obsazen';
+    if (message) {
+        if (conflict) {
+            const end = conflict.end_time || addMinutesToTime(conflict.time, conflict.duration_minutes || 30);
+            message.textContent = `Kolize s rezervací: ${conflict.date} ${conflict.time} – ${end} (${conflict.client_name || 'obsazeno'})`;
+        } else {
+            message.textContent = 'Vyberte prosím jiný čas.';
+        }
+    }
+    if (btn) {
+        btn.textContent = 'OK';
+        btn.className = 'btn btn-primary';
+        btn.onclick = closeConfirmModal;
+    }
+    // zajistit nejvyšší prioritu
+    const modal = document.getElementById('confirmModal');
+    if (modal) modal.style.zIndex = '1400';
     document.getElementById('confirmModal').classList.add('show');
 }
 
@@ -8644,8 +9433,13 @@ async function apiCall(endpoint, method = 'GET', data = null) {
         
         if (!response.ok) {
             const errorText = await response.text();
+            let errorJson = null;
+            try { errorJson = JSON.parse(errorText); } catch (e) {}
             console.error('API Error Response:', errorText);
-            throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 100)}`);
+            const err = new Error(`HTTP ${response.status}: ${errorText.substring(0, 200)}`);
+            err.status = response.status;
+            err.body = errorJson || errorText;
+            throw err;
         }
         
         const result = await response.json();

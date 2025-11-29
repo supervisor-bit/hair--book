@@ -120,6 +120,20 @@ try {
         FOREIGN KEY (client_id) REFERENCES clients(id) {$fkCascade}
     ){$engine}");
 
+    // Kalendář (rezervace)
+    $db->exec("CREATE TABLE IF NOT EXISTS calendar_events (
+        id {$pkAuto},
+        client_id INTEGER,
+        date DATE NOT NULL,
+        time TEXT NOT NULL,
+        duration_minutes INTEGER DEFAULT 30,
+        client_name TEXT NOT NULL,
+        client_phone TEXT,
+        service TEXT,
+        note TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ){$engine}");
+
     // Služby v návštěvě
     $db->exec("CREATE TABLE IF NOT EXISTS visit_services (
         id {$pkAuto},
@@ -275,6 +289,7 @@ try {
     $db->exec("CREATE INDEX IF NOT EXISTS idx_snapshots_period ON period_snapshots(period)");
     $db->exec("CREATE INDEX IF NOT EXISTS idx_snapshots_date ON period_snapshots(created_at)");
     $db->exec("CREATE INDEX IF NOT EXISTS idx_issues_date ON stock_issues(date)");
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_calendar_date_time ON calendar_events(date, time)");
 
     echo "✅ Databáze úspěšně připravena\n";
 } catch (PDOException $e) {
