@@ -1,4 +1,10 @@
 <?php
+session_start();
+if (empty($_SESSION['hairbook_logged_in'])) {
+    http_response_code(401);
+    echo json_encode(['error' => 'Unauthorized']);
+    exit;
+}
 require_once 'config.php';
 
 $db = getDB();
@@ -6,28 +12,30 @@ $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 switch ($method) {
     case 'GET':
-        // Získat všechny klienty
-        $stmt = $db->query("SELECT * FROM clients ORDER BY last_name, first_name");
+        // Pagination parameters
+        $limit = isset($_GET['limit']) ? max(1, intval($_GET['limit'])) : 20;
+        $offset = isset($_GET['offset']) ? max(0, intval($_GET['offset'])) : 0;
+        
+        // Získat pouze požadovanou stránku klientů
+        $stmt = $db->prepare("SELECT * FROM clients ORDER BY last_name, first_name LIMIT ? OFFSET ?");
+        $stmt->execute([$limit, $offset]);
         $clients = $stmt->fetchAll();
         
-        // Pro každého klienta načíst poznámky, návštěvy a nákupy
+        // Pro každého klienta načíst pouze základní data (poznámky, návštěvy, nákupy)
         foreach ($clients as &$client) {
             // Poznámky
             $stmt = $db->prepare("SELECT * FROM client_notes WHERE client_id = ? ORDER BY date DESC");
             $stmt->execute([$client['id']]);
             $client['notes'] = $stmt->fetchAll();
-            
             // Návštěvy
             $stmt = $db->prepare("SELECT * FROM visits WHERE client_id = ? ORDER BY date DESC");
             $stmt->execute([$client['id']]);
             $visits = $stmt->fetchAll();
-            
             foreach ($visits as &$visit) {
                 // Služby v návštěvě
                 $stmt = $db->prepare("SELECT * FROM visit_services WHERE visit_id = ?");
                 $stmt->execute([$visit['id']]);
                 $services = $stmt->fetchAll();
-                
                 foreach ($services as &$service) {
                     // Materiály použité při službě
                     $stmt = $db->prepare("SELECT * FROM visit_materials WHERE visit_service_id = ?");
@@ -35,19 +43,16 @@ switch ($method) {
                     $service['materials'] = $stmt->fetchAll();
                 }
                 $visit['services'] = $services;
-                
                 // Prodané produkty v návštěvě
                 $stmt = $db->prepare("SELECT * FROM visit_products WHERE visit_id = ?");
                 $stmt->execute([$visit['id']]);
                 $visit['products'] = $stmt->fetchAll();
             }
             $client['visits'] = $visits;
-            
             // Nákupy (prodej bez návštěvy)
             $stmt = $db->prepare("SELECT * FROM purchases WHERE client_id = ? ORDER BY date DESC");
             $stmt->execute([$client['id']]);
             $purchases = $stmt->fetchAll();
-            
             foreach ($purchases as &$purchase) {
                 $stmt = $db->prepare("SELECT * FROM purchase_items WHERE purchase_id = ?");
                 $stmt->execute([$purchase['id']]);

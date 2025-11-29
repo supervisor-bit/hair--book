@@ -1,4 +1,10 @@
 <?php
+session_start();
+if (empty($_SESSION['hairbook_logged_in'])) {
+    http_response_code(401);
+    echo json_encode(['error' => 'Unauthorized']);
+    exit;
+}
 require_once 'config.php';
 
 header('Content-Type: application/json; charset=utf-8');

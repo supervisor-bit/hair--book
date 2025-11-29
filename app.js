@@ -1,3 +1,122 @@
+// Tisk pouze označené návštěvy podle visitId
+// Bezpečné escapování HTML pro uživatelský vstup
+function escapeHtml(text) {
+    if (typeof text !== 'string') return text;
+    return text.replace(/[&<>'"/]/g, function (c) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;',
+            '/': '&#x2F;'
+        }[c];
+    });
+}
+function printSelectedVisitReceipt(visitId) {
+    // Najít návštěvu a klienta
+    let selectedVisit = null;
+    let client = null;
+    for (const c of clients) {
+        const v = c.visits.find(visit => visit.id === visitId);
+        if (v) {
+            selectedVisit = v;
+            client = c;
+            break;
+        }
+    }
+    if (!selectedVisit || !client) {
+        alert('Návštěva nebyla nalezena.');
+        return;
+    }
+
+    // Najít produkty pro domácí použití v této návštěvě
+    const purchases = client.purchases ? client.purchases.filter(p => p.date === selectedVisit.date) : [];
+
+    let grandTotal = 0;
+    let receiptHTML = `
+        <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px dashed #000; padding-bottom: 10px;">
+            <h1 style="font-size: 24px; margin-bottom: 5px;">${escapeHtml(salonSettings.name)}</h1>
+            ${salonSettings.address ? `<p style="font-size: 11px;">${escapeHtml(salonSettings.address)}</p>` : ''}
+            ${salonSettings.phone ? `<p style="font-size: 11px;">Tel: ${escapeHtml(salonSettings.phone)}</p>` : ''}
+            ${salonSettings.email ? `<p style="font-size: 11px;">Email: ${escapeHtml(salonSettings.email)}</p>` : ''}
+            ${salonSettings.ico ? `<p style="font-size: 11px;">IČO: ${escapeHtml(salonSettings.ico)}${salonSettings.dic ? ' | DIČ: ' + escapeHtml(salonSettings.dic) : ''}</p>` : ''}
+            <p style="font-size: 12px; margin-top: 8px; font-weight: bold;">${new Date(selectedVisit.date).toLocaleDateString('cs-CZ')}</p>
+        </div>
+        <div style="margin: 15px 0; font-size: 13px;">
+            <strong>Zákazník:</strong> ${escapeHtml(client.firstName)} ${escapeHtml(client.lastName)}<br>
+            <strong>Telefon:</strong> ${escapeHtml(client.phone)}
+        </div>
+    `;
+
+    // Služby
+    let servicesSubtotal = 0;
+    if (selectedVisit.services && selectedVisit.services.length > 0) {
+        receiptHTML += '<div style="margin: 15px 0;"><div style="font-weight: bold; font-size: 14px; margin-bottom: 8px; border-bottom: 1px solid #000; padding-bottom: 3px;">SLUŽBY</div>';
+        selectedVisit.services.forEach(service => {
+            receiptHTML += `<div style="margin: 5px 0; font-size: 12px;">${escapeHtml(service.name)}</div>`;
+            if (service.materials && service.materials.length > 0) {
+                receiptHTML += '<div style="margin-left: 15px; font-size: 11px; color: #666;">';
+                service.materials.forEach(mat => {
+                    receiptHTML += `• ${escapeHtml(mat.name)} (${mat.quantity} ${escapeHtml(mat.unit)})<br>`;
+                });
+                receiptHTML += '</div>';
+            }
+        });
+        if (selectedVisit.price) {
+            servicesSubtotal = selectedVisit.price;
+            receiptHTML += `<div style="display: flex; justify-content: space-between; margin: 5px 0; font-size: 12px; border-top: 1px dashed #bbb; padding-top: 4px;"><span>Mezisoučet za služby</span><span style="font-weight: bold;">${servicesSubtotal} Kč</span></div>`;
+            grandTotal += selectedVisit.price;
+        }
+        if (selectedVisit.note) {
+            receiptHTML += `<div style="margin-top: 8px; font-size: 11px; font-style: italic;">Poznámka: ${escapeHtml(selectedVisit.note)}</div>`;
+        }
+        receiptHTML += '</div>';
+    }
+
+    // Produkty pro domácí použití
+    let productsSubtotal = 0;
+    if (purchases.length > 0) {
+        receiptHTML += '<div style="margin: 15px 0;"><div style="font-weight: bold; font-size: 14px; margin-bottom: 8px; border-bottom: 1px solid #000; padding-bottom: 3px;">PRODANÉ PRODUKTY</div>';
+        purchases.forEach(purchase => {
+            purchase.items.forEach(item => {
+                const itemTotal = item.quantity * item.price;
+                receiptHTML += `
+                    <div style="display: flex; justify-content: space-between; margin: 5px 0; font-size: 12px;">
+                        <span>${escapeHtml(item.name)} (${item.quantity}× ${item.price} Kč)</span>
+                        <span style="font-weight: bold; white-space: nowrap; margin-left: 10px;">${itemTotal} Kč</span>
+                    </div>
+                `;
+            });
+            productsSubtotal += purchase.total;
+            grandTotal += purchase.total;
+        });
+        receiptHTML += `<div style="display: flex; justify-content: space-between; margin: 5px 0; font-size: 12px; border-top: 1px dashed #bbb; padding-top: 4px;"><span>Mezisoučet za produkty</span><span style="font-weight: bold;">${productsSubtotal} Kč</span></div>`;
+        receiptHTML += '</div>';
+    }
+
+    // Celková částka
+    receiptHTML += `
+        <div style="margin-top: 15px; padding-top: 10px; border-top: 2px solid #000; font-size: 16px; font-weight: bold; display: flex; justify-content: space-between;">
+            <span>CELKEM K ÚHRADĚ:</span>
+            <span>${grandTotal} Kč</span>
+        </div>
+        <div style="text-align: center; margin-top: 20px; padding-top: 10px; border-top: 2px dashed #000; font-size: 11px;">
+            <p>${salonSettings.receiptFooter || 'Děkujeme za Vaši návštěvu!'}</p>
+            ${salonSettings.web ? `<p>${salonSettings.web}</p>` : ''}
+        </div>
+    `;
+
+    // Nastavit obsah modalu a otevřít modal
+    document.getElementById('receiptContent').innerHTML = receiptHTML;
+    document.getElementById('receiptModalTitle').textContent = 'Náhled účtenky';
+    window.currentReceiptVisitId = visitId;
+    document.getElementById('receiptModal').classList.add('show');
+}
+
+function closeReceiptModal() {
+    document.getElementById('receiptModal').classList.remove('show');
+}
 // Nastavení salonu
 let salonSettings = {
     name: 'HairBook',
@@ -41,13 +160,12 @@ let clients = [
                 id: 1,
                 date: '2025-11-20',
                 closed: true,
-                price: 850,
-                note: 'Klientka spokojená',
-                services: [
-                    { 
-                        name: 'Střih dámský', 
-                        materials: [
-                            { productId: 1, name: 'Šampon Loreal', quantity: 30, unit: 'ml', baseUnit: 'ml' },
+            if (totalPages > 1) {
+                visitsPaginationHtml = '<div id="visitsPaginationContainer"></div>';
+            }
+        } else {
+            visitsHtml = '<p style="color: var(--text-light); text-align: center; padding: 2rem;">Zatím žádné návštěvy</p>';
+        }
                             { productId: 2, name: 'Balzám', quantity: 20, unit: 'ml', baseUnit: 'ml' }
                         ]
                     }
@@ -632,7 +750,7 @@ function renderPagination(containerId, totalItems, currentPage, itemsPerPage, on
 
 function goToClientsPage(page) {
     currentClientsPage = page;
-    renderClients();
+    loadAllData().then(renderClients);
 }
 
 function goToVisitsPage(page) {
@@ -829,14 +947,17 @@ function showClientDetail(client, event = null) {
     
     let visitsHtml = '';
     let visitsPaginationHtml = '';
-    if (client.visits.length > 0) {
-        const totalPages = Math.ceil(client.visits.length / visitsPerPage);
+    // Filter visits according to window.visitFilterMode
+    let filteredVisits = client.visits;
+    if (window.visitFilterMode === 'closed') {
+        filteredVisits = client.visits.filter(v => v.closed === true);
+    }
+    if (filteredVisits.length > 0) {
+        const totalPages = Math.ceil(filteredVisits.length / visitsPerPage);
         if (currentVisitsPage > totalPages) currentVisitsPage = 1;
-        
         const startIndex = (currentVisitsPage - 1) * visitsPerPage;
         const endIndex = startIndex + visitsPerPage;
-        const pageVisits = client.visits.slice(startIndex, endIndex);
-        
+        const pageVisits = filteredVisits.slice(startIndex, endIndex);
         visitsHtml = pageVisits.map(visit => {
             const statusBadge = visit.closed 
                 ? '<span class="visit-status-badge closed"><i class="fas fa-check-circle"></i> Uzavřeno</span>'
@@ -885,6 +1006,9 @@ function showClientDetail(client, event = null) {
                         <button class="btn btn-primary" style="font-size: 0.8125rem; padding: 0.375rem 0.75rem;" onclick="printReceipt(${client.id}, '${visit.date}')">
                             <i class="fas fa-print"></i> Vytisknout účtenku
                         </button>
+                            <button class="btn btn-warning" style="font-size: 0.8125rem; padding: 0.375rem 0.75rem; color: #fff; background: #f59e42; border: none;" onclick="printSelectedVisitReceipt(${visit.id})">
+                                <i class="fas fa-receipt"></i> Tisk pouze této návštěvy
+                            </button>
                         <button class="btn btn-secondary" style="font-size: 0.8125rem; padding: 0.375rem 0.75rem;" onclick="copyVisitToNew(${client.id}, ${visit.id})">
                             <i class="fas fa-copy"></i> Zkopírovat do nové návštěvy
                         </button>
@@ -987,7 +1111,13 @@ function showClientDetail(client, event = null) {
         </div>
         
         <div id="clientTabVisits" class="client-tab-content">
-            <h4 style="flex-shrink: 0; padding: 1.5rem 1.5rem 1rem 1.5rem; margin: 0;">Historie návštěv</h4>
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 1.5rem 1.5rem 1rem 1.5rem; margin: 0;">
+                <h4 style="margin: 0;">Historie návštěv</h4>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-outline" id="showAllVisitsBtn" style="padding: 0.375rem 0.75rem;${window.visitFilterMode==='all'?'background:#8b5cf6;color:#fff;':''}" onclick="setVisitFilterMode('all')">Všechny</button>
+                    <button class="btn btn-outline" id="showClosedVisitsBtn" style="padding: 0.375rem 0.75rem;${window.visitFilterMode==='closed'?'background:#8b5cf6;color:#fff;':''}" onclick="setVisitFilterMode('closed')">Pouze uzavřené</button>
+                </div>
+            </div>
             <div class="visits-list">
                 ${visitsHtml}
             </div>
@@ -7447,6 +7577,7 @@ async function confirmCompleteMaterialIssue() {
             const response = await fetch(`api/products.php`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({
                     id: product.id,
                     name: product.name,
@@ -7830,13 +7961,12 @@ function printReceipt(clientId, date) {
     let grandTotal = 0;
     
     // Přidat návštěvy (služby)
+    let servicesSubtotal = 0;
     if (visits.length > 0) {
         receiptHTML += '<div style="margin: 15px 0;"><div style="font-weight: bold; font-size: 14px; margin-bottom: 8px; border-bottom: 1px solid #000; padding-bottom: 3px;">SLUŽBY</div>';
-        
         visits.forEach(visit => {
             visit.services.forEach(service => {
                 receiptHTML += `<div style="margin: 5px 0; font-size: 12px;">${service.name}</div>`;
-                
                 if (service.materials && service.materials.length > 0) {
                     receiptHTML += '<div style="margin-left: 15px; font-size: 11px; color: #666;">';
                     service.materials.forEach(mat => {
@@ -7845,24 +7975,24 @@ function printReceipt(clientId, date) {
                     receiptHTML += '</div>';
                 }
             });
-            
             if (visit.price) {
-                receiptHTML += `<div style="display: flex; justify-content: space-between; margin: 5px 0; font-size: 12px;"><span>Celkem za služby</span><span style="font-weight: bold;">${visit.price} Kč</span></div>`;
+                servicesSubtotal += visit.price;
                 grandTotal += visit.price;
             }
-            
             if (visit.note) {
                 receiptHTML += `<div style="margin-top: 8px; font-size: 11px; font-style: italic;">Poznámka: ${visit.note}</div>`;
             }
         });
-        
+        if (servicesSubtotal > 0) {
+            receiptHTML += `<div style="display: flex; justify-content: space-between; margin: 5px 0; font-size: 12px; border-top: 1px dashed #bbb; padding-top: 4px;"><span>Mezisoučet za služby</span><span style="font-weight: bold;">${servicesSubtotal} Kč</span></div>`;
+        }
         receiptHTML += '</div>';
     }
     
     // Přidat nákupy (prodané produkty)
+    let productsSubtotal = 0;
     if (purchases.length > 0) {
         receiptHTML += '<div style="margin: 15px 0;"><div style="font-weight: bold; font-size: 14px; margin-bottom: 8px; border-bottom: 1px solid #000; padding-bottom: 3px;">PRODANÉ PRODUKTY</div>';
-        
         purchases.forEach(purchase => {
             purchase.items.forEach(item => {
                 const itemTotal = item.quantity * item.price;
@@ -7873,10 +8003,12 @@ function printReceipt(clientId, date) {
                     </div>
                 `;
             });
-            
+            productsSubtotal += purchase.total;
             grandTotal += purchase.total;
         });
-        
+        if (productsSubtotal > 0) {
+            receiptHTML += `<div style="display: flex; justify-content: space-between; margin: 5px 0; font-size: 12px; border-top: 1px dashed #bbb; padding-top: 4px;"><span>Mezisoučet za produkty</span><span style="font-weight: bold;">${productsSubtotal} Kč</span></div>`;
+        }
         receiptHTML += '</div>';
     }
     
@@ -8225,6 +8357,7 @@ async function apiCall(endpoint, method = 'GET', data = null) {
         const url = API_URL + endpoint;
         console.log('API Request:', method, url);
         
+        options.credentials = 'include';
         const response = await fetch(url, options);
         
         console.log('API Response:', response.status, response.statusText);
@@ -8249,6 +8382,8 @@ async function apiCall(endpoint, method = 'GET', data = null) {
 async function loadAllData() {
     try {
         // Načíst všechna data paralelně
+        const offset = (currentClientsPage - 1) * clientsPerPage;
+        const clientsUrl = `clients.php?limit=${clientsPerPage}&offset=${offset}`;
         const [
             clientsData,
             productsData,
@@ -8258,7 +8393,7 @@ async function loadAllData() {
             purchasesData,
             templatesData
         ] = await Promise.all([
-            apiCall('clients.php'),
+            apiCall(clientsUrl),
             apiCall('products.php'),
             apiCall('categories.php'),
             apiCall('services.php'),
@@ -11407,4 +11542,17 @@ function viewSnapshot(id) {
 
 function closeViewSnapshotModal() {
     document.getElementById('viewSnapshotModal').style.display = 'none';
+}
+
+// Globální režim filtru návštěv a funkce pro jeho nastavení
+window.visitFilterMode = window.visitFilterMode || 'all';
+window.setVisitFilterMode = function(mode) {
+    window.visitFilterMode = mode;
+    if (typeof currentClient !== 'undefined' && currentClient) {
+        showClientDetail(currentClient);
+    } else {
+        if (typeof renderClients === 'function') {
+            renderClients();
+        }
+    }
 }

@@ -33,21 +33,16 @@ function startPHPServer() {
         console.log('App path:', app.getAppPath());
         console.log('Resources path:', process.resourcesPath);
         
-        // Spustit PHP vestavěný server
-        // V produkci jsou soubory v resources/app.asar, ale PHP nemůže číst z .asar
-        // Musíme použít resources místo app.asar
-        let appPath;
+
+        // Nastavit root pouze na api složku
+        let apiPath;
         if (app.isPackaged) {
-            // V produkci: resources složka vedle .exe
-            appPath = path.join(process.resourcesPath, 'app');
+            apiPath = path.join(process.resourcesPath, 'app', 'api');
         } else {
-            // V development: aktuální složka
-            appPath = __dirname;
+            apiPath = path.join(__dirname, 'api');
         }
-        
-        console.log('Serving from:', appPath);
-        
-        phpServer = spawn(phpPath, ['-S', `localhost:${PHP_PORT}`, '-t', appPath]);
+        console.log('Serving API from:', apiPath);
+        phpServer = spawn(phpPath, ['-S', `localhost:${PHP_PORT}`, '-t', apiPath]);
         
         phpServer.stdout.on('data', (data) => {
             console.log(`PHP Server: ${data}`);
@@ -146,11 +141,41 @@ function createWindow() {
     Menu.setApplicationMenu(menu);
 
     // Načíst aplikaci
-    mainWindow.loadURL(`http://localhost:${PHP_PORT}/index.html`);
+    const appUrl = `http://localhost:${PHP_PORT}/index.html`;
+    console.log('Loading URL:', appUrl);
+    mainWindow.loadURL(appUrl);
 
-    // Zobrazit okno až je načteno
-    mainWindow.once('ready-to-show', () => {
-        mainWindow.show();
+    // Zobrazit okno okamžitě (ne až po načtení)
+    mainWindow.show();
+    
+    // Debug - otevřít DevTools automaticky
+    mainWindow.webContents.openDevTools();
+    
+    // Poslouchat chyby načítání
+    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+        console.error('Failed to load:', errorCode, errorDescription);
+        mainWindow.loadURL(`data:text/html,
+            <html>
+            <head><title>Chyba</title></head>
+            <body style="font-family: Arial; padding: 40px; background: #1a1a2e; color: white;">
+                <h1 style="color: #ef4444;">❌ Chyba načítání aplikace</h1>
+                <p><strong>URL:</strong> ${appUrl}</p>
+                <p><strong>Chyba:</strong> ${errorCode} - ${errorDescription}</p>
+                <hr>
+                <h3>Řešení:</h3>
+                <ol>
+                    <li>Zkontrolujte, že je nainstalovaný XAMPP</li>
+                    <li>PHP musí být v PATH</li>
+                    <li>Restartujte aplikaci</li>
+                </ol>
+                <p style="margin-top: 40px; color: #888;">
+                    PHP Port: ${PHP_PORT}<br>
+                    App Path: ${appPath}<br>
+                    PHP Path: ${phpPath}
+                </p>
+            </body>
+            </html>
+        `);
     });
 
     mainWindow.on('closed', () => {
@@ -160,12 +185,31 @@ function createWindow() {
 
 app.whenReady().then(async () => {
     try {
+        console.log('=== Starting HairBook ===');
+        console.log('Platform:', process.platform);
+        console.log('__dirname:', __dirname);
+        console.log('app.getAppPath():', app.getAppPath());
+        console.log('process.resourcesPath:', process.resourcesPath);
+        
         await startPHPServer();
         console.log('PHP server started');
+        
+        // Počkat chvíli, než se server nabootuje
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
         createWindow();
     } catch (error) {
         console.error('Failed to start application:', error);
-        app.quit();
+        
+        // Zobrazit error okno místo zavření
+        const { dialog } = require('electron');
+        dialog.showErrorBox(
+            'Chyba při spuštění',
+            `HairBook se nepodařilo spustit.\n\nChyba: ${error.message}\n\nPodrobnosti najdete v konzoli (F12).`
+        );
+        
+        // Nezavírat, dát uživateli šanci na debug
+        // app.quit();
     }
 });
 

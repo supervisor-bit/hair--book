@@ -6,6 +6,8 @@ function getDB() {
         $db = new PDO('sqlite:' . $dbFile);
         $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+        // Enable foreign key enforcement
+        $db->exec('PRAGMA foreign_keys = ON');
         return $db;
     } catch (PDOException $e) {
         http_response_code(500);
@@ -16,7 +18,14 @@ function getDB() {
 
 // CORS headers
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
+// Povolit pouze localhost a file:// pro Electron
+$allowedOrigins = ['http://localhost', 'http://127.0.0.1', 'file://'];
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+if (in_array($origin, $allowedOrigins)) {
+    header('Access-Control-Allow-Origin: ' . $origin);
+} else {
+    header('Access-Control-Allow-Origin: http://localhost'); // fallback
+}
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
