@@ -761,6 +761,390 @@ function goToToday() {
     loadCalendar();
 }
 
+// === Roční CSV přehled (návštěvy + prodeje) ===
+function computeYearlyCsvData(year) {
+    const months = Array.from({ length: 12 }, (_, i) => ({
+        month: i + 1,
+        visits: 0,
+        products: 0
+    }));
+
+    clients.forEach(client => {
+        // Návštěvy
+        (client.visits || []).forEach(visit => {
+            if (!visit.closed || !visit.price) return;
+            const d = new Date(visit.date);
+            if (d.getFullYear() !== year) return;
+            const idx = d.getMonth();
+            months[idx].visits += visit.price || 0;
+
+            // Prodané produkty v návštěvě
+            (visit.products || []).forEach(p => {
+                months[idx].products += (p.price || 0) * (p.quantity || 0);
+            });
+        });
+
+        // Prodeje (purchases)
+        (client.purchases || []).forEach(purchase => {
+            const d = new Date(purchase.date);
+            if (d.getFullYear() !== year) return;
+            const idx = d.getMonth();
+            months[idx].products += purchase.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        });
+    });
+
+    return months;
+}
+
+function buildYearlyCsvPreview(year, data) {
+    const monthNames = ['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
+    let rows = '';
+    let totalVisits = 0, totalProducts = 0;
+    data.forEach((m, i) => {
+        totalVisits += m.visits;
+        totalProducts += m.products;
+        rows += `
+            <tr>
+                <td style="padding:0.5rem; border-bottom:1px solid #e5e7eb;">${monthNames[i]}</td>
+                <td style="padding:0.5rem; border-bottom:1px solid #e5e7eb; text-align:right;">${m.visits.toLocaleString('cs-CZ')} Kč</td>
+                <td style="padding:0.5rem; border-bottom:1px solid #e5e7eb; text-align:right;">${m.products.toLocaleString('cs-CZ')} Kč</td>
+                <td style="padding:0.5rem; border-bottom:1px solid #e5e7eb; text-align:right; font-weight:600;">${(m.visits + m.products).toLocaleString('cs-CZ')} Kč</td>
+            </tr>
+        `;
+    });
+    const table = `
+        <div style="margin-bottom:1rem;">Rok: <strong>${year}</strong></div>
+        <table style="width:100%; border-collapse:collapse; font-size:0.95rem;">
+            <thead>
+                <tr style="background:#f9fafb;">
+                    <th style="text-align:left; padding:0.5rem;">Měsíc</th>
+                    <th style="text-align:right; padding:0.5rem;">Návštěvy (tržby)</th>
+                    <th style="text-align:right; padding:0.5rem;">Prodej produktů</th>
+                    <th style="text-align:right; padding:0.5rem;">Celkem</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+            <tfoot>
+                <tr style="background:#f3f4f6; font-weight:700;">
+                    <td style="padding:0.5rem;">Celkem</td>
+                    <td style="padding:0.5rem; text-align:right;">${totalVisits.toLocaleString('cs-CZ')} Kč</td>
+                    <td style="padding:0.5rem; text-align:right;">${totalProducts.toLocaleString('cs-CZ')} Kč</td>
+                    <td style="padding:0.5rem; text-align:right;">${(totalVisits + totalProducts).toLocaleString('cs-CZ')} Kč</td>
+                </tr>
+            </tfoot>
+        </table>
+    `;
+    return table;
+}
+
+function openYearlyCsvModal() {
+    const yearSelect = document.getElementById('accountingYear');
+    const year = yearSelect ? parseInt(yearSelect.value) : new Date().getFullYear();
+    const data = computeYearlyCsvData(year);
+    const html = buildYearlyCsvPreview(year, data);
+    const container = document.getElementById('yearlyCsvPreview');
+    if (container) container.innerHTML = html;
+    document.getElementById('yearlyCsvModal').classList.add('show');
+}
+
+function closeYearlyCsvModal() {
+    document.getElementById('yearlyCsvModal').classList.remove('show');
+}
+
+function downloadYearlyCsv() {
+    const yearSelect = document.getElementById('accountingYear');
+    const year = yearSelect ? parseInt(yearSelect.value) : new Date().getFullYear();
+    const data = computeYearlyCsvData(year);
+    const monthNames = ['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
+    let csv = 'Rok;' + year + '\\n';
+    csv += 'Měsíc;Návštěvy (Kč);Prodej produktů (Kč);Celkem (Kč)\\n';
+    let totalVisits = 0, totalProducts = 0;
+    data.forEach((m, i) => {
+        const total = m.visits + m.products;
+        totalVisits += m.visits;
+        totalProducts += m.products;
+        csv += `${monthNames[i]};${m.visits};${m.products};${total}\\n`;
+    });
+    csv += `Celkem;${totalVisits};${totalProducts};${totalVisits + totalProducts}\\n`;
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `rocni-prehled-${year}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+function printYearlyCsv() {
+    const preview = document.getElementById('yearlyCsvPreview');
+    if (!preview) return;
+    const win = window.open('', '_blank', 'width=900,height=700');
+    win.document.write(`
+        <html>
+            <head>
+                <title>Roční přehled</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 16px; }
+                    table { width: 100%; border-collapse: collapse; }
+                    th, td { border-bottom: 1px solid #ddd; padding: 8px; }
+                    th { background: #f3f4f6; }
+                    tfoot td { background: #f3f4f6; font-weight: bold; }
+                </style>
+            </head>
+            <body>${preview.innerHTML}</body>
+        </html>
+    `);
+    win.document.close();
+    win.focus();
+    win.print();
+    win.close();
+}
+
+// Sjednocené exporty
+function openUnifiedExportModal(type) {
+    const modal = document.getElementById('unifiedExportModal');
+    if (!modal) return;
+    const title = document.getElementById('unifiedExportTitle');
+    if (title) title.textContent = 'Export';
+    const typeSelect = document.getElementById('unifiedExportType');
+    const yearSelect = document.getElementById('unifiedExportYear');
+    const currentYear = new Date().getFullYear();
+    // Naplnit roky (posledních 5)
+    if (yearSelect && yearSelect.options.length === 0) {
+        for (let i = currentYear; i >= currentYear - 4; i--) {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = i;
+            yearSelect.appendChild(opt);
+        }
+    }
+    if (typeSelect && type) typeSelect.value = type;
+    modal.classList.add('show');
+    renderUnifiedExportPreview();
+}
+
+function closeUnifiedExportModal() {
+    const modal = document.getElementById('unifiedExportModal');
+    if (modal) modal.classList.remove('show');
+}
+
+function renderUnifiedExportPreview() {
+    const type = document.getElementById('unifiedExportType')?.value || 'inventory';
+    const period = document.getElementById('unifiedExportPeriod')?.value || 'all';
+    const year = parseInt(document.getElementById('unifiedExportYear')?.value) || new Date().getFullYear();
+    const container = document.getElementById('unifiedExportPreview');
+    if (!container) return;
+
+    let html = '';
+    if (type === 'inventory') {
+        html = buildInventoryPreview(period, year);
+    } else if (type === 'inventory-low') {
+        html = buildLowStockPreview();
+    } else if (type === 'clients') {
+        html = buildClientsPreview();
+    } else if (type === 'client-visits') {
+        html = buildClientVisitsPreview(period, year);
+    }
+    container.innerHTML = html;
+}
+
+function filterByPeriod(dateStr, period, year) {
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    if (isNaN(d)) return false;
+    if (period === 'all') return true;
+    if (period === 'year') return d.getFullYear() === year;
+    if (period === 'month') {
+        const now = new Date();
+        return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    }
+    return true;
+}
+
+function buildInventoryPreview(period, year) {
+    const rows = products
+        .filter(p => p && p.name)
+        .map(p => {
+            return `<tr>
+                <td style="padding:0.4rem; border-bottom:1px solid #e5e7eb;">${escapeHtml(p.name)}</td>
+                <td style="padding:0.4rem; border-bottom:1px solid #e5e7eb;">${p.barcode || ''}</td>
+                <td style="padding:0.4rem; border-bottom:1px solid #e5e7eb;">${(p.category && p.category.name) || ''}</td>
+                <td style="padding:0.4rem; border-bottom:1px solid #e5e7eb; text-align:right;">${p.stock?.toFixed(2) || '0'}</td>
+                <td style="padding:0.4rem; border-bottom:1px solid #e5e7eb; text-align:right;">${p.minStock?.toFixed(2) || '0'}</td>
+            </tr>`;
+        }).join('');
+    return `
+        <h4 style="margin:0 0 0.5rem 0;">Sklad</h4>
+        <table style="width:100%; border-collapse:collapse; font-size:0.95rem;">
+            <thead>
+                <tr style="background:#f9fafb;">
+                    <th style="text-align:left; padding:0.4rem;">Název</th>
+                    <th style="text-align:left; padding:0.4rem;">Kód</th>
+                    <th style="text-align:left; padding:0.4rem;">Kategorie</th>
+                    <th style="text-align:right; padding:0.4rem;">Stav</th>
+                    <th style="text-align:right; padding:0.4rem;">Min.</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+}
+
+function buildLowStockPreview() {
+    const low = products.filter(p => p.stock < p.minStock);
+    if (low.length === 0) {
+        return `<div style="color:#9ca3af;">Žádné položky pod minimem.</div>`;
+    }
+    const rows = low.map(p => `
+        <tr>
+            <td style="padding:0.4rem; border-bottom:1px solid #e5e7eb;">${escapeHtml(p.name)}</td>
+            <td style="padding:0.4rem; border-bottom:1px solid #e5e7eb; text-align:right;">${p.stock.toFixed(2)}</td>
+            <td style="padding:0.4rem; border-bottom:1px solid #e5e7eb; text-align:right;">${p.minStock.toFixed(2)}</td>
+        </tr>
+    `).join('');
+    return `
+        <h4 style="margin:0 0 0.5rem 0;">Nízké stavy</h4>
+        <table style="width:100%; border-collapse:collapse; font-size:0.95rem;">
+            <thead>
+                <tr style="background:#f9fafb;">
+                    <th style="text-align:left; padding:0.4rem;">Název</th>
+                    <th style="text-align:right; padding:0.4rem;">Stav</th>
+                    <th style="text-align:right; padding:0.4rem;">Min.</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+}
+
+function buildClientsPreview() {
+    const rows = clients.map(c => `
+        <tr>
+            <td style="padding:0.4rem; border-bottom:1px solid #e5e7eb;">${escapeHtml((c.firstName || '') + ' ' + (c.lastName || ''))}</td>
+            <td style="padding:0.4rem; border-bottom:1px solid #e5e7eb;">${escapeHtml(c.phone || '')}</td>
+            <td style="padding:0.4rem; border-bottom:1px solid #e5e7eb;">${escapeHtml(c.email || '')}</td>
+        </tr>
+    `).join('');
+    return `
+        <h4 style="margin:0 0 0.5rem 0;">Klienti</h4>
+        <table style="width:100%; border-collapse:collapse; font-size:0.95rem;">
+            <thead>
+                <tr style="background:#f9fafb;">
+                    <th style="text-align:left; padding:0.4rem;">Jméno</th>
+                    <th style="text-align:left; padding:0.4rem;">Telefon</th>
+                    <th style="text-align:left; padding:0.4rem;">Email</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+}
+
+function buildClientVisitsPreview(period, year) {
+    const rows = [];
+    clients.forEach(c => {
+        (c.visits || []).forEach(v => {
+            if (!v.closed || !v.date) return;
+            if (!filterByPeriod(v.date, period, year)) return;
+            rows.push({
+                client: `${c.firstName || ''} ${c.lastName || ''}`.trim(),
+                date: v.date,
+                price: v.price || 0
+            });
+        });
+    });
+    const rowsHtml = rows.map(r => `
+        <tr>
+            <td style="padding:0.4rem; border-bottom:1px solid #e5e7eb;">${escapeHtml(r.client)}</td>
+            <td style="padding:0.4rem; border-bottom:1px solid #e5e7eb;">${r.date}</td>
+            <td style="padding:0.4rem; border-bottom:1px solid #e5e7eb; text-align:right;">${r.price.toLocaleString('cs-CZ')} Kč</td>
+        </tr>
+    `).join('');
+    return `
+        <h4 style="margin:0 0 0.5rem 0;">Historie návštěv</h4>
+        <table style="width:100%; border-collapse:collapse; font-size:0.95rem;">
+            <thead>
+                <tr style="background:#f9fafb;">
+                    <th style="text-align:left; padding:0.4rem;">Klient</th>
+                    <th style="text-align:left; padding:0.4rem;">Datum</th>
+                    <th style="text-align:right; padding:0.4rem;">Tržba</th>
+                </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+        </table>
+    `;
+}
+
+function downloadUnifiedExportCsv() {
+    const type = document.getElementById('unifiedExportType')?.value || 'inventory';
+    const period = document.getElementById('unifiedExportPeriod')?.value || 'all';
+    const year = parseInt(document.getElementById('unifiedExportYear')?.value) || new Date().getFullYear();
+
+    let csv = '';
+    if (type === 'inventory') {
+        csv += 'Název;Kód;Kategorie;Stav;Min\\n';
+        products.forEach(p => {
+            csv += `${p.name};${p.barcode || ''};${(p.category && p.category.name) || ''};${p.stock || 0};${p.minStock || 0}\\n`;
+        });
+    } else if (type === 'inventory-low') {
+        csv += 'Název;Stav;Min\\n';
+        products.filter(p => p.stock < p.minStock).forEach(p => {
+            csv += `${p.name};${p.stock || 0};${p.minStock || 0}\\n`;
+        });
+    } else if (type === 'clients') {
+        csv += 'Jméno;Telefon;Email\\n';
+        clients.forEach(c => {
+            csv += `${(c.firstName || '') + ' ' + (c.lastName || '')};${c.phone || ''};${c.email || ''}\\n`;
+        });
+    } else if (type === 'client-visits') {
+        csv += 'Klient;Datum;Tržba\\n';
+        clients.forEach(c => {
+            (c.visits || []).forEach(v => {
+                if (!v.closed || !v.date) return;
+                if (!filterByPeriod(v.date, period, year)) return;
+                csv += `${(c.firstName || '') + ' ' + (c.lastName || '')};${v.date};${v.price || 0}\\n`;
+            });
+        });
+    }
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `export-${type}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+function printUnifiedExport() {
+    const preview = document.getElementById('unifiedExportPreview');
+    if (!preview) return;
+    const win = window.open('', '_blank', 'width=900,height=700');
+    win.document.write(`
+        <html>
+            <head>
+                <title>Export</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 16px; }
+                    table { width: 100%; border-collapse: collapse; }
+                    th, td { border-bottom: 1px solid #ddd; padding: 8px; }
+                    th { background: #f3f4f6; }
+                    tfoot td { background: #f3f4f6; font-weight: bold; }
+                </style>
+            </head>
+            <body>${preview.innerHTML}</body>
+        </html>
+    `);
+    win.document.close();
+    win.focus();
+    win.print();
+    win.close();
+}
 async function findNextAvailableSlot() {
     const shift = calendarShiftFilter || 'all';
     const windowStart = shift === 'morning' ? 8 * 60 : shift === 'afternoon' ? 13 * 60 : CAL_START_HOUR * 60;

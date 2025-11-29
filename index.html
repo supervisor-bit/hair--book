@@ -1651,44 +1651,17 @@
                                 <i class="fas fa-file-export" style="color: #6366f1;"></i>
                                 Exporty pro účetnictví
                             </h3>
-                            <div style="background: white; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 1.5rem;">
-                                <h4 style="margin: 0 0 1rem 0; font-size: 1rem; color: var(--text-dark);">Export tržeb</h4>
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
-                                    <button class="btn btn-primary" onclick="exportRevenueToCSV()" style="padding: 1rem; font-size: 0.875rem; width: 100%;">
-                                        <i class="fas fa-file-csv"></i> Tržby do CSV
-                                    </button>
-                                    <button class="btn btn-primary" onclick="exportRevenueToExcel()" style="padding: 1rem; font-size: 0.875rem; width: 100%;">
-                                        <i class="fas fa-file-excel"></i> Tržby do Excel
-                                    </button>
-                                    <button class="btn btn-primary" onclick="exportRevenueDetailToCSV()" style="padding: 1rem; font-size: 0.875rem; width: 100%;">
-                                        <i class="fas fa-list"></i> Detailní tržby CSV
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div style="background: white; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 1.5rem;">
-                                <h4 style="margin: 0 0 1rem 0; font-size: 1rem; color: var(--text-dark);">Export skladu</h4>
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
-                                    <button class="btn btn-secondary" onclick="exportInventoryToCSV()" style="padding: 1rem; font-size: 0.875rem; width: 100%;">
-                                        <i class="fas fa-file-csv"></i> Inventura do CSV
-                                    </button>
-                                    <button class="btn btn-secondary" onclick="exportInventoryToExcel()" style="padding: 1rem; font-size: 0.875rem; width: 100%;">
-                                        <i class="fas fa-file-excel"></i> Inventura do Excel
-                                    </button>
-                                    <button class="btn btn-secondary" onclick="exportLowStockToCSV()" style="padding: 1rem; font-size: 0.875rem; width: 100%;">
-                                        <i class="fas fa-exclamation-triangle"></i> Nízké stavy CSV
-                                    </button>
-                                </div>
-                            </div>
-
                             <div style="background: white; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                                <h4 style="margin: 0 0 1rem 0; font-size: 1rem; color: var(--text-dark);">Export klientů</h4>
+                                <h4 style="margin: 0 0 1rem 0; font-size: 1rem; color: var(--text-dark);">Exporty</h4>
                                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
-                                    <button class="btn" onclick="exportClientsToCSV()" style="padding: 1rem; font-size: 0.875rem; width: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
-                                        <i class="fas fa-users"></i> Klienti do CSV
+                                    <button class="btn btn-primary" onclick="openYearlyCsvModal()" style="padding: 1rem; font-size: 0.875rem; width: 100%;">
+                                        <i class="fas fa-chart-bar"></i> Roční návštěvy + prodej (CSV náhled)
                                     </button>
-                                    <button class="btn" onclick="exportClientVisitsToCSV()" style="padding: 1rem; font-size: 0.875rem; width: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
-                                        <i class="fas fa-history"></i> Historie návštěv CSV
+                                    <button class="btn btn-secondary" onclick="openUnifiedExportModal('inventory')" style="padding: 1rem; font-size: 0.875rem; width: 100%;">
+                                        <i class="fas fa-boxes"></i> Sklad (inventura, nízké stavy)
+                                    </button>
+                                    <button class="btn btn" onclick="openUnifiedExportModal('clients')" style="padding: 1rem; font-size: 0.875rem; width: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+                                        <i class="fas fa-users"></i> Klienti a návštěvy
                                     </button>
                                 </div>
                             </div>

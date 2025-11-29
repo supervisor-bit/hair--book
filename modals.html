@@ -892,6 +892,85 @@
     </div>
 </div>
 
+<!-- Modal pro roční CSV přehled -->
+<div id="yearlyCsvModal" class="modal">
+    <div class="modal-content" style="max-width: 900px;">
+        <div class="modal-header">
+            <h3>Roční přehled (návštěvy a prodeje)</h3>
+            <button class="modal-close" onclick="closeYearlyCsvModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body" id="yearlyCsvPreview" style="max-height: 70vh; overflow-y: auto;">
+            <!-- Naplní JS -->
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeYearlyCsvModal()">
+                <i class="fas fa-times"></i> Zavřít
+            </button>
+            <button type="button" class="btn btn-primary" onclick="downloadYearlyCsv()">
+                <i class="fas fa-download"></i> Uložit CSV
+            </button>
+            <button type="button" class="btn btn-primary" onclick="printYearlyCsv()">
+                <i class="fas fa-print"></i> Tisk náhledu
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pro sjednocené exporty -->
+<div id="unifiedExportModal" class="modal">
+    <div class="modal-content" style="max-width: 900px;">
+        <div class="modal-header">
+            <h3 id="unifiedExportTitle">Export</h3>
+            <button class="modal-close" onclick="closeUnifiedExportModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="form-row" style="gap: 1rem;">
+                <div class="form-group" style="flex: 1;">
+                    <label for="unifiedExportType">Typ exportu</label>
+                    <select id="unifiedExportType" onchange="renderUnifiedExportPreview()">
+                        <option value="inventory">Sklad</option>
+                        <option value="inventory-low">Nízké stavy</option>
+                        <option value="clients">Klienti</option>
+                        <option value="client-visits">Historie návštěv</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="unifiedExportPeriod">Období</label>
+                    <select id="unifiedExportPeriod" onchange="renderUnifiedExportPreview()">
+                        <option value="all">Celé období</option>
+                        <option value="year">Aktuální rok</option>
+                        <option value="month">Aktuální měsíc</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="unifiedExportYear">Rok</label>
+                    <select id="unifiedExportYear" onchange="renderUnifiedExportPreview()">
+                        <!-- plní se dynamicky -->
+                    </select>
+                </div>
+            </div>
+            <div id="unifiedExportPreview" style="max-height: 60vh; overflow-y: auto; border:1px solid #e5e7eb; border-radius:0.5rem; padding:1rem; background:#f9fafb; margin-top:0.5rem;">
+                <!-- náhled -->
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeUnifiedExportModal()">
+                <i class="fas fa-times"></i> Zavřít
+            </button>
+            <button type="button" class="btn btn-primary" onclick="downloadUnifiedExportCsv()">
+                <i class="fas fa-download"></i> Uložit CSV
+            </button>
+            <button type="button" class="btn btn-primary" onclick="printUnifiedExport()">
+                <i class="fas fa-print"></i> Tisk náhledu
+            </button>
+        </div>
+    </div>
+ </div>
+
 <!-- Modální okno pro službu -->
 <div id="serviceModal" class="modal">
     <div class="modal-content">
