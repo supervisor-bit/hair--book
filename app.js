@@ -11211,7 +11211,9 @@ document.head.appendChild(style);
 let entryCounter = 0;
 
 function toggleEntryMode() {
-    if (products.length === 0) {
+    if (isEntryMode) {
+        exitEntryMode();
+    } else {
         startEntryMode();
     }
 }
@@ -11431,10 +11433,13 @@ function updateNavigationState() {
     // Aktualizovat tlačítko režimu pořizování
     const entryModeBtn = document.getElementById('entryModeBtn');
     if (entryModeBtn) {
-        if (products.length === 0 && !isEntryMode) {
-            entryModeBtn.style.display = 'block';
+        const shouldShow = isEntryMode || products.length === 0;
+        entryModeBtn.style.display = shouldShow ? 'inline-flex' : 'none';
+        entryModeBtn.innerHTML = `<i class="fas fa-rocket"></i> ${isEntryMode ? 'Ukončit pořizování' : 'Režim pořizování'}`;
+        if (isEntryMode) {
+            entryModeBtn.classList.add('active');
         } else {
-            entryModeBtn.style.display = 'none';
+            entryModeBtn.classList.remove('active');
         }
     }
     

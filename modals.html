@@ -800,14 +800,16 @@
             <form id="productForm" onsubmit="saveProductForm(event)">
                 <input type="hidden" id="productId">
                 
-                <div class="form-group">
-                    <label for="productName">Název produktu *</label>
-                    <input type="text" id="productName" required placeholder="Např. Šampon Loreal">
-                </div>
-
-                <div class="form-group">
-                    <label for="productBarcode">Čárový kód</label>
-                    <input type="text" id="productBarcode" placeholder="Např. 8594000123456">
+                
+                <div class="form-row" style="gap: 1rem;">
+                    <div class="form-group" style="flex: 2;">
+                        <label for="productName">Název produktu *</label>
+                        <input type="text" id="productName" required placeholder="Např. Šampon Loreal, 500 ml">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label for="productBarcode">Čárový kód</label>
+                        <input type="text" id="productBarcode" placeholder="Načtěte čárový kód">
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -815,71 +817,64 @@
                     <textarea id="productDescription" rows="2" placeholder="Popis produktu..."></textarea>
                 </div>
 
-                <div class="form-group">
-                    <label for="productCategoryId">Kategorie *</label>
-                    <select id="productCategoryId" required>
-                        <option value="">-- Vyberte kategorii --</option>
-                    </select>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="productUnit">Základní jednotka *</label>
-                        <select id="productUnit" required>
-                            <option value="ml">ml (mililitry)</option>
-                            <option value="g">g (gramy)</option>
-                            <option value="ks">ks (kusy)</option>
+                <div class="form-row" style="gap: 1rem;">
+                    <div class="form-group" style="flex: 1;">
+                        <label for="productCategoryId">Kategorie *</label>
+                        <select id="productCategoryId" required>
+                            <option value="">-- Vyberte kategorii --</option>
                         </select>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" style="flex: 1;">
+                        <label for="productUnit">Jednotka *</label>
+                        <select id="productUnit" required>
+                            <option value="ml">ml</option>
+                            <option value="g">g</option>
+                            <option value="ks">ks</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
                         <label for="productPackageSize">Velikost 1 ks *</label>
-                        <input type="number" id="productPackageSize" required min="0.01" step="0.01" placeholder="Např. 100">
-                        <small style="color: #6b7280;">Kolik základních jednotek je v 1 kusu</small>
+                        <input type="number" id="productPackageSize" required min="0.01" step="0.01" placeholder="100">
+                        <small style="color: #6b7280;">V základních jednotkách</small>
                     </div>
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="productStock">Počáteční stav skladu (ks)</label>
+                <div class="form-row" style="gap: 1rem;">
+                    <div class="form-group" style="flex: 1;">
+                        <label for="productStock">Stav (ks)</label>
                         <input type="number" id="productStock" min="0" step="0.01" value="0">
                     </div>
-                    <div class="form-group">
-                        <label for="productMinimalStock">Minimální stav (ks)</label>
+                    <div class="form-group" style="flex: 1;">
+                        <label for="productMinimalStock">Min. stav (ks)</label>
                         <input type="number" id="productMinimalStock" min="0" step="0.01" value="0">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label for="productVatRate">DPH</label>
+                        <select id="productVatRate" style="padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 1rem; width: 100%;">
+                            <option value="0">0 %</option>
+                            <option value="12">12 %</option>
+                            <option value="21" selected>21 %</option>
+                        </select>
                     </div>
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
+                <div class="form-row" style="gap: 1rem; align-items: flex-end;">
+                    <div class="form-group" style="flex: 1;">
                         <label for="productPurchasePrice">Nákupní cena (Kč/ks)</label>
                         <input type="number" id="productPurchasePrice" min="0" step="0.01" placeholder="0">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" style="flex: 1;">
                         <label for="productSalePrice">Prodejní cena (Kč/ks)</label>
                         <input type="number" id="productSalePrice" min="0" step="0.01" placeholder="0">
                     </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="productVatRate">Sazba DPH</label>
-                    <select id="productVatRate" style="padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 1rem; width: 100%;">
-                        <option value="0">0% (bez DPH)</option>
-                        <option value="12">12% (snížená sazba)</option>
-                        <option value="21" selected>21% (základní sazba)</option>
-                    </select>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <div class="form-group" style="flex: 1; display:flex; gap: 0.75rem; flex-wrap: wrap;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin: 0;">
                             <input type="checkbox" id="productForSale">
-                            <span>Prodej (prodávat zákazníkům)</span>
+                            <span>Prodej</span>
                         </label>
-                    </div>
-                    <div class="form-group">
-                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin: 0;">
                             <input type="checkbox" id="productForWork">
-                            <span>Pro práci (materiál pro služby)</span>
+                            <span>Pro práci</span>
                         </label>
                     </div>
                 </div>
