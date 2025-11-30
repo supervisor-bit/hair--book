@@ -16,6 +16,8 @@ $tableOrder = [
     'product_movements',
     'clients',
     'client_notes',
+    'calendar_events',   // kalendář (nové)
+    'appointments',      // kalendář (starší API, pokud existuje)
     'services',
     'visits',
     'visit_services',
@@ -32,6 +34,17 @@ $tableOrder = [
     'visit_templates',
     'period_snapshots'
 ];
+
+function tableExists($db, $table, $dbType) {
+    if ($dbType === 'mysql') {
+        $stmt = $db->prepare("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?");
+        $stmt->execute([$table]);
+        return (bool)$stmt->fetchColumn();
+    }
+    $stmt = $db->prepare("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?");
+    $stmt->execute([$table]);
+    return (bool)$stmt->fetchColumn();
+}
 
 function fetchTable($db, $table) {
     $stmt = $db->query("SELECT * FROM {$table}");
@@ -57,6 +70,9 @@ function insertTableData($db, $table, $rows) {
 if ($method === 'GET') {
     $data = [];
     foreach ($tableOrder as $table) {
+        if (!tableExists($db, $table, $dbType)) {
+            continue;
+        }
         $data[$table] = fetchTable($db, $table);
     }
     sendJson([
@@ -89,6 +105,9 @@ if ($method === 'POST') {
 
         foreach ($tableOrder as $table) {
             $rows = $importData[$table] ?? [];
+            if (!tableExists($db, $table, $dbType)) {
+                continue;
+            }
             $db->exec("DELETE FROM {$table}");
             insertTableData($db, $table, $rows);
             $counts[$table] = is_array($rows) ? count($rows) : 0;

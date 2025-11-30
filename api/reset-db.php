@@ -33,6 +33,8 @@ $tables = [
     'visit_materials',
     'visit_services',
     'visits',
+    'calendar_events',
+    'appointments',
     'services',
     'product_movements',
     'products',
