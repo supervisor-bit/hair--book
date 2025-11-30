@@ -1145,6 +1145,195 @@ function printUnifiedExport() {
     win.print();
     win.close();
 }
+
+// === Import produktů (CSV/XLSX) ===
+function openProductImportModal() {
+    productImportRows = [];
+    const preview = document.getElementById('productImportPreview');
+    if (preview) preview.innerHTML = 'Zatím žádná data.';
+    const fileInput = document.getElementById('productImportFile');
+    if (fileInput) fileInput.value = '';
+    document.getElementById('productImportModal').classList.add('show');
+}
+
+function closeProductImportModal() {
+    document.getElementById('productImportModal').classList.remove('show');
+    productImportRows = [];
+}
+
+function handleProductImportFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const data = e.target.result;
+        if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+            parseXlsx(data);
+        } else {
+            parseCsv(data);
+        }
+    };
+    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+        reader.readAsArrayBuffer(file);
+    } else {
+        reader.readAsText(file, 'utf-8');
+    }
+}
+
+function parseXlsx(arrayBuffer) {
+    if (!window.XLSX) {
+        showNotification('Knihovna pro Excel není načtena.', 'error');
+        return;
+    }
+    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+    const json = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+    productImportRows = normalizeImportRows(json);
+    renderProductImportPreview();
+}
+
+function parseCsv(text) {
+    const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+    if (lines.length === 0) return;
+    const delimiter = lines[0].includes(';') ? ';' : ',';
+    const headers = lines[0].split(delimiter).map(h => h.trim().toLowerCase());
+    const rows = lines.slice(1).map(line => {
+        const cols = line.split(delimiter);
+        const obj = {};
+        headers.forEach((h, idx) => obj[h] = (cols[idx] || '').trim());
+        return obj;
+    });
+    productImportRows = normalizeImportRows(rows);
+    renderProductImportPreview();
+}
+
+function normalizeImportRows(rows) {
+    return rows.map(r => {
+        const toBool = (val) => {
+            if (typeof val === 'number') return val !== 0;
+            const v = (val || '').toString().toLowerCase();
+            return v === '1' || v === 'true' || v === 'yes' || v === 'ano';
+        };
+        return {
+            name: r.name || r.nazev || '',
+            barcode: r.barcode || r.kod || '',
+            category: r.category || r.kategorie || '',
+            unit: (r.unit || r.jednotka || 'ml').toLowerCase(),
+            packageSize: parseFloat(r.packagesize || r.baleni || 1) || 1,
+            stock: parseFloat(r.stock || r.sklad || 0) || 0,
+            minStock: parseFloat(r.minstock || r.min || 0) || 0,
+            purchasePrice: parseFloat(r.purchaseprice || r.nakup || 0) || 0,
+            salePrice: parseFloat(r.saleprice || r.prodej || 0) || 0,
+            vatRate: parseFloat(r.vatrate || r.dph || 21) || 21,
+            forSale: toBool(r.forsale),
+            forWork: toBool(r.forwork ?? true)
+        };
+    });
+}
+
+function renderProductImportPreview() {
+    const preview = document.getElementById('productImportPreview');
+    if (!preview) return;
+    if (productImportRows.length === 0) {
+        preview.innerHTML = 'Zatím žádná data.';
+        return;
+    }
+    // Validace a mapování
+    const headers = ['Název','Kategorie','Jednotka','Balení','Stav (ks)','Min (ks)','Nákup','Prodej','DPH','Prodej','Práce','Kód'];
+    const rowsHtml = productImportRows.slice(0, 50).map((r, idx) => {
+        const hasError = !r.name || !r.unit || !r.packageSize;
+        return `
+            <tr style="border-bottom:1px solid #e5e7eb; ${hasError ? 'background:#fef2f2;' : ''}">
+                <td style="padding:0.4rem;">${escapeHtml(r.name)}</td>
+                <td style="padding:0.4rem;">${escapeHtml(r.category || '')}</td>
+                <td style="padding:0.4rem; text-align:center;">${escapeHtml(r.unit)}</td>
+                <td style="padding:0.4rem; text-align:right;">${r.packageSize}</td>
+                <td style="padding:0.4rem; text-align:right;">${r.stock}</td>
+                <td style="padding:0.4rem; text-align:right;">${r.minStock}</td>
+                <td style="padding:0.4rem; text-align:right;">${r.purchasePrice}</td>
+                <td style="padding:0.4rem; text-align:right;">${r.salePrice}</td>
+                <td style="padding:0.4rem; text-align:right;">${r.vatRate}%</td>
+                <td style="padding:0.4rem; text-align:center;">${r.forSale ? '✔' : ''}</td>
+                <td style="padding:0.4rem; text-align:center;">${r.forWork ? '✔' : ''}</td>
+                <td style="padding:0.4rem;">${escapeHtml(r.barcode || '')}</td>
+            </tr>
+        `;
+    }).join('');
+    const errorCount = productImportRows.filter(r => !r.name || !r.unit || !r.packageSize).length;
+    preview.innerHTML = `
+        <div style="margin-bottom:0.5rem;">Načteno řádků: <strong>${productImportRows.length}</strong> ${errorCount ? `(chybné: ${errorCount})` : ''}</div>
+        <div style="max-height:45vh; overflow-y:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+                <thead>
+                    <tr style="background:#f9fafb;">
+                        ${headers.map(h => `<th style="padding:0.4rem; text-align:left;">${h}</th>`).join('')}
+                    </tr>
+                </thead>
+                <tbody>${rowsHtml}</tbody>
+            </table>
+            ${productImportRows.length > 50 ? '<div style="padding:0.5rem; color:#6b7280;">Zobrazeno prvních 50 řádků…</div>' : ''}
+        </div>
+    `;
+}
+
+async function performProductImport() {
+    if (productImportRows.length === 0) {
+        showNotification('Nejprve nahrajte soubor.', 'warning');
+        return;
+    }
+    let success = 0, failed = 0;
+    for (const row of productImportRows) {
+        const category = productCategories.find(c => c.name.toLowerCase() === (row.category || '').toLowerCase());
+        if (!row.name || !row.unit || !row.packageSize) {
+            failed++;
+            continue;
+        }
+        const stockBase = (row.stock || 0) * row.packageSize;
+        const minBase = (row.minStock || 0) * row.packageSize;
+        const payload = {
+            name: row.name,
+            barcode: row.barcode || null,
+            description: '',
+            categoryId: category ? category.id : null,
+            stock: stockBase,
+            unit: row.unit,
+            packageSize: row.packageSize,
+            minStock: minBase,
+            pricePurchase: row.purchasePrice || 0,
+            priceRetail: row.forSale ? (row.salePrice || 0) : 0,
+            vatRate: row.vatRate || 21,
+            forSale: !!row.forSale,
+            forWork: row.forWork !== undefined ? !!row.forWork : true
+        };
+        try {
+            await apiCall('products.php', 'POST', payload);
+            success++;
+        } catch (err) {
+            console.error('Import řádku selhal:', row, err);
+            failed++;
+        }
+    }
+    showNotification(`Import dokončen. Úspěšně: ${success}, Chyby: ${failed}`, failed ? 'warning' : 'success');
+    closeProductImportModal();
+    await loadAllData();
+    renderProducts();
+    renderProductCategories();
+}
+
+function downloadProductImportTemplate() {
+    if (!window.XLSX) {
+        showNotification('Knihovna pro Excel není načtena.', 'error');
+        return;
+    }
+    const aoa = [
+        ['name','barcode','category','unit','packageSize','stock','minStock','purchasePrice','salePrice','vatRate','forSale','forWork'],
+        ['Šampon Loreal 500 ml','859xxxxxxx','Kategorie','ml',500,10,2,150,299,21,1,1]
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Import');
+    XLSX.writeFile(wb, 'sablona-import-produkty.xlsx');
+}
 async function findNextAvailableSlot() {
     const shift = calendarShiftFilter || 'all';
     const windowStart = shift === 'morning' ? 8 * 60 : shift === 'afternoon' ? 13 * 60 : CAL_START_HOUR * 60;
@@ -6507,6 +6696,8 @@ async function confirmSaveStockReceipt() {
 // === HISTORIE OBJEDNÁVEK ===
 
 let stockOrders = [];
+let currentOrderCheckId = null;
+let productImportRows = [];
 
 async function loadOrderHistory() {
     try {
@@ -6725,6 +6916,11 @@ function renderOrderHistory() {
                                 <i class="fas fa-check"></i> Objednáno
                             </button>
                         ` : ''}
+                        ${order.status === 'ordered' || order.status === 'pending' ? `
+                            <button class="btn btn-secondary" onclick="event.stopPropagation(); openOrderCheckModal(${order.id})" style="font-size: 0.875rem; padding: 0.5rem 1rem;">
+                                <i class="fas fa-clipboard-check"></i> Kontrola
+                            </button>
+                        ` : ''}
                         ${order.status === 'ordered' ? `
                             <button class="btn btn-primary" onclick="event.stopPropagation(); markOrderAsReceived(${order.id})" style="font-size: 0.875rem; padding: 0.5rem 1rem;">
                                 <i class="fas fa-truck"></i> Přijato
@@ -6820,6 +7016,11 @@ async function confirmJustMarkAsOrdered(orderId) {
     }
 }
 
+async function toggleOrderItemReceived(orderId, itemId, isReceived) {
+    // Přesměruj na modal pro kontrolu
+    openOrderCheckModal(orderId);
+}
+
 async function confirmConvertOrderToReceipt() {
     closeConfirmModal();
     const orderId = window.pendingOrderId;
@@ -6886,6 +7087,67 @@ async function confirmConvertOrderToReceipt() {
     } catch (error) {
         console.error('Chyba při převodu objednávky na příjem:', error);
         showNotification('Chyba při převodu objednávky', 'error');
+    }
+}
+
+// Modal kontrola objednávky
+function openOrderCheckModal(orderId) {
+    currentOrderCheckId = orderId;
+    const order = stockOrders.find(o => o.id === orderId);
+    if (!order) return;
+    const tbody = document.getElementById('orderCheckItems');
+    if (tbody) {
+        tbody.innerHTML = order.items.map(item => `
+            <tr>
+                <td style="padding:0.5rem; border-bottom:1px solid #e5e7eb;">${escapeHtml(item.productName || '')}</td>
+                <td style="padding:0.5rem; text-align:right; border-bottom:1px solid #e5e7eb;">${item.quantity} ${item.unit}</td>
+                <td style="padding:0.5rem; text-align:center; border-bottom:1px solid #e5e7eb;">
+                    <input type="checkbox" class="order-check-item" data-id="${item.id}" ${item.received ? 'checked' : ''}>
+                </td>
+            </tr>
+        `).join('');
+    }
+    document.getElementById('orderCheckNote').value = order.note || '';
+    document.getElementById('orderCheckModal').classList.add('show');
+}
+
+function closeOrderCheckModal() {
+    const modal = document.getElementById('orderCheckModal');
+    if (modal) modal.classList.remove('show');
+    currentOrderCheckId = null;
+}
+
+async function saveOrderCheck() {
+    if (!currentOrderCheckId) {
+        closeOrderCheckModal();
+        return;
+    }
+    const order = stockOrders.find(o => o.id === currentOrderCheckId);
+    if (!order) {
+        closeOrderCheckModal();
+        return;
+    }
+    const note = document.getElementById('orderCheckNote').value.trim();
+    try {
+        const checkboxes = document.querySelectorAll('.order-check-item');
+        for (const cb of checkboxes) {
+            const itemId = parseInt(cb.dataset.id);
+            const isReceived = cb.checked ? 1 : 0;
+            await apiCall('orders.php', 'PUT', { itemId, orderId: order.id, received: isReceived });
+            const item = order.items.find(i => i.id === itemId);
+            if (item) item.received = isReceived;
+        }
+        // Uložit poznámku a stav kontroly (status necháme beze změny, poznámka obsahuje info)
+        if (note) {
+            await apiCall('orders.php', 'PUT', { id: order.id, status: order.status, note });
+            order.note = note;
+        }
+        renderOrderHistory();
+        closeOrderCheckModal();
+        showNotification('Kontrola uložena', 'success');
+    } catch (err) {
+        console.error('Chyba při ukládání kontroly:', err);
+        showNotification('Chyba při ukládání kontroly', 'error');
     }
 }
 
@@ -11420,6 +11682,124 @@ function closeInventoryModal() {
     document.getElementById('inventoryModal').classList.remove('show');
 }
 
+// Rychlá inventura
+function openQuickInventoryModal() {
+    const tbody = document.getElementById('quickInventoryBody');
+    if (!tbody) return;
+    const rows = products.slice().sort((a,b)=> (a.name||'').localeCompare(b.name||''));
+    tbody.innerHTML = rows.map(p => {
+        const cat = productCategories.find(c => c.id === p.categoryId);
+        const categoryName = cat ? cat.name : '';
+        const currentBase = p.stock || 0;
+        const currentPieces = calculatePieces(currentBase, p.unit, p.packageSize);
+        const currentDisplay = formatStockDisplay(p);
+        return `
+            <tr class="quick-inv-row" data-id="${p.id}">
+                <td style="padding:0.5rem; border-bottom:1px solid #e5e7eb;">${escapeHtml(p.name || '')}</td>
+                <td style="padding:0.5rem; border-bottom:1px solid #e5e7eb; color:#6b7280;">${escapeHtml(categoryName)}</td>
+                <td style="padding:0.5rem; border-bottom:1px solid #e5e7eb; text-align:right; white-space: nowrap;">${currentDisplay}</td>
+                <td style="padding:0.5rem; border-bottom:1px solid #e5e7eb; text-align:right;">
+                    <input type="number" class="quick-inv-input" data-id="${p.id}" value="${currentPieces}" step="0.01" min="0" style="width: 120px; text-align: right;" oninput="updateQuickInventoryDiff(${p.id})">
+                </td>
+                <td style="padding:0.5rem; border-bottom:1px solid #e5e7eb; text-align:right;" id="quickDiff-${p.id}">0</td>
+            </tr>
+        `;
+    }).join('');
+    document.getElementById('quickInventoryModal').classList.add('show');
+}
+
+function closeQuickInventoryModal() {
+    const modal = document.getElementById('quickInventoryModal');
+    if (modal) modal.classList.remove('show');
+}
+
+function updateQuickInventoryDiff(productId) {
+    const input = document.querySelector(`.quick-inv-input[data-id="${productId}"]`);
+    const diffCell = document.getElementById(`quickDiff-${productId}`);
+    if (!input || !diffCell) return;
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+    const newPieces = parseFloat(input.value);
+    const currentBase = product.stock || 0;
+    const currentPieces = calculatePieces(currentBase, product.unit, product.packageSize);
+    const newBase = isNaN(newPieces) ? currentBase : (product.unit === 'ks' ? newPieces : newPieces * (product.packageSize || 1));
+    const diffBase = newBase - currentBase;
+    const diffPieces = isNaN(newPieces) ? 0 : (newPieces - currentPieces);
+    diffCell.textContent = `${diffPieces.toFixed(2)} ks (${diffBase.toFixed(2)} ${product.unit})`;
+    diffCell.style.color = diffBase > 0 ? '#10b981' : (diffBase < 0 ? '#ef4444' : '#374151');
+}
+
+async function applyQuickInventoryAdjustments() {
+    const inputs = document.querySelectorAll('.quick-inv-input');
+    const changes = [];
+    inputs.forEach(inp => {
+        const id = parseInt(inp.dataset.id);
+        const product = products.find(p => p.id === id);
+        if (!product) return;
+        const newPieces = parseFloat(inp.value);
+        if (isNaN(newPieces)) return;
+        const currentBase = product.stock || 0;
+        const currentPieces = calculatePieces(currentBase, product.unit, product.packageSize);
+        const newBase = product.unit === 'ks' ? newPieces : newPieces * (product.packageSize || 1);
+        const diffBase = newBase - currentBase;
+        if (Math.abs(diffBase) > 0.0001) {
+            changes.push({ product, newValBase: newBase, diffBase });
+        }
+    });
+
+    if (changes.length === 0) {
+        showNotification('Žádné změny k uložení.', 'info');
+        return;
+    }
+
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        for (const change of changes) {
+            const p = change.product;
+            // Pohyb (kladný = příjem, záporný = výdej)
+            const isIncrease = change.diffBase > 0;
+            const movementType = isIncrease ? 'purchase' : 'usage';
+            const movementQty = Math.abs(change.diffBase);
+            await apiCall('product_movements.php', 'POST', {
+                product_id: p.id,
+                date: today,
+                type: movementType,
+                quantity: movementQty,
+                unit: p.unit,
+                note: 'Inventurní korekce'
+            });
+            // Update produktu
+            const productData = {
+                id: p.id,
+                name: p.name,
+                barcode: p.barcode,
+                description: p.description || '',
+                categoryId: p.categoryId,
+                stock: change.newValBase,
+                unit: p.unit,
+                packageSize: p.packageSize,
+                minStock: p.minStock,
+                pricePurchase: p.pricePurchase || 0,
+                priceRetail: p.priceRetail || p.salePrice || 0,
+                vatRate: p.vatRate || 21,
+                forSale: p.forSale,
+                forWork: p.forWork
+            };
+            await apiCall('products.php', 'PUT', productData);
+            // Lokální update
+            p.stock = change.newValBase;
+        }
+        showNotification('Inventura uložena', 'success');
+        closeQuickInventoryModal();
+        renderProductCategories();
+        renderProducts();
+        updateAllAccountingSections();
+    } catch (err) {
+        console.error('Chyba při ukládání inventury:', err);
+        showNotification('Chyba při ukládání inventury', 'error');
+    }
+}
+
 function exportInventoryToCSVFromModal() {
     closeInventoryModal();
     exportInventoryToCSV();
@@ -11593,6 +11973,19 @@ document.head.appendChild(style);
 
 // Režim rychlého pořizování produktů
 let entryCounter = 0;
+let quickEntryPrefs = {
+    categoryId: '',
+    unit: 'ml',
+    packageSize: 100,
+    vatRate: 21,
+    forSale: false,
+    forService: true,
+    minStock: 0
+};
+const storedQuickPrefs = localStorage.getItem('quickEntryPrefs');
+if (storedQuickPrefs) {
+    try { quickEntryPrefs = { ...quickEntryPrefs, ...JSON.parse(storedQuickPrefs) }; } catch (e) {}
+}
 
 function toggleEntryMode() {
     if (isEntryMode) {
@@ -11605,6 +11998,7 @@ function toggleEntryMode() {
 function startEntryMode() {
     isEntryMode = true;
     entryCounter = 0;
+    document.addEventListener('keydown', quickEntryKeyHandler);
     
     // Naplnit dropdown kategorií
     const categorySelect = document.getElementById('quickEntryCategoryId');
@@ -11619,15 +12013,17 @@ function startEntryMode() {
     // Zobrazit modal a reset formuláře
     document.getElementById('quickEntryName').value = '';
     document.getElementById('quickEntryBarcode').value = '';
-    document.getElementById('quickEntryCategoryId').value = '';
-    document.getElementById('quickEntryUnit').value = 'ml';
-    document.getElementById('quickEntryPackageSize').value = '100';
+    document.getElementById('quickEntryCategoryId').value = quickEntryPrefs.categoryId || '';
+    document.getElementById('quickEntryUnit').value = quickEntryPrefs.unit || 'ml';
+    document.getElementById('quickEntryPackageSize').value = quickEntryPrefs.packageSize || 100;
     document.getElementById('quickEntryStock').value = '0';
-    document.getElementById('quickEntryMinimalStock').value = '0';
+    document.getElementById('quickEntryMinimalStock').value = quickEntryPrefs.minStock || 0;
     document.getElementById('quickEntryPurchasePrice').value = '';
+    document.getElementById('quickEntryMargin').value = '';
     document.getElementById('quickEntrySalePrice').value = '';
-    document.getElementById('quickEntryForSale').checked = false;
-    document.getElementById('quickEntryForService').checked = true;
+    document.getElementById('quickEntryVatRate').value = quickEntryPrefs.vatRate || 21;
+    document.getElementById('quickEntryForSale').checked = !!quickEntryPrefs.forSale;
+    document.getElementById('quickEntryForService').checked = !!quickEntryPrefs.forService;
     document.getElementById('entryCounter').textContent = '0';
     
     document.getElementById('quickEntryModal').classList.add('show');
@@ -11651,23 +12047,71 @@ function closeExitEntryConfirm() {
     document.getElementById('exitEntryConfirmModal').classList.remove('show');
 }
 
-function confirmExitEntry() {
+async function confirmExitEntry() {
     isEntryMode = false;
     entryCounter = 0;
     document.getElementById('quickEntryModal').classList.remove('show');
     document.getElementById('exitEntryConfirmModal').classList.remove('show');
+    document.removeEventListener('keydown', quickEntryKeyHandler);
     
     // Odblokovat navigaci
     updateNavigationState();
     
-    // Aktualizovat zobrazení produktů
+    // Aktualizovat data (aby nové produkty šly hned upravovat)
+    try {
+        await loadAllData();
+    } catch (e) {
+        console.warn('Nepodařilo se reloadnout data po ukončení pořizování:', e);
+    }
     renderProducts();
+    renderProductCategories();
+    if (currentProduct) {
+        const refreshed = products.find(p => p.id === currentProduct.id);
+        if (refreshed) showProductDetail(refreshed);
+    }
+}
+
+function quickEntryKeyHandler(e) {
+    if (!isEntryMode) return;
+    if (e.key === 'Escape') {
+        e.preventDefault();
+        exitEntryMode();
+    } else if (e.key === 'Enter') {
+        const modal = document.getElementById('quickEntryModal');
+        if (modal && modal.classList.contains('show')) {
+            const form = document.getElementById('quickEntryForm');
+            if (form) {
+                e.preventDefault();
+                form.requestSubmit();
+            }
+        }
+    }
+}
+
+function quickEntryRecalcSale() {
+    const purchase = parseFloat(document.getElementById('quickEntryPurchasePrice').value);
+    const margin = parseFloat(document.getElementById('quickEntryMargin').value);
+    if (isNaN(purchase) || isNaN(margin)) return;
+    const sale = purchase * (1 + margin / 100);
+    document.getElementById('quickEntrySalePrice').value = sale.toFixed(2);
+}
+
+function quickEntryRecalcMargin() {
+    const purchase = parseFloat(document.getElementById('quickEntryPurchasePrice').value);
+    const sale = parseFloat(document.getElementById('quickEntrySalePrice').value);
+    if (isNaN(purchase) || purchase <= 0 || isNaN(sale)) return;
+    const margin = ((sale - purchase) / purchase) * 100;
+    document.getElementById('quickEntryMargin').value = margin.toFixed(1);
 }
 
 function quickAddCategory() {
     document.getElementById('quickCategoryName').value = '';
     document.getElementById('quickCategoryModal').classList.add('show');
     setTimeout(() => document.getElementById('quickCategoryName').focus(), 100);
+}
+
+function quickAddCategoryFromProduct() {
+    quickAddCategory();
 }
 
 function closeQuickCategoryModal() {
@@ -11693,16 +12137,28 @@ async function saveQuickCategory(event) {
         const result = await apiCall('categories.php', 'POST', newCategory);
         newCategory.id = result.id;
         productCategories.push(newCategory);
-        
-        // Aktualizovat dropdown
-        const categorySelect = document.getElementById('quickEntryCategoryId');
-        const option = document.createElement('option');
-        option.value = newCategory.id;
-        option.textContent = newCategory.name;
-        option.selected = true;
-        categorySelect.appendChild(option);
-        
+
+        // Reloadnout data, aby se vše synchronizovalo (počty, seznamy)
+        try {
+            await loadAllData();
+        } catch (e) {
+            console.warn('Nepodařilo se reloadnout data po vytvoření kategorie:', e);
+        }
+
+        // Aktualizovat dropdowny a vybrat novou kategorii
+        const quickEntrySelect = document.getElementById('quickEntryCategoryId');
+        if (quickEntrySelect) {
+            quickEntrySelect.innerHTML = '<option value=\"\">-- Vyberte kategorii --</option>' + productCategories.map(c => `<option value=\"${c.id}\">${escapeHtml(c.name)}</option>`).join('');
+            quickEntrySelect.value = newCategory.id;
+        }
+        const productSelect = document.getElementById('productCategoryId');
+        if (productSelect) {
+            productSelect.innerHTML = '<option value=\"\">-- Vyberte kategorii --</option>' + productCategories.map(c => `<option value=\"${c.id}\">${escapeHtml(c.name)}</option>`).join('');
+            productSelect.value = newCategory.id;
+        }
+
         renderProductCategories();
+        renderProducts();
         closeQuickCategoryModal();
         showNotification('Kategorie vytvořena', 'success');
     } catch (error) {
@@ -11721,11 +12177,21 @@ async function saveQuickEntry(event) {
     const stockInPieces = parseFloat(document.getElementById('quickEntryStock').value);
     const minimalStock = parseFloat(document.getElementById('quickEntryMinimalStock').value);
     const purchasePrice = parseFloat(document.getElementById('quickEntryPurchasePrice').value) || 0;
-    const salePrice = parseFloat(document.getElementById('quickEntrySalePrice').value) || 0;
+    const salePriceRaw = document.getElementById('quickEntrySalePrice').value;
+    const salePrice = salePriceRaw ? (parseFloat(salePriceRaw) || 0) : 0;
     const vatRate = parseFloat(document.getElementById('quickEntryVatRate').value) || 21;
     const forSale = document.getElementById('quickEntryForSale').checked;
     const forService = document.getElementById('quickEntryForService').checked;
     
+    // Duplicitní čárový kód
+    if (barcode) {
+        const existing = products.find(p => (p.barcode || '').toLowerCase() === barcode.toLowerCase());
+        if (existing) {
+            showNotification(`Produkt s kódem ${barcode} už existuje (${existing.name}).`, 'warning');
+            return;
+        }
+    }
+
     // Přepočítat sklad z kusů na základní jednotky
     const stockInBaseUnits = stockInPieces * packageSize;
     
@@ -11739,7 +12205,7 @@ async function saveQuickEntry(event) {
         packageSize,
         minimalStock,
         purchasePrice,
-        salePrice,
+        salePrice: forSale ? salePrice : 0,
         vatRate: vatRate,
         forSale,
         forWork: forService
@@ -11756,6 +12222,18 @@ async function saveQuickEntry(event) {
         
         products.push(newProduct);
         entryCounter++;
+
+        // Uložit poslední volby
+        quickEntryPrefs = {
+            categoryId,
+            unit,
+            packageSize,
+            vatRate,
+            forSale,
+            forService,
+            minStock: minimalStock
+        };
+        localStorage.setItem('quickEntryPrefs', JSON.stringify(quickEntryPrefs));
         
         // Aktualizovat počítadlo
         document.getElementById('entryCounter').textContent = entryCounter;
@@ -11763,15 +12241,17 @@ async function saveQuickEntry(event) {
         // Vyprázdnit formulář pro další produkt
         document.getElementById('quickEntryName').value = '';
         document.getElementById('quickEntryBarcode').value = '';
-        document.getElementById('quickEntryCategoryId').value = '';
-        document.getElementById('quickEntryUnit').value = 'ml';
-        document.getElementById('quickEntryPackageSize').value = '100';
+        document.getElementById('quickEntryCategoryId').value = quickEntryPrefs.categoryId || '';
+        document.getElementById('quickEntryUnit').value = quickEntryPrefs.unit || 'ml';
+        document.getElementById('quickEntryPackageSize').value = quickEntryPrefs.packageSize || 100;
         document.getElementById('quickEntryStock').value = '0';
-        document.getElementById('quickEntryMinimalStock').value = '0';
+        document.getElementById('quickEntryMinimalStock').value = quickEntryPrefs.minStock || 0;
         document.getElementById('quickEntryPurchasePrice').value = '';
+        document.getElementById('quickEntryMargin').value = '';
         document.getElementById('quickEntrySalePrice').value = '';
-        document.getElementById('quickEntryForSale').checked = false;
-        document.getElementById('quickEntryForService').checked = true;
+        document.getElementById('quickEntryVatRate').value = quickEntryPrefs.vatRate || 21;
+        document.getElementById('quickEntryForSale').checked = !!quickEntryPrefs.forSale;
+        document.getElementById('quickEntryForService').checked = !!quickEntryPrefs.forService;
         
         // Focus zpět na název
         document.getElementById('quickEntryName').focus();
@@ -11825,6 +12305,10 @@ function updateNavigationState() {
         } else {
             entryModeBtn.classList.remove('active');
         }
+    }
+    const importBtn = document.getElementById('importProductsBtn');
+    if (importBtn) {
+        importBtn.style.display = products.length === 0 || isEntryMode ? 'inline-flex' : 'none';
     }
     
     // Aktualizovat tlačítko filtrování produktů pod minimem

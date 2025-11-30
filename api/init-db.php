@@ -231,6 +231,7 @@ try {
         product_name TEXT NOT NULL,
         quantity REAL NOT NULL,
         unit TEXT NOT NULL,
+        received INTEGER DEFAULT 0,
         FOREIGN KEY (order_id) REFERENCES stock_orders(id) {$fkCascade},
         FOREIGN KEY (product_id) REFERENCES products(id)
     ){$engine}");

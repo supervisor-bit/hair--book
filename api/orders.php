@@ -12,6 +12,8 @@ $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 switch ($method) {
     case 'GET':
+        // Přidat sloupec received pokud chybí
+        try { $db->exec("ALTER TABLE stock_order_items ADD COLUMN received INTEGER DEFAULT 0"); } catch (Exception $e) {}
         // Načíst všechny objednávky s položkami
         $stmt = $db->query("SELECT * FROM stock_orders ORDER BY date DESC, created_at DESC");
         $orders = $stmt->fetchAll();
@@ -75,15 +77,22 @@ switch ($method) {
         break;
         
     case 'PUT':
-        // Změnit status objednávky
         $data = getJsonInput();
-        $stmt = $db->prepare("UPDATE stock_orders SET status = ?, note = ? WHERE id = ?");
-        $stmt->execute([
-            $data['status'] ?? 'pending',
-            $data['note'] ?? '',
-            $data['id']
-        ]);
-        sendJson(['success' => true]);
+        // Pokud je požadavek na položku objednávky (odfajfknutí)
+        if (!empty($data['itemId'])) {
+            $stmt = $db->prepare("UPDATE stock_order_items SET received = ? WHERE id = ?");
+            $stmt->execute([!empty($data['received']) ? 1 : 0, $data['itemId']]);
+            sendJson(['success' => true]);
+        } else {
+            // Změnit status objednávky
+            $stmt = $db->prepare("UPDATE stock_orders SET status = ?, note = ? WHERE id = ?");
+            $stmt->execute([
+                $data['status'] ?? 'pending',
+                $data['note'] ?? '',
+                $data['id']
+            ]);
+            sendJson(['success' => true]);
+        }
         break;
         
     case 'DELETE':
