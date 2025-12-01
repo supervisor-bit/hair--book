@@ -2318,6 +2318,7 @@ function renderClients() {
 
 function showClientDetail(client, event = null) {
     currentClient = client;
+    window.currentClient = client;
     
     // Aktualizovat aktivní klient v seznamu
     document.querySelectorAll('.client-item').forEach(item => {
@@ -2359,6 +2360,54 @@ function showClientDetail(client, event = null) {
     let filteredVisits = client.visits;
     if (window.visitFilterMode === 'closed') {
         filteredVisits = client.visits.filter(v => v.closed === true);
+    } else if (window.visitFilterMode === 'open') {
+        filteredVisits = client.visits.filter(v => !v.closed);
+    }
+    
+    // Apply date filter
+    const dateFilter = window.visitDateFilter || 'all';
+    if (dateFilter !== 'all') {
+        const now = new Date();
+        filteredVisits = filteredVisits.filter(v => {
+            const visitDate = new Date(v.date);
+            if (dateFilter === 'last30') {
+                const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+                return visitDate >= thirtyDaysAgo;
+            } else if (dateFilter === 'last90') {
+                const ninetyDaysAgo = new Date(now.getTime() - (90 * 24 * 60 * 60 * 1000));
+                return visitDate >= ninetyDaysAgo;
+            } else if (dateFilter === 'thisYear') {
+                return visitDate.getFullYear() === now.getFullYear();
+            } else if (dateFilter === 'custom' && window.customDateFrom && window.customDateTo) {
+                const fromDate = new Date(window.customDateFrom);
+                const toDate = new Date(window.customDateTo);
+                toDate.setHours(23, 59, 59, 999); // Include the entire end date
+                return visitDate >= fromDate && visitDate <= toDate;
+            }
+            return true;
+        });
+    }
+    
+    // Apply search filter
+    const searchQuery = (window.visitSearchQuery || '').trim();
+    console.log('Search query:', searchQuery, 'Total visits before search:', filteredVisits.length);
+    if (searchQuery !== '') {
+        const query = searchQuery.toLowerCase();
+        filteredVisits = filteredVisits.filter(v => {
+            // Search in date
+            if (v.date && v.date.toLowerCase().includes(query)) return true;
+            // Search in notes
+            if (v.notes && v.notes.toLowerCase().includes(query)) return true;
+            // Search in services
+            if (v.services && v.services.some(s => s.name && s.name.toLowerCase().includes(query))) return true;
+            // Search in materials
+            if (v.services && v.services.some(s => s.materials && s.materials.some(m => {
+                const matName = typeof m === 'string' ? m : m.name;
+                return matName && matName.toLowerCase().includes(query);
+            }))) return true;
+            return false;
+        });
+        console.log('Visits after search filter:', filteredVisits.length);
     }
     if (filteredVisits.length > 0) {
         const totalPages = Math.ceil(filteredVisits.length / visitsPerPage);
@@ -2371,17 +2420,24 @@ function showClientDetail(client, event = null) {
                 ? '<span class="visit-status-badge closed"><i class="fas fa-check-circle"></i> Uzavřeno</span>'
                 : '<span class="visit-status-badge open"><i class="fas fa-clock"></i> Otevřeno</span>';
             
-            // Zobrazit služby s jejich materiály
+            // Zobrazit služby/úkony s přehledem materiálů
             const servicesHtml = visit.services.map(service => {
-                let materialsText = '';
+                let materialsList = '<div style="font-size:0.9rem; color:#6b7280;">Bez materiálů</div>';
                 if (service.materials && service.materials.length > 0) {
-                    // Materiály můžou být buď string (stará struktura) nebo objekt (nová struktura)
-                    const materialNames = service.materials.map(m => 
-                        typeof m === 'string' ? m : `${m.name} (${m.quantity} ${m.unit})`
-                    );
-                    materialsText = ` (${materialNames.join(', ')})`;
+                    const chips = service.materials.map(m => {
+                        const label = typeof m === 'string'
+                            ? escapeHtml(m)
+                            : `${escapeHtml(m.name || '')}${m.quantity ? ` • ${m.quantity} ${m.unit || ''}` : ''}`;
+                        return `<span style="display:inline-block; padding:0.25rem 0.5rem; background:#eef2ff; color:#4338ca; border-radius:999px; margin:0.15rem; font-size:0.85rem;">${label}</span>`;
+                    }).join('');
+                    materialsList = `<div style="margin-top:0.25rem; display:flex; flex-wrap:wrap; gap:0.25rem; align-items:center;"><span style="font-size:0.9rem; color:#6b7280;">Materiály:</span>${chips}</div>`;
                 }
-                return `<div style="margin-bottom: 0.25rem;">• ${service.name}${materialsText}</div>`;
+                return `
+                    <div style="margin-bottom: 0.35rem;">
+                        <div style="font-weight:600; color:#111827;">${escapeHtml(service.name || '')}</div>
+                        ${materialsList}
+                    </div>
+                `;
             }).join('');
             
             // Zobrazit prodané produkty
@@ -2396,48 +2452,69 @@ function showClientDetail(client, event = null) {
             const priceInfo = visit.price ? `<div class="visit-price"><i class="fas fa-coins"></i> ${visit.price} Kč</div>` : '';
             const noteInfo = visit.note ? `<div class="visit-note"><i class="fas fa-comment"></i> ${visit.note}</div>` : '';
             
+            // Dropdown menu pro akce
+            const dropdownId = `visit-actions-${visit.id}`;
             let buttons = '';
             if (!visit.closed) {
                 buttons = `
-                    <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-                        <button class="btn btn-secondary" style="font-size: 0.8125rem; padding: 0.375rem 0.75rem;" onclick="editVisit(${client.id}, ${visit.id})">
-                            <i class="fas fa-edit"></i> Upravit
+                    <div class="visit-actions-dropdown" onclick="event.stopPropagation()">
+                        <button class="visit-actions-btn" onclick="event.stopPropagation(); toggleVisitActions('${dropdownId}')" title="Akce">
+                            <i class="fas fa-ellipsis-v"></i> Akce
                         </button>
-                        <button class="btn btn-success" style="font-size: 0.8125rem; padding: 0.375rem 0.75rem;" onclick="writeOffMaterials(${client.id}, ${visit.id})">
-                            <i class="fas fa-check-circle"></i> Uzavřít návštěvu a odepsat materiál
-                        </button>
-                        <button class="btn btn-danger" style="font-size: 0.8125rem; padding: 0.375rem 0.75rem; color: #fff; background: #dc2626; border: 1px solid #b91c1c;" onclick="deleteVisit(${client.id}, ${visit.id})">
-                            <i class="fas fa-trash"></i> Smazat návštěvu
-                        </button>
+                        <div id="${dropdownId}" class="visit-actions-menu">
+                            <button onclick="event.stopPropagation(); editVisit(${client.id}, ${visit.id}); closeVisitActions('${dropdownId}')">
+                                <i class="fas fa-edit"></i> Upravit
+                            </button>
+                            <button onclick="event.stopPropagation(); writeOffMaterials(${client.id}, ${visit.id}); closeVisitActions('${dropdownId}')">
+                                <i class="fas fa-check-circle"></i> Uzavřít a odepsat materiál
+                            </button>
+                            <button class="danger" onclick="event.stopPropagation(); deleteVisit(${client.id}, ${visit.id}); closeVisitActions('${dropdownId}')">
+                                <i class="fas fa-trash"></i> Smazat návštěvu
+                            </button>
+                        </div>
                     </div>
                 `;
             } else {
                 buttons = `
-                    <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-                        <button class="btn btn-primary" style="font-size: 0.8125rem; padding: 0.375rem 0.75rem;" onclick="printReceipt(${client.id}, '${visit.date}')">
-                            <i class="fas fa-print"></i> Vytisknout účtenku
+                    <div class="visit-actions-dropdown" onclick="event.stopPropagation()">
+                        <button class="visit-actions-btn" onclick="event.stopPropagation(); toggleVisitActions('${dropdownId}')" title="Akce">
+                            <i class="fas fa-ellipsis-v"></i> Akce
                         </button>
-                            <button class="btn btn-warning" style="font-size: 0.8125rem; padding: 0.375rem 0.75rem; color: #fff; background: #f59e42; border: none;" onclick="printSelectedVisitReceipt(${visit.id})">
-                                <i class="fas fa-receipt"></i> Tisk pouze této návštěvy
+                        <div id="${dropdownId}" class="visit-actions-menu">
+                            <button onclick="event.stopPropagation(); printReceipt(${client.id}, '${visit.date}'); closeVisitActions('${dropdownId}')">
+                                <i class="fas fa-print"></i> Vytisknout účtenku
                             </button>
-                        <button class="btn btn-secondary" style="font-size: 0.8125rem; padding: 0.375rem 0.75rem;" onclick="copyVisitToNew(${client.id}, ${visit.id})">
-                            <i class="fas fa-copy"></i> Zkopírovat do nové návštěvy
-                        </button>
-                        <button class="btn btn-danger" style="font-size: 0.8125rem; padding: 0.375rem 0.75rem; color: #fff; background: #dc2626; border: 1px solid #b91c1c;" onclick="deleteVisit(${client.id}, ${visit.id})">
-                            <i class="fas fa-trash"></i> Smazat návštěvu
-                        </button>
+                            <button onclick="event.stopPropagation(); printSelectedVisitReceipt(${visit.id}); closeVisitActions('${dropdownId}')">
+                                <i class="fas fa-receipt"></i> Tisk této návštěvy
+                            </button>
+                            <button onclick="event.stopPropagation(); copyVisitToNew(${client.id}, ${visit.id}); closeVisitActions('${dropdownId}')">
+                                <i class="fas fa-copy"></i> Zkopírovat návštěvu
+                            </button>
+                            <button class="danger" onclick="event.stopPropagation(); deleteVisit(${client.id}, ${visit.id}); closeVisitActions('${dropdownId}')">
+                                <i class="fas fa-trash"></i> Smazat návštěvu
+                            </button>
+                        </div>
                     </div>
                 `;
             }
             
-            return `
+return `
                 <div class="visit-item">
-                    <div class="visit-date">${formatDate(visit.date)} ${statusBadge}${priceInfo}</div>
-                    <div class="visit-services"><strong>Služby a materiály:</strong></div>
-                    ${servicesHtml}
-                    ${productsHtml}
-                    ${noteInfo}
-                    ${buttons}
+                    <div class="visit-date" style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
+                        <div style="cursor:pointer;" onclick="openVisitDetail(${client.id}, ${visit.id})">${formatDate(visit.date)} ${statusBadge}${priceInfo}</div>
+                        <div style="display:flex; gap:0.5rem; align-items:center;">
+                            <button class="btn btn-tertiary" style="font-size:0.8125rem; padding:0.35rem 0.65rem;" onclick="openVisitDetail(${client.id}, ${visit.id})">
+                                <i class="fas fa-eye"></i> Detail
+                            </button>
+                            ${buttons}
+                        </div>
+                    </div>
+                    <div class="visit-services" style="cursor:pointer;" onclick="openVisitDetail(${client.id}, ${visit.id})"><strong>Služby a materiály:</strong></div>
+                    <div style="cursor:pointer;" onclick="openVisitDetail(${client.id}, ${visit.id})">
+                        ${servicesHtml}
+                        ${productsHtml}
+                        ${noteInfo}
+                    </div>
                 </div>
             `;
         }).join('');
@@ -2525,11 +2602,38 @@ function showClientDetail(client, event = null) {
         </div>
         
         <div id="clientTabVisits" class="client-tab-content">
-            <div style="display: flex; align-items: center; justify-content: space-between; padding: 1.5rem 1.5rem 1rem 1.5rem; margin: 0;">
-                <h4 style="margin: 0;">Historie návštěv</h4>
-                <div style="display: flex; gap: 0.5rem;">
-                    <button class="btn btn-outline" id="showAllVisitsBtn" style="padding: 0.375rem 0.75rem;${window.visitFilterMode==='all'?'background:#8b5cf6;color:#fff;':''}" onclick="setVisitFilterMode('all')">Všechny</button>
-                    <button class="btn btn-outline" id="showClosedVisitsBtn" style="padding: 0.375rem 0.75rem;${window.visitFilterMode==='closed'?'background:#8b5cf6;color:#fff;':''}" onclick="setVisitFilterMode('closed')">Pouze uzavřené</button>
+            <div style="padding: 1.5rem 1.5rem 1rem 1.5rem; margin: 0;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+                    <h4 style="margin: 0;">Historie návštěv</h4>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-outline" id="showAllVisitsBtn" style="padding: 0.375rem 0.75rem;${window.visitFilterMode==='all'?'background:#8b5cf6;color:#fff;':''}" onclick="setVisitFilterMode('all')">Všechny</button>
+                        <button class="btn btn-outline" id="showOpenVisitsBtn" style="padding: 0.375rem 0.75rem;${window.visitFilterMode==='open'?'background:#f59e0b;color:#fff;':''}" onclick="setVisitFilterMode('open')">Otevřené</button>
+                        <button class="btn btn-outline" id="showClosedVisitsBtn" style="padding: 0.375rem 0.75rem;${window.visitFilterMode==='closed'?'background:#10b981;color:#fff;':''}" onclick="setVisitFilterMode('closed')">Uzavřené</button>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <input type="text" id="visitSearchInput" placeholder="Hledat v návštěvách..." value="${escapeHtml(window.visitSearchQuery || '')}" style="flex: 1; padding: 0.375rem 0.75rem; border: 1px solid var(--border-color); border-radius: 0.375rem; font-size: 0.875rem;" oninput="debouncedVisitSearch(this.value)">
+                    <select id="visitDateFilter" style="padding: 0.375rem 0.75rem; border: 1px solid var(--border-color); border-radius: 0.375rem; font-size: 0.875rem;" onchange="filterVisitsByDate()">
+                        <option value="all" ${window.visitDateFilter==='all'?'selected':''}>Celá historie</option>
+                        <option value="last30" ${window.visitDateFilter==='last30'?'selected':''}>Poslední měsíc</option>
+                        <option value="last90" ${window.visitDateFilter==='last90'?'selected':''}>Poslední 3 měsíce</option>
+                        <option value="thisYear" ${window.visitDateFilter==='thisYear'?'selected':''}>Tento rok</option>
+                        <option value="custom" ${window.visitDateFilter==='custom'?'selected':''}>Vlastní rozsah...</option>
+                    </select>
+                </div>
+                <div id="customDateRange" style="display: ${window.visitDateFilter==='custom'?'block':'none'}; margin-top: 0.5rem; padding: 0.75rem; background: var(--bg-light); border-radius: 0.375rem; border: 1px solid var(--border-color);">
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <label style="font-size: 0.875rem; color: var(--text-medium);">Od:</label>
+                        <input type="date" id="visitDateFrom" value="${window.customDateFrom || ''}" style="padding: 0.375rem; border: 1px solid var(--border-color); border-radius: 0.375rem; font-size: 0.875rem;">
+                        <label style="font-size: 0.875rem; color: var(--text-medium);">Do:</label>
+                        <input type="date" id="visitDateTo" value="${window.customDateTo || ''}" style="padding: 0.375rem; border: 1px solid var(--border-color); border-radius: 0.375rem; font-size: 0.875rem;">
+                        <button class="btn btn-primary" style="padding: 0.375rem 0.75rem; font-size: 0.875rem;" onclick="applyCustomDateRange()">
+                            <i class="fas fa-check"></i> Použít
+                        </button>
+                        <button class="btn btn-outline" style="padding: 0.375rem 0.75rem; font-size: 0.875rem;" onclick="cancelCustomDateRange()">
+                            <i class="fas fa-times"></i> Zrušit rozsah
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="visits-list">
@@ -12368,6 +12472,63 @@ function toggleLowStockFilter() {
     updateLowStockFilterButton();
 }
 
+function openVisitDetail(clientId, visitId) {
+    const client = clients.find(c => c.id === clientId) || currentClient;
+    if (!client || !client.visits) return;
+    const visit = client.visits.find(v => v.id === visitId);
+    if (!visit) return;
+
+    const statusText = visit.closed ? '<span class="visit-status-badge closed"><i class="fas fa-check-circle"></i> Uzavřeno</span>' : '<span class="visit-status-badge open"><i class="fas fa-clock"></i> Otevřeno</span>';
+    const servicesHtml = (visit.services || []).map(service => {
+        const materials = (service.materials || []).map(m => {
+            const label = typeof m === 'string'
+                ? escapeHtml(m)
+                : `${escapeHtml(m.name || '')}${m.quantity ? ` • ${m.quantity} ${m.unit || ''}` : ''}`;
+            return `<span style="display:inline-block; padding:0.25rem 0.5rem; background:#eef2ff; color:#4338ca; border-radius:999px; margin:0.15rem; font-size:0.85rem;">${label}</span>`;
+        }).join('');
+        return `
+            <div style="padding:0.6rem 0; border-bottom:1px solid #e5e7eb;">
+                <div style="font-weight:600; color:#111827;">${escapeHtml(service.name || '')}</div>
+                ${materials ? `<div style="font-size:0.9rem; color:#6b7280; margin-top:0.25rem;">Materiály:</div><div style="display:flex; flex-wrap:wrap; gap:0.25rem;">${materials}</div>` : '<div style="font-size:0.9rem; color:#9ca3af;">Bez materiálů</div>'}
+            </div>
+        `;
+    }).join('') || '<div style="color:#9ca3af;">Žádné služby</div>';
+
+    const productsHtml = (visit.products || []).map(p => `
+        <div style="padding:0.4rem 0; border-bottom:1px solid #f3f4f6;">
+            <div style="font-weight:600; color:#111827;">${escapeHtml(p.name || '')}</div>
+            <div style="font-size:0.9rem; color:#6b7280;">${p.quantity} ks${p.packageSize ? ` • ${p.packageSize} ${p.unit || ''}/ks` : ''}</div>
+        </div>
+    `).join('') || '<div style="color:#9ca3af;">Žádné prodané produkty</div>';
+
+    const content = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+            <div style="font-size:1rem; font-weight:600;">${new Date(visit.date).toLocaleDateString('cs-CZ')}</div>
+            ${statusText}
+        </div>
+        <div style="display:flex; gap:1.5rem; flex-wrap:wrap; margin-bottom:1rem; font-size:0.95rem;">
+            <div><strong>Klient:</strong> ${escapeHtml(client.firstName)} ${escapeHtml(client.lastName)}</div>
+            ${visit.price ? `<div><strong>Částka:</strong> ${visit.price} Kč</div>` : ''}
+            ${visit.note ? `<div><strong>Poznámka:</strong> ${escapeHtml(visit.note)}</div>` : ''}
+        </div>
+        <div style="font-weight:700; color:#111827; margin-bottom:0.35rem;">Služby / úkony</div>
+        <div style="max-height:40vh; overflow-y:auto; padding-right:0.25rem; border:1px solid #e5e7eb; border-radius:0.5rem; padding:0.75rem; margin-bottom:1rem;">
+            ${servicesHtml}
+        </div>
+        <div style="font-weight:700; color:#111827; margin-bottom:0.35rem;">Prodáno</div>
+        <div style="padding:0.75rem; border:1px solid #e5e7eb; border-radius:0.5rem;">
+            ${productsHtml}
+        </div>
+    `;
+    const modalBody = document.getElementById('visitDetailContent');
+    if (modalBody) modalBody.innerHTML = content;
+    document.getElementById('visitDetailModal').classList.add('show');
+}
+
+function closeVisitDetailModal() {
+    document.getElementById('visitDetailModal').classList.remove('show');
+}
+
 // ========== EXPORT FUNKCE PRO ÚČETNICTVÍ ==========
 
 // Helper funkce pro stažení CSV
@@ -13832,9 +13993,15 @@ function closeViewSnapshotModal() {
 
 // Globální režim filtru návštěv a funkce pro jeho nastavení
 window.visitFilterMode = sessionStorage.getItem('visitFilterMode') || 'all';
+window.visitDateFilter = 'all';
+window.visitSearchQuery = '';
+window.customDateFrom = '';
+window.customDateTo = '';
+
 window.setVisitFilterMode = function(mode) {
     window.visitFilterMode = mode;
     sessionStorage.setItem('visitFilterMode', mode);
+    currentVisitsPage = 1; // Reset pagination
     if (typeof currentClient !== 'undefined' && currentClient) {
         showClientDetail(currentClient);
     } else {
@@ -13843,6 +14010,312 @@ window.setVisitFilterMode = function(mode) {
         }
     }
 }
+
+window.filterVisitsByDate = function() {
+    const dateFilter = document.getElementById('visitDateFilter').value;
+    window.visitDateFilter = dateFilter;
+    
+    const customDateRange = document.getElementById('customDateRange');
+    if (dateFilter === 'custom') {
+        customDateRange.style.display = 'block';
+    } else {
+        customDateRange.style.display = 'none';
+        currentVisitsPage = 1; // Reset pagination
+        if (window.currentClient) {
+            updateVisitsList(window.currentClient);
+        }
+    }
+}
+
+window.applyCustomDateRange = function() {
+    const dateFrom = document.getElementById('visitDateFrom').value;
+    const dateTo = document.getElementById('visitDateTo').value;
+    
+    if (!dateFrom || !dateTo) {
+        alert('Prosím vyplňte obě data');
+        return;
+    }
+    
+    if (new Date(dateFrom) > new Date(dateTo)) {
+        alert('Datum "Od" musí být dřívější než datum "Do"');
+        return;
+    }
+    
+    window.customDateFrom = dateFrom;
+    window.customDateTo = dateTo;
+    currentVisitsPage = 1; // Reset pagination
+    if (window.currentClient) {
+        updateVisitsList(window.currentClient);
+    }
+}
+
+window.cancelCustomDateRange = function() {
+    window.visitDateFilter = 'all';
+    window.customDateFrom = '';
+    window.customDateTo = '';
+    
+    // Reset dropdown to "Celá historie"
+    const dateFilterSelect = document.getElementById('visitDateFilter');
+    if (dateFilterSelect) {
+        dateFilterSelect.value = 'all';
+    }
+    
+    // Hide custom date range
+    const customDateRange = document.getElementById('customDateRange');
+    if (customDateRange) {
+        customDateRange.style.display = 'none';
+    }
+    
+    currentVisitsPage = 1;
+    if (window.currentClient) {
+        updateVisitsList(window.currentClient);
+    }
+}
+
+// Debounce timer pro vyhledávání
+let visitSearchTimeout = null;
+
+window.debouncedVisitSearch = function(value) {
+    console.log('Debounced search called with value:', value);
+    // Zrušit předchozí timeout
+    if (visitSearchTimeout) {
+        clearTimeout(visitSearchTimeout);
+    }
+    
+    // Nastavit nový timeout - čekat 300ms po posledním stisku klávesy
+    visitSearchTimeout = setTimeout(function() {
+        console.log('Applying search filter:', value);
+        window.visitSearchQuery = value;
+        currentVisitsPage = 1; // Reset pagination
+        if (window.currentClient) {
+            updateVisitsList(window.currentClient);
+        }
+    }, 300);
+}
+
+// Funkce pro aktualizaci pouze seznamu návštěv bez re-renderu celé stránky
+function updateVisitsList(client) {
+    const visitsListContainer = document.querySelector('#clientTabVisits .visits-list');
+    if (!visitsListContainer) return;
+    
+    // Aplikovat filtry
+    let filteredVisits = client.visits;
+    
+    // Filter by status
+    if (window.visitFilterMode === 'closed') {
+        filteredVisits = client.visits.filter(v => v.closed === true);
+    } else if (window.visitFilterMode === 'open') {
+        filteredVisits = client.visits.filter(v => !v.closed);
+    }
+    
+    // Apply date filter
+    const dateFilter = window.visitDateFilter || 'all';
+    if (dateFilter !== 'all') {
+        const now = new Date();
+        filteredVisits = filteredVisits.filter(v => {
+            const visitDate = new Date(v.date);
+            if (dateFilter === 'last30') {
+                const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+                return visitDate >= thirtyDaysAgo;
+            } else if (dateFilter === 'last90') {
+                const ninetyDaysAgo = new Date(now.getTime() - (90 * 24 * 60 * 60 * 1000));
+                return visitDate >= ninetyDaysAgo;
+            } else if (dateFilter === 'thisYear') {
+                return visitDate.getFullYear() === now.getFullYear();
+            } else if (dateFilter === 'custom' && window.customDateFrom && window.customDateTo) {
+                const fromDate = new Date(window.customDateFrom);
+                const toDate = new Date(window.customDateTo);
+                toDate.setHours(23, 59, 59, 999);
+                return visitDate >= fromDate && visitDate <= toDate;
+            }
+            return true;
+        });
+    }
+    
+    // Apply search filter
+    const searchQuery = (window.visitSearchQuery || '').trim();
+    if (searchQuery !== '') {
+        const query = searchQuery.toLowerCase();
+        filteredVisits = filteredVisits.filter(v => {
+            if (v.date && v.date.toLowerCase().includes(query)) return true;
+            if (v.notes && v.notes.toLowerCase().includes(query)) return true;
+            if (v.services && v.services.some(s => s.name && s.name.toLowerCase().includes(query))) return true;
+            if (v.services && v.services.some(s => s.materials && s.materials.some(m => {
+                const matName = typeof m === 'string' ? m : m.name;
+                return matName && matName.toLowerCase().includes(query);
+            }))) return true;
+            return false;
+        });
+    }
+    
+    // Generate visits HTML
+    let visitsHtml = '';
+    if (filteredVisits.length > 0) {
+        const totalPages = Math.ceil(filteredVisits.length / visitsPerPage);
+        if (currentVisitsPage > totalPages) currentVisitsPage = 1;
+        const startIndex = (currentVisitsPage - 1) * visitsPerPage;
+        const endIndex = startIndex + visitsPerPage;
+        const pageVisits = filteredVisits.slice(startIndex, endIndex);
+        
+        visitsHtml = pageVisits.map(visit => {
+            const statusBadge = visit.closed 
+                ? '<span class="visit-status-badge closed"><i class="fas fa-check-circle"></i> Uzavřeno</span>'
+                : '<span class="visit-status-badge open"><i class="fas fa-clock"></i> Otevřeno</span>';
+            
+            // Zobrazit služby/úkony s přehledem materiálů
+            const servicesHtml = visit.services.map(service => {
+                let materialsList = '<div style="font-size:0.9rem; color:#6b7280;">Bez materiálů</div>';
+                if (service.materials && service.materials.length > 0) {
+                    const chips = service.materials.map(m => {
+                        const label = typeof m === 'string'
+                            ? escapeHtml(m)
+                            : `${escapeHtml(m.name || '')}${m.quantity ? ` • ${m.quantity} ${m.unit || ''}` : ''}`;
+                        return `<span style="display:inline-block; padding:0.25rem 0.5rem; background:#eef2ff; color:#4338ca; border-radius:999px; margin:0.15rem; font-size:0.85rem;">${label}</span>`;
+                    }).join('');
+                    materialsList = `<div style="margin-top:0.25rem; display:flex; flex-wrap:wrap; gap:0.25rem; align-items:center;"><span style="font-size:0.9rem; color:#6b7280;">Materiály:</span>${chips}</div>`;
+                }
+                return `
+                    <div style="margin-bottom: 0.35rem;">
+                        <div style="font-weight:600; color:#111827;">${escapeHtml(service.name || '')}</div>
+                        ${materialsList}
+                    </div>
+                `;
+            }).join('');
+            
+            // Zobrazit prodané produkty
+            let productsHtml = '';
+            if (visit.products && visit.products.length > 0) {
+                const productsList = visit.products.map(p => 
+                    `<div style="margin-bottom: 0.25rem;">• ${p.name} - ${p.quantity} ks ${p.packageSize ? `(${p.packageSize} ${p.unit || ''}/ks)` : ''}</div>`
+                ).join('');
+                productsHtml = `<div class="visit-services" style="margin-top: 0.5rem;"><strong>Prodané produkty:</strong></div>${productsList}`;
+            }
+            
+            const priceInfo = visit.price ? `<div class="visit-price"><i class="fas fa-coins"></i> ${visit.price} Kč</div>` : '';
+            const noteInfo = visit.note ? `<div class="visit-note"><i class="fas fa-comment"></i> ${visit.note}</div>` : '';
+            
+            // Dropdown menu pro akce
+            const dropdownId = `visit-actions-${visit.id}`;
+            let buttons = '';
+            if (!visit.closed) {
+                buttons = `
+                    <div class="visit-actions-dropdown" onclick="event.stopPropagation()">
+                        <button class="visit-actions-btn" onclick="event.stopPropagation(); toggleVisitActions('${dropdownId}')" title="Akce">
+                            <i class="fas fa-ellipsis-v"></i> Akce
+                        </button>
+                        <div id="${dropdownId}" class="visit-actions-menu">
+                            <button onclick="event.stopPropagation(); editVisit(${client.id}, ${visit.id}); closeVisitActions('${dropdownId}')">
+                                <i class="fas fa-edit"></i> Upravit
+                            </button>
+                            <button onclick="event.stopPropagation(); writeOffMaterials(${client.id}, ${visit.id}); closeVisitActions('${dropdownId}')">
+                                <i class="fas fa-check-circle"></i> Uzavřít a odepsat materiál
+                            </button>
+                            <button class="danger" onclick="event.stopPropagation(); deleteVisit(${client.id}, ${visit.id}); closeVisitActions('${dropdownId}')">
+                                <i class="fas fa-trash"></i> Smazat návštěvu
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                buttons = `
+                    <div class="visit-actions-dropdown" onclick="event.stopPropagation()">
+                        <button class="visit-actions-btn" onclick="event.stopPropagation(); toggleVisitActions('${dropdownId}')" title="Akce">
+                            <i class="fas fa-ellipsis-v"></i> Akce
+                        </button>
+                        <div id="${dropdownId}" class="visit-actions-menu">
+                            <button onclick="event.stopPropagation(); printReceipt(${client.id}, '${visit.date}'); closeVisitActions('${dropdownId}')">
+                                <i class="fas fa-print"></i> Vytisknout účtenku
+                            </button>
+                            <button onclick="event.stopPropagation(); printSelectedVisitReceipt(${visit.id}); closeVisitActions('${dropdownId}')">
+                                <i class="fas fa-receipt"></i> Tisk této návštěvy
+                            </button>
+                            <button onclick="event.stopPropagation(); copyVisitToNew(${client.id}, ${visit.id}); closeVisitActions('${dropdownId}')">
+                                <i class="fas fa-copy"></i> Zkopírovat návštěvu
+                            </button>
+                            <button class="danger" onclick="event.stopPropagation(); deleteVisit(${client.id}, ${visit.id}); closeVisitActions('${dropdownId}')">
+                                <i class="fas fa-trash"></i> Smazat návštěvu
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            return `
+                <div class="visit-item">
+                    <div class="visit-date" style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
+                        <div style="cursor:pointer;" onclick="openVisitDetail(${client.id}, ${visit.id})">${formatDate(visit.date)} ${statusBadge}${priceInfo}</div>
+                        <div style="display:flex; gap:0.5rem; align-items:center;">
+                            <button class="btn btn-tertiary" style="font-size:0.8125rem; padding:0.35rem 0.65rem;" onclick="openVisitDetail(${client.id}, ${visit.id})">
+                                <i class="fas fa-eye"></i> Detail
+                            </button>
+                            ${buttons}
+                        </div>
+                    </div>
+                    <div class="visit-services" style="cursor:pointer;" onclick="openVisitDetail(${client.id}, ${visit.id})"><strong>Služby a materiály:</strong></div>
+                    <div style="cursor:pointer;" onclick="openVisitDetail(${client.id}, ${visit.id})">
+                        ${servicesHtml}
+                        ${productsHtml}
+                    </div>
+                    ${noteInfo}
+                </div>
+            `;
+        }).join('');
+        
+        // Update pagination
+        const paginationContainer = document.getElementById('visitsPaginationContainer');
+        if (paginationContainer) {
+            renderPagination('visitsPaginationContainer', filteredVisits.length, currentVisitsPage, visitsPerPage, 'goToVisitsPage');
+        }
+    } else {
+        visitsHtml = '<p style="color: var(--text-light); text-align: center; padding: 2rem;">Žádné návštěvy nenalezeny</p>';
+        const paginationContainer = document.getElementById('visitsPaginationContainer');
+        if (paginationContainer) {
+            paginationContainer.innerHTML = '';
+        }
+    }
+    
+    visitsListContainer.innerHTML = visitsHtml;
+}
+
+window.filterVisitsBySearch = function() {
+    const searchInput = document.getElementById('visitSearchInput');
+    window.visitSearchQuery = searchInput.value;
+    if (window.currentClient) {
+        showClientDetail(window.currentClient);
+    }
+}
+
+// Funkce pro ovládání dropdown menu návštěv
+function toggleVisitActions(dropdownId) {
+    const dropdown = document.getElementById(dropdownId);
+    if (!dropdown) return;
+    
+    // Zavřít všechna ostatní dropdown menu
+    document.querySelectorAll('.visit-actions-menu.show').forEach(menu => {
+        if (menu.id !== dropdownId) {
+            menu.classList.remove('show');
+        }
+    });
+    
+    // Přepnout aktuální dropdown
+    dropdown.classList.toggle('show');
+}
+
+function closeVisitActions(dropdownId) {
+    const dropdown = document.getElementById(dropdownId);
+    if (dropdown) {
+        dropdown.classList.remove('show');
+    }
+}
+
+// Zavřít dropdown při kliknutí mimo
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.visit-actions-dropdown')) {
+        document.querySelectorAll('.visit-actions-menu.show').forEach(menu => {
+            menu.classList.remove('show');
+        });
+    }
+});
 // Migrace staré historie výdejů z localStorage do DB
 async function migrateLocalIssueHistory() {
     const legacy = JSON.parse(localStorage.getItem('issueHistory') || '[]');
