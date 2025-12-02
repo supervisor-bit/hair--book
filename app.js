@@ -2336,6 +2336,40 @@ function showClientDetail(client, event = null) {
         });
     }
     
+    const initials = client.firstName[0] + client.lastName[0];
+    
+    // Zobrazit menu
+    const menuPanel = document.getElementById('clientDetailMenu');
+    if (menuPanel) {
+        menuPanel.style.display = 'flex';
+        menuPanel.innerHTML = `
+            <!-- Avatar a jméno klienta (skrytý při záložce info) -->
+            <div id="menuClientAvatar" style="padding: 2rem 1.5rem; text-align: center; border-bottom: 1px solid var(--border-color); display: none;">
+                <div style="width: 80px; height: 80px; background: var(--primary-color); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 2rem; font-weight: 700; margin: 0 auto 1rem;">
+                    ${client.avatar ? `<img src="${client.avatar}" alt="${client.firstName}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">` : initials}
+                </div>
+                <h3 style="margin: 0; font-size: 1.125rem; color: var(--text-dark);">${escapeHtml(client.firstName)} ${escapeHtml(client.lastName)}</h3>
+            </div>
+            
+            <!-- Menu položky -->
+            <button class="tab-btn active" onclick="switchClientTab(${client.id}, 'info')" data-tab="info" style="padding: 1rem 1.5rem; border: none; background: none; cursor: pointer; font-weight: 600; color: var(--primary-color); text-align: left; border-left: 3px solid var(--primary-color); transition: all 0.2s; display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fas fa-user" style="width: 1.25rem;"></i> <span>Základní informace</span>
+            </button>
+            <button class="tab-btn" onclick="switchClientTab(${client.id}, 'visits')" data-tab="visits" style="padding: 1rem 1.5rem; border: none; background: none; cursor: pointer; font-weight: 600; color: #6b7280; text-align: left; border-left: 3px solid transparent; transition: all 0.2s; display: flex; align-items: center; gap: 0.75rem; position: relative;">
+                <i class="fas fa-scissors" style="width: 1.25rem;"></i> <span>Historie návštěv</span>
+                <span style="margin-left: auto; background: #8b5cf6; color: white; font-size: 0.75rem; font-weight: 700; padding: 0.125rem 0.5rem; border-radius: 9999px; min-width: 1.5rem; text-align: center;">${client.visits.length}</span>
+            </button>
+            <button class="tab-btn" onclick="switchClientTab(${client.id}, 'purchases')" data-tab="purchases" style="padding: 1rem 1.5rem; border: none; background: none; cursor: pointer; font-weight: 600; color: #6b7280; text-align: left; border-left: 3px solid transparent; transition: all 0.2s; display: flex; align-items: center; gap: 0.75rem; position: relative;">
+                <i class="fas fa-shopping-bag" style="width: 1.25rem;"></i> <span>Zakoupené produkty</span>
+                <span style="margin-left: auto; background: #ec4899; color: white; font-size: 0.75rem; font-weight: 700; padding: 0.125rem 0.5rem; border-radius: 9999px; min-width: 1.5rem; text-align: center;">${client.purchases?.length || 0}</span>
+            </button>
+            <button class="tab-btn" onclick="switchClientTab(${client.id}, 'notes')" data-tab="notes" style="padding: 1rem 1.5rem; border: none; background: none; cursor: pointer; font-weight: 600; color: #6b7280; text-align: left; border-left: 3px solid transparent; transition: all 0.2s; display: flex; align-items: center; gap: 0.75rem; position: relative;">
+                <i class="fas fa-sticky-note" style="width: 1.25rem;"></i> <span>Poznámky</span>
+                <span style="margin-left: auto; background: #06b6d4; color: white; font-size: 0.75rem; font-weight: 700; padding: 0.125rem 0.5rem; border-radius: 9999px; min-width: 1.5rem; text-align: center;">${client.notes?.length || 0}</span>
+            </button>
+        `;
+    }
+    
     const detailPanel = document.getElementById('clientDetail');
     if (detailPanel) {
         detailPanel.innerHTML = `
@@ -2345,7 +2379,6 @@ function showClientDetail(client, event = null) {
             </div>
         `;
     }
-    const initials = client.firstName[0] + client.lastName[0];
     
     // Vypočítat statistiky
     const totalVisits = client.visits.length;
@@ -2390,7 +2423,6 @@ function showClientDetail(client, event = null) {
     
     // Apply search filter
     const searchQuery = (window.visitSearchQuery || '').trim();
-    console.log('Search query:', searchQuery, 'Total visits before search:', filteredVisits.length);
     if (searchQuery !== '') {
         const query = searchQuery.toLowerCase();
         filteredVisits = filteredVisits.filter(v => {
@@ -2407,7 +2439,6 @@ function showClientDetail(client, event = null) {
             }))) return true;
             return false;
         });
-        console.log('Visits after search filter:', filteredVisits.length);
     }
     if (filteredVisits.length > 0) {
         const totalPages = Math.ceil(filteredVisits.length / visitsPerPage);
@@ -2500,19 +2531,24 @@ function showClientDetail(client, event = null) {
             
 return `
                 <div class="visit-item">
-                    <div class="visit-date" style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
-                        <div style="cursor:pointer;" onclick="openVisitDetail(${client.id}, ${visit.id})">${formatDate(visit.date)} ${statusBadge}${priceInfo}</div>
-                        <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <div class="visit-date" style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; cursor:pointer;" onclick="toggleVisitBody('visit-body-${visit.id}')">
+                        <div style="display:flex; align-items:center; gap:0.5rem;">
+                            <i id="visit-toggle-${visit.id}" class="fas fa-chevron-right" style="transition: transform 0.2s; font-size:0.75rem; color:#6b7280;"></i>
+                            ${formatDate(visit.date)} ${statusBadge}${priceInfo}
+                        </div>
+                        <div style="display:flex; gap:0.5rem; align-items:center;" onclick="event.stopPropagation()">
                             <button class="btn btn-tertiary" style="font-size:0.8125rem; padding:0.35rem 0.65rem;" onclick="openVisitDetail(${client.id}, ${visit.id})">
                                 <i class="fas fa-eye"></i> Detail
                             </button>
                             ${buttons}
                         </div>
                     </div>
-                    <div class="visit-services" style="cursor:pointer;" onclick="openVisitDetail(${client.id}, ${visit.id})"><strong>Služby a materiály:</strong></div>
-                    <div style="cursor:pointer;" onclick="openVisitDetail(${client.id}, ${visit.id})">
-                        ${servicesHtml}
-                        ${productsHtml}
+                    <div id="visit-body-${visit.id}" style="display:none; margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid var(--border-color);">
+                        <div class="visit-services"><strong>Služby a materiály:</strong></div>
+                        <div>
+                            ${servicesHtml}
+                            ${productsHtml}
+                        </div>
                         ${noteInfo}
                     </div>
                 </div>
@@ -2526,83 +2562,87 @@ return `
         visitsHtml = '<p style="color: var(--text-light); text-align: center; padding: 2rem;">Zatím žádné návštěvy</p>';
     }
     
+    // Naplním obsah záložek
+    detailPanel.style.display = 'flex';
     detailPanel.innerHTML = `
-        <div class="client-detail-header">
-            <div class="client-detail-avatar">
-                ${client.avatar ? `<img src="${client.avatar}" alt="${client.firstName}">` : initials}
-            </div>
-            <div class="client-detail-info">
-                <h3>${client.firstName} ${client.lastName}</h3>
-                <div class="client-detail-meta">
-                    <span><i class="fas fa-phone"></i>${client.phone}</span>
-                    <span><i class="fas fa-envelope"></i>${client.email}</span>
+        <!-- Záložka: Základní informace -->
+        <div id="clientTabInfo" class="client-tab-content" style="flex: 1; display: flex; flex-direction: column; overflow-y: auto; background: #f9fafb;">
+            <!-- Karta klienta -->
+            <div style="background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden;">
+                <div style="padding: 2rem;">
+                    <div style="display: flex; align-items: center; gap: 1.5rem; margin-bottom: 1.5rem;">
+                        <div style="width: 80px; height: 80px; background: var(--primary-color); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 2rem; font-weight: 700; flex-shrink: 0;">
+                            ${client.avatar ? `<img src="${client.avatar}" alt="${client.firstName}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">` : initials}
+                        </div>
+                        <div style="flex: 1;">
+                            <h2 style="margin: 0 0 0.5rem 0; color: var(--text-dark); font-size: 1.5rem;">${escapeHtml(client.firstName)} ${escapeHtml(client.lastName)}</h2>
+                            <div style="display: flex; gap: 1.5rem; color: var(--text-medium); font-size: 0.875rem;">
+                                <span><i class="fas fa-phone" style="margin-right: 0.5rem;"></i>${escapeHtml(client.phone)}</span>
+                                <span><i class="fas fa-envelope" style="margin-right: 0.5rem;"></i>${client.email ? escapeHtml(client.email) : 'Neuvedeno'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Akční tlačítka -->
+                    <div style="display: flex; gap: 0.75rem; padding-top: 1.5rem; border-top: 1px solid #f3f4f6;">
+                        <button class="btn btn-primary" onclick="startNewVisit(${client.id})" style="padding: 0.625rem 1.25rem;">
+                            <i class="fas fa-plus"></i> Nová návštěva
+                        </button>
+                        <button class="btn btn-secondary" onclick="editClient(${client.id})" style="padding: 0.625rem 1.25rem;">
+                            <i class="fas fa-edit"></i> Upravit
+                        </button>
+                        <button class="btn" style="background: #ef4444; color: white; padding: 0.625rem 1.25rem;" onclick="deleteClient(${client.id})">
+                            <i class="fas fa-trash"></i> Smazat
+                        </button>
+                    </div>
                 </div>
-                
-
-                
-                <div class="client-detail-actions">
-                    <button class="btn btn-primary" onclick="startNewVisit(${client.id})">
-                        <i class="fas fa-plus"></i> Nová návštěva
-                    </button>
-                    <button class="btn btn-secondary" onclick="editClient(${client.id})">
-                        <i class="fas fa-edit"></i> Upravit
-                    </button>
-                    <button class="btn" style="background: #ef4444; color: white;" onclick="deleteClient(${client.id})">
-                        <i class="fas fa-trash"></i> Smazat
-                    </button>
+            </div>
+            
+            <!-- Statistiky -->
+            <div style="padding: 1.5rem;">
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;">
+                    <!-- Počet návštěv -->
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 1rem; padding: 1.75rem; color: white; position: relative; overflow: hidden;">
+                        <div style="position: absolute; top: -20px; right: -20px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%;"></div>
+                        <div style="position: relative; z-index: 1;">
+                            <div style="width: 50px; height: 50px; background: rgba(255,255,255,0.2); border-radius: 0.75rem; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; backdrop-filter: blur(10px);">
+                                <i class="fas fa-calendar-check" style="font-size: 1.5rem;"></i>
+                            </div>
+                            <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem; font-weight: 500;">Počet návštěv</div>
+                            <div style="font-size: 2.5rem; font-weight: 700; line-height: 1;">${totalVisits}</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Celkem utraceno -->
+                    <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 1rem; padding: 1.75rem; color: white; position: relative; overflow: hidden;">
+                        <div style="position: absolute; top: -20px; right: -20px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%;"></div>
+                        <div style="position: relative; z-index: 1;">
+                            <div style="width: 50px; height: 50px; background: rgba(255,255,255,0.2); border-radius: 0.75rem; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; backdrop-filter: blur(10px);">
+                                <i class="fas fa-coins" style="font-size: 1.5rem;"></i>
+                            </div>
+                            <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem; font-weight: 500;">Celkem utraceno</div>
+                            <div style="font-size: 2rem; font-weight: 700; line-height: 1;">${totalSpent.toLocaleString('cs-CZ')} Kč</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Průměr -->
+                    <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); border-radius: 1rem; padding: 1.75rem; color: white; position: relative; overflow: hidden;">
+                        <div style="position: absolute; top: -20px; right: -20px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%;"></div>
+                        <div style="position: relative; z-index: 1;">
+                            <div style="width: 50px; height: 50px; background: rgba(255,255,255,0.2); border-radius: 0.75rem; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; backdrop-filter: blur(10px);">
+                                <i class="fas fa-chart-line" style="font-size: 1.5rem;"></i>
+                            </div>
+                            <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem; font-weight: 500;">Průměr / návštěva</div>
+                            <div style="font-size: 2rem; font-weight: 700; line-height: 1;">${closedVisits > 0 ? Math.round(totalSpent / closedVisits).toLocaleString('cs-CZ') : '0'} Kč</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
         
-        <!-- Statistiky -->
-        <div class="client-stats" style="display: flex; gap: 1rem; padding: 1rem; background: white; margin: 0 2rem; flex-shrink: 0;">
-            <div style="flex: 1; display: flex; align-items: center; gap: 0.75rem; padding: 1rem; background: #f3f4f6; border-radius: 0.75rem; border-left: 4px solid #8b5cf6;">
-                <div style="width: 40px; height: 40px; background: #8b5cf6; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.25rem;">
-                    <i class="fas fa-calendar-check"></i>
-                </div>
-                <div>
-                    <div style="font-size: 0.75rem; color: #6b7280; font-weight: 500; margin-bottom: 0.25rem;">Počet návštěv</div>
-                    <div style="font-size: 1.5rem; font-weight: 700; color: #111827;">${totalVisits}</div>
-                </div>
-            </div>
-            <div style="flex: 1; display: flex; align-items: center; gap: 0.75rem; padding: 1rem; background: #f3f4f6; border-radius: 0.75rem; border-left: 4px solid #ec4899;">
-                <div style="width: 40px; height: 40px; background: #ec4899; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.25rem;">
-                    <i class="fas fa-coins"></i>
-                </div>
-                <div>
-                    <div style="font-size: 0.75rem; color: #6b7280; font-weight: 500; margin-bottom: 0.25rem;">Celkem utraceno</div>
-                    <div style="font-size: 1.5rem; font-weight: 700; color: #111827;">${totalSpent.toLocaleString('cs-CZ')} Kč</div>
-                </div>
-            </div>
-            <div style="flex: 1; display: flex; align-items: center; gap: 0.75rem; padding: 1rem; background: #f3f4f6; border-radius: 0.75rem; border-left: 4px solid #06b6d4;">
-                <div style="width: 40px; height: 40px; background: #06b6d4; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.25rem;">
-                    <i class="fas fa-chart-line"></i>
-                </div>
-                <div>
-                    <div style="font-size: 0.75rem; color: #6b7280; font-weight: 500; margin-bottom: 0.25rem;">Průměr / návštěva</div>
-                    <div style="font-size: 1.5rem; font-weight: 700; color: #111827;">${closedVisits > 0 ? Math.round(totalSpent / closedVisits).toLocaleString('cs-CZ') : '0'} Kč</div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Záložky -->
-        <div style="display: flex; background: white; margin: 0 2rem; flex-shrink: 0;">
-            <button class="tab-btn active" onclick="switchClientTab(${client.id}, 'visits')" data-tab="visits" style="position: relative; flex: 1; padding: 1rem; border: none; background: none; cursor: pointer; font-weight: 600; color: #6b7280; border-bottom: 3px solid transparent; transition: all 0.2s;">
-                <i class="fas fa-scissors"></i> Historie návštěv
-                <span style="position: absolute; top: 0.5rem; right: 0.5rem; background: #8b5cf6; color: white; font-size: 0.75rem; font-weight: 700; padding: 0.125rem 0.5rem; border-radius: 9999px; min-width: 1.5rem; text-align: center;">${client.visits.length}</span>
-            </button>
-            <button class="tab-btn" onclick="switchClientTab(${client.id}, 'purchases')" data-tab="purchases" style="position: relative; flex: 1; padding: 1rem; border: none; background: none; cursor: pointer; font-weight: 600; color: #6b7280; border-bottom: 3px solid transparent; transition: all 0.2s;">
-                <i class="fas fa-shopping-bag"></i> Nákupy produktů
-                <span style="position: absolute; top: 0.5rem; right: 0.5rem; background: #ec4899; color: white; font-size: 0.75rem; font-weight: 700; padding: 0.125rem 0.5rem; border-radius: 9999px; min-width: 1.5rem; text-align: center;">${client.purchases?.length || 0}</span>
-            </button>
-            <button class="tab-btn" onclick="switchClientTab(${client.id}, 'notes')" data-tab="notes" style="position: relative; flex: 1; padding: 1rem; border: none; background: none; cursor: pointer; font-weight: 600; color: #6b7280; border-bottom: 3px solid transparent; transition: all 0.2s;">
-                <i class="fas fa-sticky-note"></i> Poznámky
-                <span style="position: absolute; top: 0.5rem; right: 0.5rem; background: #06b6d4; color: white; font-size: 0.75rem; font-weight: 700; padding: 0.125rem 0.5rem; border-radius: 9999px; min-width: 1.5rem; text-align: center;">${client.notes?.length || 0}</span>
-            </button>
-        </div>
-        
-        <div id="clientTabVisits" class="client-tab-content">
-            <div style="padding: 1.5rem 1.5rem 1rem 1.5rem; margin: 0;">
+        <!-- Záložka: Historie návštěv -->
+        <div id="clientTabVisits" class="client-tab-content" style="display: none; flex: 1; flex-direction: column; overflow-y: auto; background: white;">
+            <div style="padding: 1.5rem; margin: 0;">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
                     <h4 style="margin: 0;">Historie návštěv</h4>
                     <div style="display: flex; gap: 0.5rem;">
@@ -2620,6 +2660,9 @@ return `
                         <option value="thisYear" ${window.visitDateFilter==='thisYear'?'selected':''}>Tento rok</option>
                         <option value="custom" ${window.visitDateFilter==='custom'?'selected':''}>Vlastní rozsah...</option>
                     </select>
+                    <button class="btn btn-primary" onclick="startNewVisit(${client.id})" style="padding: 0.375rem 1rem; font-size: 0.875rem; white-space: nowrap;">
+                        <i class="fas fa-plus"></i> Nová návštěva
+                    </button>
                 </div>
                 <div id="customDateRange" style="display: ${window.visitDateFilter==='custom'?'block':'none'}; margin-top: 0.5rem; padding: 0.75rem; background: var(--bg-light); border-radius: 0.375rem; border: 1px solid var(--border-color);">
                     <div style="display: flex; gap: 0.5rem; align-items: center;">
@@ -2642,15 +2685,22 @@ return `
             ${visitsPaginationHtml}
         </div>
         
-        <div id="clientTabPurchases" class="client-tab-content" style="display: none;">
-            <h4 style="flex-shrink: 0; padding: 1.5rem 1.5rem 1rem 1.5rem; margin: 0;">Nákupy produktů</h4>
+        <!-- Záložka: Nákupy produktů -->
+        <div id="clientTabPurchases" class="client-tab-content" style="display: none; flex: 1; flex-direction: column; overflow-y: auto; background: white;">
+            <div style="flex-shrink: 0; padding: 1.5rem; margin: 0; display: flex; justify-content: space-between; align-items: center;">
+                <h4 style="margin: 0;">Nákupy produktů</h4>
+                <button class="btn btn-primary" onclick="startNewPurchase(${client.id})">
+                    <i class="fas fa-plus"></i> Nový nákup
+                </button>
+            </div>
             <div class="visits-list">
                 ${renderClientPurchases(client)}
             </div>
         </div>
         
-        <div id="clientTabNotes" class="client-tab-content" style="display: none;">
-            <div style="flex-shrink: 0; padding: 1.5rem 1.5rem 1rem 1.5rem; margin: 0; display: flex; justify-content: space-between; align-items: center;">
+        <!-- Záložka: Poznámky -->
+        <div id="clientTabNotes" class="client-tab-content" style="display: none; flex: 1; flex-direction: column; overflow-y: auto; background: white;">
+            <div style="flex-shrink: 0; padding: 1.5rem; margin: 0; display: flex; justify-content: space-between; align-items: center;">
                 <h4 style="margin: 0;">Poznámky</h4>
                 <button class="btn btn-primary" onclick="openNoteModal(${client.id})">
                     <i class="fas fa-plus"></i> Nová poznámka
@@ -2668,20 +2718,38 @@ function switchClientTab(clientId, tabName) {
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.remove('active');
         btn.style.color = '#6b7280';
-        btn.style.borderBottomColor = 'transparent';
+        btn.style.borderLeftColor = 'transparent';
     });
     
     const activeBtn = document.querySelector(`[data-tab="${tabName}"]`);
     if (activeBtn) {
         activeBtn.classList.add('active');
         activeBtn.style.color = 'var(--primary-color)';
-        activeBtn.style.borderBottomColor = 'var(--primary-color)';
+        activeBtn.style.borderLeftColor = 'var(--primary-color)';
+    }
+    
+    // Zobrazit/skrýt avatar v menu (skrýt při info, zobrazit u ostatních)
+    const menuAvatar = document.getElementById('menuClientAvatar');
+    if (menuAvatar) {
+        menuAvatar.style.display = tabName === 'info' ? 'none' : 'block';
     }
     
     // Přepnout obsah
-    document.getElementById('clientTabVisits').style.display = tabName === 'visits' ? 'flex' : 'none';
-    document.getElementById('clientTabPurchases').style.display = tabName === 'purchases' ? 'flex' : 'none';
-    document.getElementById('clientTabNotes').style.display = tabName === 'notes' ? 'flex' : 'none';
+    const tabs = ['clientTabInfo', 'clientTabVisits', 'clientTabPurchases', 'clientTabNotes'];
+    const tabMap = { 'info': 'clientTabInfo', 'visits': 'clientTabVisits', 'purchases': 'clientTabPurchases', 'notes': 'clientTabNotes' };
+    
+    tabs.forEach(tabId => {
+        const tab = document.getElementById(tabId);
+        if (tab) {
+            tab.style.display = 'none';
+        }
+    });
+    
+    const activeTabId = tabMap[tabName];
+    const activeTab = document.getElementById(activeTabId);
+    if (activeTab) {
+        activeTab.style.display = 'flex';
+    }
     
     // Render pagination after DOM is ready
     setTimeout(() => {
@@ -3081,6 +3149,82 @@ function showCalendarConflict(conflict) {
 }
 
 // === NOVÁ NÁVŠTĚVA ===
+
+function showBackButton() {
+    const backButton = document.getElementById('salesBackButton');
+    if (backButton) {
+        backButton.style.display = 'inline-flex';
+    }
+}
+
+function hideBackButton() {
+    const backButton = document.getElementById('salesBackButton');
+    if (backButton) {
+        backButton.style.display = 'none';
+    }
+}
+
+function cancelSaleAndReturn() {
+    if (window.returnToClient) {
+        const client = clients.find(c => c.id === window.returnToClient.clientId);
+        if (client) {
+            // Vyčistit košík
+            salesCart = [];
+            document.getElementById('salesClientSearch').value = '';
+            document.getElementById('salesClientId').value = '';
+            document.getElementById('salesCustomerName').value = '';
+            document.getElementById('salesCustomerName').readOnly = false;
+            document.getElementById('salesCustomerName').style.background = 'white';
+            updateSalesCart();
+            
+            // Přepnout na stránku Klienti
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+            document.getElementById('page-clients').classList.add('active');
+            
+            // Vrátit se zpět
+            showClientDetail(client);
+            switchClientTab(window.returnToClient.clientId, window.returnToClient.tab);
+            window.returnToClient = null;
+            hideBackButton();
+        }
+    }
+}
+
+function startNewPurchase(clientId) {
+    const client = clients.find(c => c.id === clientId);
+    if (!client) return;
+    
+    // Uložit informaci odkud se vracíme
+    window.returnToClient = {
+        clientId: clientId,
+        tab: 'purchases'
+    };
+    
+    // Přepnout na stránku Prodej
+    document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+    document.getElementById('page-sales').classList.add('active');
+    
+    // Předvyplnit klienta
+    const clientInput = document.getElementById('salesClientSearch');
+    const clientIdInput = document.getElementById('salesClientId');
+    const customerNameInput = document.getElementById('salesCustomerName');
+    
+    if (clientInput && clientIdInput && customerNameInput) {
+        clientInput.value = `${client.firstName} ${client.lastName}`;
+        clientIdInput.value = clientId;
+        customerNameInput.value = `${client.firstName} ${client.lastName}`;
+        customerNameInput.readOnly = true;
+        customerNameInput.style.background = '#f3f4f6';
+    }
+    
+    // Zobrazit tlačítko Zpět
+    showBackButton();
+    
+    // Vynulovat košík a zobrazit produkty
+    salesCart = [];
+    updateSalesCart();
+    filterSalesProducts();
+}
 
 function startNewVisit(clientId) {
     const client = clients.find(c => c.id === clientId);
@@ -4761,6 +4905,7 @@ async function saveSaveVisitForm(event) {
         
         cancelNewVisit();
         showClientDetail(client);
+        switchClientTab(client.id, 'visits');
         renderDashboard();
     } catch (error) {
         console.error('Chyba při ukládání návštěvy:', error);
@@ -4927,6 +5072,7 @@ async function saveCloseVisitForm(event) {
         
         cancelNewVisit();
         showClientDetail(client);
+        switchClientTab(client.id, 'visits');
         renderProductCategories();
         renderProducts();
         renderDashboard();
@@ -5150,6 +5296,7 @@ async function processHistoricalWriteOff(clientId, visitId, price, note) {
         renderProductCategories();
         renderProducts();
         showClientDetail(client);
+        switchClientTab(client.id, 'visits');
         showNotification('Návštěva uzavřena a materiál odepsán', 'success');
     } catch (error) {
         console.error('Chyba při uzavírání návštěvy:', error);
@@ -8883,9 +9030,6 @@ async function confirmCompleteSale() {
         return;
     }
     
-    // Zobrazit modal s možností tisku účtenky
-    const shouldPrint = selectedClientId !== null;
-    
     // Vyčistit košík
     salesCart = [];
     document.getElementById('salesClientSearch').value = '';
@@ -8895,6 +9039,21 @@ async function confirmCompleteSale() {
     document.getElementById('salesCustomerName').style.background = 'white';
     updateSalesCart();
     filterSalesProducts();
+    
+    // Vrátit se zpět do klienta pokud jsme přišli odtamtud
+    if (window.returnToClient && window.returnToClient.clientId) {
+        const client = clients.find(c => c.id === window.returnToClient.clientId);
+        if (client) {
+            // Přepnout na stránku Klienti
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+            document.getElementById('page-clients').classList.add('active');
+            
+            showClientDetail(client);
+            switchClientTab(window.returnToClient.clientId, window.returnToClient.tab);
+            window.returnToClient = null;
+            hideBackButton();
+        }
+    }
     
     // Aktualizovat produkty a klienty
     renderProductCategories();
@@ -14002,12 +14161,8 @@ window.setVisitFilterMode = function(mode) {
     window.visitFilterMode = mode;
     sessionStorage.setItem('visitFilterMode', mode);
     currentVisitsPage = 1; // Reset pagination
-    if (typeof currentClient !== 'undefined' && currentClient) {
-        showClientDetail(currentClient);
-    } else {
-        if (typeof renderClients === 'function') {
-            renderClients();
-        }
+    if (window.currentClient) {
+        updateVisitsList(window.currentClient);
     }
 }
 
@@ -14076,7 +14231,6 @@ window.cancelCustomDateRange = function() {
 let visitSearchTimeout = null;
 
 window.debouncedVisitSearch = function(value) {
-    console.log('Debounced search called with value:', value);
     // Zrušit předchozí timeout
     if (visitSearchTimeout) {
         clearTimeout(visitSearchTimeout);
@@ -14084,7 +14238,6 @@ window.debouncedVisitSearch = function(value) {
     
     // Nastavit nový timeout - čekat 300ms po posledním stisku klávesy
     visitSearchTimeout = setTimeout(function() {
-        console.log('Applying search filter:', value);
         window.visitSearchQuery = value;
         currentVisitsPage = 1; // Reset pagination
         if (window.currentClient) {
@@ -14097,6 +14250,24 @@ window.debouncedVisitSearch = function(value) {
 function updateVisitsList(client) {
     const visitsListContainer = document.querySelector('#clientTabVisits .visits-list');
     if (!visitsListContainer) return;
+    
+    // Aktualizovat tlačítka filtrů
+    const allBtn = document.getElementById('showAllVisitsBtn');
+    const openBtn = document.getElementById('showOpenVisitsBtn');
+    const closedBtn = document.getElementById('showClosedVisitsBtn');
+    
+    if (allBtn) {
+        allBtn.style.background = window.visitFilterMode === 'all' ? '#8b5cf6' : '';
+        allBtn.style.color = window.visitFilterMode === 'all' ? '#fff' : '';
+    }
+    if (openBtn) {
+        openBtn.style.background = window.visitFilterMode === 'open' ? '#f59e0b' : '';
+        openBtn.style.color = window.visitFilterMode === 'open' ? '#fff' : '';
+    }
+    if (closedBtn) {
+        closedBtn.style.background = window.visitFilterMode === 'closed' ? '#10b981' : '';
+        closedBtn.style.color = window.visitFilterMode === 'closed' ? '#fff' : '';
+    }
     
     // Aplikovat filtry
     let filteredVisits = client.visits;
@@ -14242,21 +14413,26 @@ function updateVisitsList(client) {
             
             return `
                 <div class="visit-item">
-                    <div class="visit-date" style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
-                        <div style="cursor:pointer;" onclick="openVisitDetail(${client.id}, ${visit.id})">${formatDate(visit.date)} ${statusBadge}${priceInfo}</div>
-                        <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <div class="visit-date" style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; cursor:pointer;" onclick="toggleVisitBody('visit-body-${visit.id}')">
+                        <div style="display:flex; align-items:center; gap:0.5rem;">
+                            <i id="visit-toggle-${visit.id}" class="fas fa-chevron-right" style="transition: transform 0.2s; font-size:0.75rem; color:#6b7280;"></i>
+                            ${formatDate(visit.date)} ${statusBadge}${priceInfo}
+                        </div>
+                        <div style="display:flex; gap:0.5rem; align-items:center;" onclick="event.stopPropagation()">
                             <button class="btn btn-tertiary" style="font-size:0.8125rem; padding:0.35rem 0.65rem;" onclick="openVisitDetail(${client.id}, ${visit.id})">
                                 <i class="fas fa-eye"></i> Detail
                             </button>
                             ${buttons}
                         </div>
                     </div>
-                    <div class="visit-services" style="cursor:pointer;" onclick="openVisitDetail(${client.id}, ${visit.id})"><strong>Služby a materiály:</strong></div>
-                    <div style="cursor:pointer;" onclick="openVisitDetail(${client.id}, ${visit.id})">
-                        ${servicesHtml}
-                        ${productsHtml}
+                    <div id="visit-body-${visit.id}" style="display:none; margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid var(--border-color);">
+                        <div class="visit-services"><strong>Služby a materiály:</strong></div>
+                        <div>
+                            ${servicesHtml}
+                            ${productsHtml}
+                        </div>
+                        ${noteInfo}
                     </div>
-                    ${noteInfo}
                 </div>
             `;
         }).join('');
@@ -14282,6 +14458,26 @@ window.filterVisitsBySearch = function() {
     window.visitSearchQuery = searchInput.value;
     if (window.currentClient) {
         showClientDetail(window.currentClient);
+    }
+}
+
+// Funkce pro rozbalování/sbalování těla návštěvy
+function toggleVisitBody(bodyId) {
+    const body = document.getElementById(bodyId);
+    const toggleIcon = document.getElementById(bodyId.replace('visit-body-', 'visit-toggle-'));
+    
+    if (!body) return;
+    
+    if (body.style.display === 'none') {
+        body.style.display = 'block';
+        if (toggleIcon) {
+            toggleIcon.style.transform = 'rotate(90deg)';
+        }
+    } else {
+        body.style.display = 'none';
+        if (toggleIcon) {
+            toggleIcon.style.transform = 'rotate(0deg)';
+        }
     }
 }
 

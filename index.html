@@ -349,9 +349,15 @@
                         </div>
                     </div>
 
-                    <!-- Detail klienta (pravá strana) -->
-                    <div class="detail-panel">
-                        <div id="clientDetail" class="client-detail">
+                    <!-- Detail klienta (pravá strana) - rozděleno na menu a obsah -->
+                    <div class="detail-panel" style="display: flex; flex-direction: row; gap: 0; flex: 1;">
+                        <!-- Vertikální menu navigace -->
+                        <div id="clientDetailMenu" style="width: 240px; background: white; border-right: 1px solid var(--border-color); display: none; flex-direction: column; flex-shrink: 0;">
+                            <!-- Menu bude vygenerováno JavaScriptem -->
+                        </div>
+                        
+                        <!-- Obsah detailu klienta -->
+                        <div id="clientDetail" class="client-detail" style="flex: 1;">
                             <div class="empty-state">
                                 <i class="fas fa-user-circle"></i>
                                 <p>Vyberte klienta ze seznamu</p>
@@ -611,7 +617,12 @@
             <!-- Stránka Prodej -->
             <div id="page-sales" class="page">
                 <div class="page-header" style="flex-shrink: 0;">
-                    <h2><i class="fas fa-shopping-bag"></i> Prodej zboží</h2>
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <button id="salesBackButton" class="btn btn-secondary" onclick="cancelSaleAndReturn()" style="display: none;">
+                            <i class="fas fa-arrow-left"></i> Zpět
+                        </button>
+                        <h2><i class="fas fa-shopping-bag"></i> Prodej zboží</h2>
+                    </div>
                     <button class="btn btn-success" onclick="completeSale()">
                         <i class="fas fa-check"></i> Dokončit prodej
                     </button>
