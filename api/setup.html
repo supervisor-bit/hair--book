@@ -4,18 +4,38 @@
     <meta charset="UTF-8">
     <title>HairBook Setup</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; padding: 20px; }
-        h1 { margin-top: 0; }
-        .card { background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
-        label { display: block; margin: 6px 0 2px; }
-        input, textarea, select { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #1f2937; background: #0b1220; color: #e2e8f0; }
-        textarea { min-height: 120px; resize: vertical; }
-        button { margin-top: 10px; padding: 10px 16px; border: none; border-radius: 8px; background: #2563eb; color: white; cursor: pointer; }
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; padding: 20px; max-width: 1200px; margin: 0 auto; }
+        h1 { margin-top: 0; font-size: 28px; }
+        h2 { font-size: 18px; margin: 0 0 12px 0; }
+        .card { background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+        label { display: block; margin: 8px 0 4px; font-size: 13px; color: #94a3b8; font-weight: 500; }
+        input, textarea, select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #1f2937; background: #0b1220; color: #e2e8f0; font-size: 14px; }
+        input:focus, textarea:focus, select:focus { outline: none; border-color: #2563eb; }
+        textarea { min-height: 120px; resize: vertical; font-family: 'Courier New', monospace; }
+        button { margin-top: 10px; padding: 12px 20px; border: none; border-radius: 8px; background: #2563eb; color: white; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.2s; }
+        button:hover:not(:disabled) { background: #1d4ed8; transform: translateY(-1px); }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
         .row { display: flex; gap: 12px; }
         .row > div { flex: 1; }
-        .log { background: #0b1220; border: 1px solid #1f2937; border-radius: 8px; padding: 10px; min-height: 140px; white-space: pre-line; }
-        .pill { display: inline-block; padding: 2px 8px; border-radius: 12px; background: #1f2937; margin-right: 6px; font-size: 12px; color: #cbd5e1; }
+        .log-container { background: #0b1220; border: 1px solid #1f2937; border-radius: 8px; padding: 0; overflow: hidden; max-height: 400px; }
+        .log-header { background: #1f2937; padding: 10px 16px; border-bottom: 1px solid #374151; display: flex; justify-content: space-between; align-items: center; }
+        .log-header h3 { margin: 0; font-size: 14px; font-weight: 600; }
+        .log-clear { background: #dc2626; padding: 4px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; border: none; color: white; }
+        .log { padding: 16px; min-height: 200px; max-height: 320px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 13px; line-height: 1.6; }
+        .log-entry { margin-bottom: 8px; display: flex; align-items: flex-start; }
+        .log-icon { margin-right: 8px; font-size: 16px; flex-shrink: 0; }
+        .log-time { color: #64748b; margin-right: 8px; font-size: 11px; flex-shrink: 0; }
+        .log-message { flex: 1; }
+        .log-entry.success { color: #22c55e; }
+        .log-entry.error { color: #ef4444; }
+        .log-entry.warning { color: #f59e0b; }
+        .log-entry.info { color: #cbd5e1; }
+        .pill { display: inline-block; padding: 4px 10px; border-radius: 12px; background: #1f2937; margin-right: 8px; font-size: 11px; color: #cbd5e1; text-transform: uppercase; font-weight: 600; }
+        .progress-bar { width: 100%; height: 4px; background: #1f2937; border-radius: 2px; overflow: hidden; margin-top: 12px; display: none; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #2563eb, #3b82f6); transition: width 0.3s; }
+        .btn-danger { background: #dc2626 !important; }
+        .btn-danger:hover:not(:disabled) { background: #b91c1c !important; }
     </style>
 </head>
 <body>
@@ -85,7 +105,7 @@
     <div class="card">
         <h2>4) Vymazat všechna data</h2>
         <p>Volá <code>reset-db.php</code> a smaže obsah všech tabulek. Vyžaduje potvrzení a (pokud je nastaven) WIZARD_TOKEN.</p>
-        <button style="background:#dc2626" onclick="runReset()">Smazat vše</button>
+        <button class="btn-danger" onclick="runReset()">Smazat vše</button>
     </div>
 
     <div class="card">
@@ -104,18 +124,59 @@
     </div>
 
     <div class="card">
-        <h2>Log</h2>
-        <div id="log" class="log"></div>
+        <div class="log-container">
+            <div class="log-header">
+                <h3>📋 Log operací</h3>
+                <button class="log-clear" onclick="clearLog()">Vymazat</button>
+            </div>
+            <div id="log" class="log"></div>
+        </div>
+        <div id="progressBar" class="progress-bar">
+            <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+        </div>
     </div>
 
     <script>
         const logEl = document.getElementById('log');
         const dbTypeEl = document.getElementById('dbType');
         const mysqlFields = document.getElementById('mysqlFields');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+
+        function formatTime() {
+            const now = new Date();
+            return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+        }
 
         function log(msg, type = 'info') {
-            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
-            logEl.textContent = `${prefix} ${msg}\n` + logEl.textContent;
+            const icons = {
+                error: '❌',
+                success: '✅',
+                warning: '⚠️',
+                info: 'ℹ️'
+            };
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.innerHTML = `
+                <span class="log-icon">${icons[type]}</span>
+                <span class="log-time">${formatTime()}</span>
+                <span class="log-message">${msg}</span>
+            `;
+            logEl.insertBefore(entry, logEl.firstChild);
+        }
+
+        function clearLog() {
+            logEl.innerHTML = '';
+            log('Log vymazán', 'info');
+        }
+
+        function showProgress(show = true) {
+            progressBar.style.display = show ? 'block' : 'none';
+            if (!show) progressFill.style.width = '0%';
+        }
+
+        function setProgress(percent) {
+            progressFill.style.width = `${Math.min(100, Math.max(0, percent))}%`;
         }
 
         function headersWithToken() {
@@ -131,6 +192,10 @@
         mysqlFields.style.display = dbTypeEl.value === 'mysql' ? 'block' : 'none';
 
         async function testConnection() {
+            log('Testování připojení k databázi...', 'info');
+            showProgress(true);
+            setProgress(30);
+            
             const payload = {
                 type: dbTypeEl.value,
                 host: document.getElementById('dbHost').value,
@@ -141,118 +206,249 @@
             };
             const newToken = document.getElementById('wizardToken').value.trim();
             if (newToken) payload.wizardToken = newToken;
+            
             try {
+                setProgress(50);
                 const res = await fetch('setup-test.php', {
                     method: 'POST',
                     headers: headersWithToken(),
                     body: JSON.stringify(payload)
                 });
                 const data = await res.json();
+                setProgress(90);
+                
                 if (!res.ok || data.error) throw new Error(data.error || res.statusText);
-                log(`DB uložena do .env (${data.db.type})`, 'success');
+                
+                setProgress(100);
+                log(`Připojení úspěšné! DB typ: ${data.db.type}`, 'success');
+                log(`Konfigurace uložena do .env`, 'success');
+                if (data.db.type === 'mysql') {
+                    log(`MySQL: ${data.db.user}@${data.db.host}/${data.db.name}`, 'info');
+                }
+                setTimeout(() => showProgress(false), 500);
             } catch (err) {
-                log(`Test/uložení selhalo: ${err.message}`, 'error');
+                setProgress(0);
+                showProgress(false);
+                log(`Test připojení selhal: ${err.message}`, 'error');
             }
         }
 
         async function runInit() {
+            log('Spouštím vytváření databázového schématu...', 'info');
+            showProgress(true);
+            setProgress(20);
+            
             try {
+                setProgress(40);
                 const res = await fetch('init-db.php');
                 const text = await res.text();
+                setProgress(80);
+                
                 if (!res.ok) throw new Error(text || res.statusText);
-                log(`init-db: ${text.trim() || 'hotovo'}`, 'success');
+                
+                setProgress(100);
+                
+                // Parsování výstupu
+                const lines = text.trim().split('\n');
+                lines.forEach(line => {
+                    if (line.includes('✅')) {
+                        log(line.replace('✅', '').trim(), 'success');
+                    } else if (line.includes('❌')) {
+                        log(line.replace('❌', '').trim(), 'error');
+                    } else if (line) {
+                        log(line, 'info');
+                    }
+                });
+                
+                if (!text.includes('❌')) {
+                    log('Databázové schéma úspěšně vytvořeno', 'success');
+                }
+                
+                setTimeout(() => showProgress(false), 500);
             } catch (err) {
-                log(`init-db selhalo: ${err.message}`, 'error');
+                setProgress(0);
+                showProgress(false);
+                log(`Vytvoření schématu selhalo: ${err.message}`, 'error');
             }
         }
 
         async function runMigrate() {
             const raw = document.getElementById('migrateInput').value.trim();
-            if (!raw) return log('Vlož JSON pro migraci', 'error');
+            if (!raw) return log('Prosím vložte JSON data pro import', 'error');
+            
+            log('Validace JSON...', 'info');
             let parsed;
             try {
                 parsed = JSON.parse(raw);
             } catch (e) {
-                return log('Neplatný JSON: ' + e.message, 'error');
+                return log('Chyba v JSON formátu: ' + e.message, 'error');
             }
+            
+            log('Spouštím import dat...', 'info');
+            showProgress(true);
+            setProgress(30);
+            
             try {
+                setProgress(50);
                 const res = await fetch('migrate.php', {
                     method: 'POST',
                     headers: headersWithToken(),
                     body: JSON.stringify(parsed)
                 });
                 const data = await res.json();
+                setProgress(90);
+                
                 if (!res.ok || data.error) throw new Error(data.error || res.statusText);
-                log(`Migrace OK: ${JSON.stringify(data.stats)}`, 'success');
+                
+                setProgress(100);
+                log('Import dat dokončen', 'success');
+                
+                // Detail importu
+                if (data.stats) {
+                    Object.entries(data.stats).forEach(([table, count]) => {
+                        if (count > 0) {
+                            log(`  ${table}: ${count} záznamů`, 'info');
+                        }
+                    });
+                }
+                
+                setTimeout(() => showProgress(false), 500);
             } catch (err) {
-                log(`Migrace selhala: ${err.message}`, 'error');
+                setProgress(0);
+                showProgress(false);
+                log(`Import selhal: ${err.message}`, 'error');
             }
         }
 
         async function runReset() {
-            if (!confirm('Opravdu smazat všechna data?')) return;
+            if (!confirm('⚠️ VAROVÁNÍ: Tato akce smaže všechna data z databáze!\n\nOpravdu chcete pokračovat?')) return;
+            
+            log('Mazání všech dat z databáze...', 'warning');
+            showProgress(true);
+            setProgress(30);
+            
             const payload = { confirm: 'DELETE_ALL' };
             try {
+                setProgress(60);
                 const res = await fetch('reset-db.php', {
                     method: 'POST',
                     headers: headersWithToken(),
                     body: JSON.stringify(payload)
                 });
                 const data = await res.json();
+                setProgress(90);
+                
                 if (!res.ok || data.error) throw new Error(data.error || res.statusText);
-                log('DB vymazána', 'success');
+                
+                setProgress(100);
+                log('Všechna data úspěšně vymazána', 'success');
+                setTimeout(() => showProgress(false), 500);
             } catch (err) {
+                setProgress(0);
+                showProgress(false);
                 log(`Reset selhal: ${err.message}`, 'error');
             }
         }
 
         async function downloadBackup() {
+            log('Stahování zálohy...', 'info');
+            showProgress(true);
+            setProgress(30);
+            
             try {
+                setProgress(60);
                 const res = await fetch('backup.php', {
                     headers: headersWithToken()
                 });
                 const data = await res.json();
+                setProgress(80);
+                
                 if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+                
                 const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
+                const filename = `hairbook-backup-${new Date().toISOString().split('T')[0]}.json`;
                 a.href = url;
-                a.download = `hairbook-backup-${new Date().toISOString().split('T')[0]}.json`;
+                a.download = filename;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-                log('Záloha stažena', 'success');
+                
+                setProgress(100);
+                log(`Záloha úspěšně stažena: ${filename}`, 'success');
+                
+                // Statistiky
+                if (data.data) {
+                    Object.entries(data.data).forEach(([table, records]) => {
+                        if (records && records.length > 0) {
+                            log(`  ${table}: ${records.length} záznamů`, 'info');
+                        }
+                    });
+                }
+                
+                setTimeout(() => showProgress(false), 500);
             } catch (err) {
-                log('Download selhal: ' + err.message, 'error');
+                setProgress(0);
+                showProgress(false);
+                log('Stažení zálohy selhalo: ' + err.message, 'error');
             }
         }
 
         async function uploadBackup() {
             const fileInput = document.getElementById('backupFile');
             const file = fileInput.files[0];
-            if (!file) return log('Vyber soubor zálohy', 'error');
+            if (!file) return log('Prosím vyberte soubor zálohy', 'error');
+            
+            log(`Načítání souboru: ${file.name}...`, 'info');
             const text = await file.text();
+            
             let parsed;
             try {
                 parsed = JSON.parse(text);
             } catch (e) {
-                return log('Neplatný JSON: ' + e.message, 'error');
+                return log('Chyba v JSON formátu: ' + e.message, 'error');
             }
+            
             if (!parsed.data) {
-                return log('Chybí data v JSON (očekává se {data:{...}})', 'error');
+                return log('Neplatná záloha - chybí sekce "data"', 'error');
             }
-            if (!confirm('Obnovit všechna data ze zálohy? Toto přepíše aktuální data.')) return;
+            
+            if (!confirm('⚠️ VAROVÁNÍ: Obnovení ze zálohy přepíše všechna aktuální data!\n\nChcete pokračovat?')) return;
+            
+            log('Spouštím obnovu ze zálohy...', 'info');
+            showProgress(true);
+            setProgress(30);
+            
             try {
+                setProgress(60);
                 const res = await fetch('backup.php', {
                     method: 'POST',
                     headers: headersWithToken(),
                     body: JSON.stringify(parsed)
                 });
                 const data = await res.json();
+                setProgress(90);
+                
                 if (!res.ok || data.error) throw new Error(data.error || res.statusText);
-                log('Obnova dokončena: ' + JSON.stringify(data.counts), 'success');
+                
+                setProgress(100);
+                log('Obnova ze zálohy dokončena', 'success');
+                
+                // Detail obnovy
+                if (data.counts) {
+                    Object.entries(data.counts).forEach(([table, count]) => {
+                        if (count > 0) {
+                            log(`  ${table}: ${count} záznamů obnoveno`, 'info');
+                        }
+                    });
+                }
+                
+                setTimeout(() => showProgress(false), 500);
             } catch (err) {
+                setProgress(0);
+                showProgress(false);
                 log('Obnova selhala: ' + err.message, 'error');
             }
         }

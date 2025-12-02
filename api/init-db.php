@@ -1,6 +1,28 @@
 <?php
 // Inicializace databáze (SQLite nebo MySQL) pro HairBook
 
+// Načíst .env
+function loadEnv($path) {
+    if (!is_readable($path)) {
+        return;
+    }
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (strpos(trim($line), '#') === 0) {
+            continue;
+        }
+        if (!str_contains($line, '=')) {
+            continue;
+        }
+        [$key, $val] = explode('=', $line, 2);
+        $key = trim($key);
+        $val = trim($val);
+        putenv("$key=$val");
+        $_ENV[$key] = $val;
+    }
+}
+loadEnv(dirname(__DIR__) . '/.env');
+
 $dbType = getenv('DB_TYPE') ?: 'sqlite';
 $dbName = getenv('DB_NAME') ?: 'hairbook';
 $dbHost = getenv('DB_HOST') ?: 'localhost';
@@ -188,7 +210,7 @@ try {
         name TEXT NOT NULL,
         quantity REAL NOT NULL,
         price REAL NOT NULL,
-        purpose TEXT DEFAULT 'sale',
+        purpose VARCHAR(50) DEFAULT 'sale',
         FOREIGN KEY (purchase_id) REFERENCES purchases(id) {$fkCascade},
         FOREIGN KEY (product_id) REFERENCES products(id)
     ){$engine}");
@@ -218,7 +240,7 @@ try {
     $db->exec("CREATE TABLE IF NOT EXISTS stock_orders (
         id {$pkAuto},
         date DATE NOT NULL,
-        status TEXT DEFAULT 'pending',
+        status VARCHAR(50) DEFAULT 'pending',
         note TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     ){$engine}");
@@ -277,20 +299,30 @@ try {
         FOREIGN KEY (product_id) REFERENCES products(id)
     ){$engine}");
 
-    // Indexy
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_clients_phone ON clients(phone)");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode)");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_visits_client ON visits(client_id)");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_visits_date ON visits(date)");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_purchases_date ON purchases(date)");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_receipts_date ON stock_receipts(date)");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_orders_date ON stock_orders(date)");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_orders_status ON stock_orders(status)");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_templates_name ON visit_templates(name)");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_snapshots_period ON period_snapshots(period)");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_snapshots_date ON period_snapshots(created_at)");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_issues_date ON stock_issues(date)");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_calendar_date_time ON calendar_events(date, time)");
+    // Indexy (MySQL nepodporuje IF NOT EXISTS pro indexy, tak wrap do try-catch)
+    $indexes = [
+        "CREATE INDEX idx_clients_phone ON clients(phone)",
+        "CREATE INDEX idx_products_barcode ON products(barcode)",
+        "CREATE INDEX idx_visits_client ON visits(client_id)",
+        "CREATE INDEX idx_visits_date ON visits(date)",
+        "CREATE INDEX idx_purchases_date ON purchases(date)",
+        "CREATE INDEX idx_receipts_date ON stock_receipts(date)",
+        "CREATE INDEX idx_orders_date ON stock_orders(date)",
+        "CREATE INDEX idx_orders_status ON stock_orders(status)",
+        "CREATE INDEX idx_templates_name ON visit_templates(name)",
+        "CREATE INDEX idx_snapshots_period ON period_snapshots(period)",
+        "CREATE INDEX idx_snapshots_date ON period_snapshots(created_at)",
+        "CREATE INDEX idx_issues_date ON stock_issues(date)",
+        "CREATE INDEX idx_calendar_date_time ON calendar_events(date, time)"
+    ];
+    
+    foreach ($indexes as $indexSql) {
+        try {
+            $db->exec($indexSql);
+        } catch (PDOException $e) {
+            // Index už existuje, ignorujeme
+        }
+    }
 
     echo "✅ Databáze úspěšně připravena\n";
 } catch (PDOException $e) {

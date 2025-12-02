@@ -9,7 +9,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $data = getJsonInput();
-requireSetupToken($data);
+
+// Token je volitelný - kontrola jen pokud je nastaven v .env
+if (getenv('WIZARD_TOKEN')) {
+    requireSetupToken($data);
+}
 
 $type = $data['type'] ?? 'sqlite';
 $host = $data['host'] ?? 'localhost';
