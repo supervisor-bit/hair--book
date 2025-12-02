@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>HairBook iPad</title>
@@ -12,13 +13,14 @@
     <!-- Header -->
     <header class="mobile-header">
         <div class="header-left">
-            <h1>HairBook</h1>
+            <h1>💇 HairBook POS</h1>
         </div>
-        <div class="header-center" id="clientName">
-            Vyber klienta
+        <div class="header-center">
+            <span class="client-label">Klient:</span>
+            <span id="clientName">Vyberte klienta</span>
         </div>
         <div class="header-right">
-            <button class="btn-save" id="saveButton" disabled>Uložit návštěvu</button>
+            <button class="btn-save" id="saveButton">💾 Uložit návštěvu</button>
         </div>
     </header>
 
@@ -27,57 +29,39 @@
         <!-- Left Panel - Cart -->
         <div class="cart-panel">
             <div class="cart-header">
-                <h2>Košík návštěvy</h2>
-                <button class="btn-clear" id="clearCart">Vymazat vše</button>
+                <h2>🛒 Košík</h2>
             </div>
             <div class="cart-items" id="cartItems">
-                <div class="empty-cart">
-                    <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path d="M9 2l-1 3H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-4L15 2H9z"/>
-                        <circle cx="12" cy="13" r="3"/>
-                    </svg>
-                    <p>Košík je prázdný</p>
-                    <p class="empty-cart-hint">Začni přidáním služby</p>
-                </div>
+                <div class="empty-cart">🛒<br>Prázdný košík<br><small>Přidejte službu</small></div>
             </div>
         </div>
 
         <!-- Right Panel - Selection -->
         <div class="selection-panel">
-            <!-- Client Selection -->
-            <div class="section" id="clientSection">
+            <!-- Clients Section -->
+            <div class="section">
                 <div class="section-header">
-                    <h3>1. Výběr klienta</h3>
-                    <input type="search" id="clientSearch" placeholder="Vyhledat klienta..." class="search-input">
+                    <h3>👥 Klienti</h3>
+                    <input type="search" id="clientSearch" placeholder="🔍 Hledat klienta..." class="search-input">
                 </div>
-                <div class="client-grid" id="clientGrid">
-                    <div class="loading">Načítám klienty...</div>
-                </div>
+                <div class="clients-grid" id="clientGrid"></div>
             </div>
 
-            <!-- Service Selection -->
-            <div class="section" id="serviceSection" style="display: none;">
+            <!-- Services Section -->
+            <div class="section">
                 <div class="section-header">
-                    <h3>2. Výběr služeb</h3>
-                    <button class="btn-back" id="backToClients">← Změnit klienta</button>
+                    <h3>✂️ Služby</h3>
                 </div>
-                <div class="service-grid" id="serviceGrid">
-                    <div class="loading">Načítám služby...</div>
-                </div>
+                <div class="services-grid" id="serviceGrid"></div>
             </div>
 
-            <!-- Material Selection (shown when service clicked) -->
-            <div class="section material-modal" id="materialSection" style="display: none;">
+            <!-- Materials Section -->
+            <div class="section">
                 <div class="section-header">
-                    <h3>Přidat materiál k: <span id="currentServiceName"></span></h3>
-                    <button class="btn-close" id="closeMaterial">Zavřít</button>
+                    <h3>🧴 Materiály</h3>
+                    <input type="search" id="materialSearch" placeholder="🔍 Hledat produkt..." class="search-input">
                 </div>
-                <div class="material-search">
-                    <input type="search" id="materialSearch" placeholder="Vyhledat produkt..." class="search-input">
-                </div>
-                <div class="material-grid" id="materialGrid">
-                    <div class="loading">Načítám produkty...</div>
-                </div>
+                <div class="materials-grid" id="materialGrid"></div>
             </div>
         </div>
     </div>

@@ -132,7 +132,7 @@ async function loadProducts() {
 
 // Render UI
 function renderClients() {
-    const grid = document.getElementById('clientsGrid');
+    const grid = document.getElementById('clientGrid');
     grid.innerHTML = clients.map(client => `
         <div class="client-card ${currentClient?.id === client.id ? 'active' : ''}" 
              onclick="selectClient(${client.id})">
@@ -146,7 +146,7 @@ function renderClients() {
 }
 
 function renderServices() {
-    const grid = document.getElementById('servicesGrid');
+    const grid = document.getElementById('serviceGrid');
     if (services.length === 0) {
         grid.innerHTML = '<p style="text-align: center; color: #888;">Žádné služby</p>';
         return;
@@ -160,7 +160,7 @@ function renderServices() {
 }
 
 function renderMaterials() {
-    const grid = document.getElementById('materialsGrid');
+    const grid = document.getElementById('materialGrid');
     if (products.length === 0) {
         grid.innerHTML = '<p style="text-align: center; color: #888;">Žádné produkty</p>';
         return;
@@ -339,7 +339,7 @@ async function saveVisit() {
 // Event listeners
 function initEventListeners() {
     // Save button
-    document.getElementById('saveVisit').addEventListener('click', saveVisit);
+    document.getElementById('saveButton').addEventListener('click', saveVisit);
     
     // Quantity modal
     const modal = document.getElementById('quantityModal');
@@ -403,7 +403,7 @@ function initEventListeners() {
             (c.phone && c.phone.includes(search))
         );
         
-        const grid = document.getElementById('clientsGrid');
+        const grid = document.getElementById('clientGrid');
         grid.innerHTML = filtered.map(client => `
             <div class="client-card ${currentClient?.id === client.id ? 'active' : ''}" 
                  onclick="selectClient(${client.id})">
@@ -423,7 +423,7 @@ function initEventListeners() {
             p.name.toLowerCase().includes(search)
         );
         
-        const grid = document.getElementById('materialsGrid');
+        const grid = document.getElementById('materialGrid');
         grid.innerHTML = filtered.map(product => `
             <button class="material-btn" onclick="selectMaterial(${product.id})">
                 <div class="material-name">${product.name}</div>
