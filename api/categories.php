@@ -13,7 +13,8 @@ $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 switch ($method) {
     case 'GET':
         $stmt = $db->query("SELECT * FROM product_categories ORDER BY name");
-        sendJson($stmt->fetchAll());
+        $categories = $stmt->fetchAll();
+        sendJson(['success' => true, 'categories' => $categories]);
         break;
         
     case 'POST':
