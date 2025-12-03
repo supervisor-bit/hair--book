@@ -439,7 +439,18 @@ async function removeMaterial(serviceIndex, materialIndex) {
 // Back to services (keep client and cart, just show services again)
 function backToServices() {
     currentServiceForMaterial = null;
-    updateSectionsVisibility();
+    
+    // Manually show services and history
+    const clientSection = document.getElementById('clientSection');
+    const serviceSection = document.getElementById('serviceSection');
+    const materialSection = document.getElementById('materialSection');
+    const historyColumn = document.getElementById('historyColumn');
+    
+    clientSection.style.display = 'none';
+    serviceSection.style.display = 'block';
+    materialSection.style.display = 'none';
+    if (historyColumn) historyColumn.style.display = 'block';
+    
     renderVisitHistory();
 }
 
