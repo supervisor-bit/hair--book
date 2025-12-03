@@ -292,6 +292,7 @@ async function selectClient(clientId) {
     document.getElementById('clientName').textContent = currentClient?.name || 'Vyberte klienta';
     renderClients();
     updateSectionsVisibility();
+    renderVisitHistory();
     saveCartToStorage();
 }
 
@@ -829,4 +830,96 @@ async function syncOfflineData() {
     if (pendingVisits.length === 0) {
         await showAlert('Všechna offline data byla synchronizována', 'Synchronizace', '✅');
     }
+}
+
+// Render Visit History
+function renderVisitHistory() {
+    const historyContainer = document.getElementById('visitHistory');
+    const historyItems = document.getElementById('historyItems');
+    
+    if (!currentClient || !currentClient.visits || currentClient.visits.length === 0) {
+        historyContainer.style.display = 'none';
+        return;
+    }
+    
+    // Show only last 3 visits
+    const recentVisits = currentClient.visits.slice(0, 3);
+    
+    historyItems.innerHTML = recentVisits.map((visit, index) => {
+        const date = new Date(visit.date).toLocaleDateString('cs-CZ');
+        const servicesText = visit.services.map(s => s.serviceName || s.service_name).join(', ');
+        
+        // Get materials from all services
+        let materialsHTML = '';
+        visit.services.forEach(service => {
+            if (service.materials && service.materials.length > 0) {
+                const materials = service.materials.map(m => 
+                    `${m.productName || m.product_name} (${m.quantity}${m.unit})`
+                ).join(', ');
+                materialsHTML += `<div class="history-materials">🧴 ${materials}</div>`;
+            }
+        });
+        
+        return `
+            <div class="history-item">
+                <div class="history-date">${date}</div>
+                <div class="history-services">✂️ ${servicesText}</div>
+                ${materialsHTML}
+                <button class="btn-repeat-visit" onclick="repeatVisit(${index})">🔄 Opakovat</button>
+            </div>
+        `;
+    }).join('');
+    
+    historyContainer.style.display = 'block';
+}
+
+// Repeat Visit
+async function repeatVisit(visitIndex) {
+    if (!currentClient || !currentClient.visits) return;
+    
+    const visit = currentClient.visits[visitIndex];
+    if (!visit || !visit.services) return;
+    
+    // Clear current cart
+    cart = [];
+    
+    // Add services with materials from the visit
+    visit.services.forEach(service => {
+        const serviceName = service.serviceName || service.service_name;
+        
+        // Find service in services list
+        const serviceData = services.find(s => s.name === serviceName);
+        if (!serviceData) return;
+        
+        const cartService = {
+            serviceId: serviceData.id,
+            serviceName: serviceData.name,
+            materials: []
+        };
+        
+        // Add materials
+        if (service.materials && service.materials.length > 0) {
+            service.materials.forEach(material => {
+                const productName = material.productName || material.product_name;
+                const product = products.find(p => p.name === productName);
+                
+                if (product) {
+                    cartService.materials.push({
+                        productId: product.id,
+                        name: product.name,
+                        quantity: material.quantity,
+                        unit: material.unit
+                    });
+                }
+            });
+        }
+        
+        cart.push(cartService);
+    });
+    
+    renderCart();
+    updateSectionsVisibility();
+    saveCartToStorage();
+    
+    await showAlert('Návštěva byla přidána do košíku', 'Opakování návštěvy', '✅');
 }

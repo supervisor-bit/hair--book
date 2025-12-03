@@ -444,6 +444,75 @@ body {
     color: var(--text-secondary);
 }
 
+/* Visit History */
+.visit-history {
+    background: var(--bg-light);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    border: 2px solid var(--border-color);
+}
+
+.history-header {
+    margin-bottom: 1rem;
+}
+
+.history-header h4 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.history-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.history-item {
+    background: var(--bg-medium);
+    border-radius: 8px;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+}
+
+.history-date {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.history-services {
+    font-size: 14px;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.history-materials {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-left: 1rem;
+    margin-top: 0.25rem;
+}
+
+.btn-repeat-visit {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 0.5rem;
+    transition: all 0.2s;
+}
+
+.btn-repeat-visit:hover {
+    background: var(--primary-hover);
+    transform: translateY(-1px);
+}
+
 /* Service Grid */
 .service-grid {
     display: grid;
