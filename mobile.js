@@ -76,6 +76,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadServices();
     loadProducts();
     initEventListeners();
+    updateSectionsVisibility();
 });
 
 // Check authentication
@@ -201,6 +202,30 @@ function renderCart() {
     `).join('');
 }
 
+// Update UI sections visibility
+function updateSectionsVisibility() {
+    const clientSection = document.getElementById('clientSection');
+    const serviceSection = document.getElementById('serviceSection');
+    const materialSection = document.getElementById('materialSection');
+    
+    if (!currentClient) {
+        // Show only clients
+        clientSection.style.display = 'block';
+        serviceSection.style.display = 'none';
+        materialSection.style.display = 'none';
+    } else if (cart.length === 0) {
+        // Client selected, show services
+        clientSection.style.display = 'none';
+        serviceSection.style.display = 'block';
+        materialSection.style.display = 'none';
+    } else {
+        // Service added, show ONLY materials (hide services)
+        clientSection.style.display = 'none';
+        serviceSection.style.display = 'none';
+        materialSection.style.display = 'block';
+    }
+}
+
 // Client selection
 async function selectClient(clientId) {
     if (cart.length > 0) {
@@ -211,6 +236,7 @@ async function selectClient(clientId) {
     currentClient = clients.find(c => c.id === clientId);
     document.getElementById('clientName').textContent = currentClient?.name || 'Vyberte klienta';
     renderClients();
+    updateSectionsVisibility();
 }
 
 // Service selection
@@ -232,6 +258,16 @@ async function selectService(serviceId) {
     });
     
     renderCart();
+    updateSectionsVisibility();
+    
+    // Scroll to newly added service in cart
+    setTimeout(() => {
+        const cartItems = document.getElementById('cartItems');
+        const lastService = cartItems.lastElementChild;
+        if (lastService) {
+            lastService.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }, 100);
 }
 
 // Material selection
@@ -265,6 +301,7 @@ async function removeService(serviceIndex) {
     if (confirmed) {
         cart.splice(serviceIndex, 1);
         renderCart();
+        updateSectionsVisibility();
     }
 }
 
@@ -276,6 +313,14 @@ async function removeMaterial(serviceIndex, materialIndex) {
     }
 }
 
+// Back to services (keep client and cart, just show services again)
+function backToServices() {
+    const serviceSection = document.getElementById('serviceSection');
+    const materialSection = document.getElementById('materialSection');
+    serviceSection.style.display = 'block';
+    materialSection.style.display = 'none';
+}
+
 // Clear cart
 function clearCart() {
     cart = [];
@@ -284,6 +329,7 @@ function clearCart() {
     document.getElementById('clientName').textContent = 'Vyberte klienta';
     renderCart();
     renderClients();
+    updateSectionsVisibility();
 }
 
 // Save visit
@@ -381,6 +427,15 @@ function initEventListeners() {
                 unit: selectedUnit
             });
             renderCart();
+            
+            // Scroll to the service with new material
+            setTimeout(() => {
+                const cartItems = document.getElementById('cartItems');
+                const serviceCards = cartItems.querySelectorAll('.cart-service');
+                if (serviceCards[serviceIndex]) {
+                    serviceCards[serviceIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            }, 100);
         }
         
         modal.style.display = 'none';

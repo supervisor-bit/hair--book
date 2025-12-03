@@ -121,6 +121,24 @@ body {
     background: #b91c1c;
 }
 
+.btn-back {
+    padding: 8px 16px;
+    background: var(--bg-light);
+    color: var(--text-primary);
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.btn-back:hover {
+    border-color: var(--primary-color);
+    background: var(--primary-color);
+    color: white;
+}
+
 .cart-items {
     flex: 1;
     overflow-y: auto;
@@ -147,22 +165,25 @@ body {
     font-size: 14px;
 }
 
-.cart-item {
+/* Cart Service Card */
+.cart-service {
     background: var(--bg-light);
     border-radius: 12px;
     padding: 1rem;
+    border: 2px solid var(--border-color);
 }
 
-.cart-item-header {
+.cart-service-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 0.75rem;
 }
 
-.cart-service-name {
+.cart-service-header span {
     font-size: 18px;
     font-weight: 600;
+    color: var(--text-primary);
 }
 
 .btn-remove {
@@ -178,38 +199,51 @@ body {
     align-items: center;
     justify-content: center;
     line-height: 1;
+    transition: all 0.2s;
+}
+
+.btn-remove:hover {
+    background: #b91c1c;
+    transform: scale(1.1);
 }
 
 .cart-materials {
-    margin-bottom: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding-left: 1rem;
+    border-left: 3px solid var(--primary-color);
 }
 
-.no-materials {
-    color: var(--text-secondary);
-    font-size: 14px;
-    font-style: italic;
-}
-
-.material-item {
+.cart-material {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px;
+    padding: 8px 12px;
     background: var(--bg-dark);
     border-radius: 8px;
-    margin-bottom: 4px;
     font-size: 14px;
 }
 
-.btn-remove-mat {
-    background: var(--danger-color);
+.cart-material span {
+    color: var(--text-secondary);
+}
+
+.btn-remove-material {
+    background: rgba(220, 53, 69, 0.8);
     color: white;
     border: none;
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    font-size: 18px;
+    font-size: 16px;
     cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-remove-material:hover {
+    background: var(--danger-color);
+    transform: scale(1.1);
 }
 
 .btn-add-material {
@@ -256,6 +290,24 @@ body {
 .section-header h3 {
     font-size: 22px;
     font-weight: 600;
+}
+
+.btn-back {
+    padding: 10px 20px;
+    background: var(--bg-light);
+    color: var(--text-primary);
+    border: 2px solid var(--border-color);
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-back:hover {
+    border-color: var(--primary-color);
+    background: var(--primary-color);
+    transform: translateX(-3px);
 }
 
 .search-input {

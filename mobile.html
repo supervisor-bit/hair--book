@@ -39,29 +39,33 @@
         <!-- Right Panel - Selection -->
         <div class="selection-panel">
             <!-- Clients Section -->
-            <div class="section">
+            <div class="section" id="clientSection">
                 <div class="section-header">
                     <h3>👥 Klienti</h3>
                     <input type="search" id="clientSearch" placeholder="🔍 Hledat klienta..." class="search-input">
                 </div>
-                <div class="clients-grid" id="clientGrid"></div>
+                <div class="client-grid" id="clientGrid"></div>
             </div>
 
             <!-- Services Section -->
-            <div class="section">
+            <div class="section" id="serviceSection" style="display: none;">
                 <div class="section-header">
                     <h3>✂️ Služby</h3>
+                    <button class="btn-back" onclick="clearCart()">← Změnit klienta</button>
                 </div>
-                <div class="services-grid" id="serviceGrid"></div>
+                <div class="service-grid" id="serviceGrid"></div>
             </div>
 
             <!-- Materials Section -->
-            <div class="section">
+            <div class="section" id="materialSection" style="display: none;">
                 <div class="section-header">
                     <h3>🧴 Materiály</h3>
-                    <input type="search" id="materialSearch" placeholder="🔍 Hledat produkt..." class="search-input">
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn-back" onclick="backToServices()">← Přidat další službu</button>
+                        <input type="search" id="materialSearch" placeholder="🔍 Hledat produkt..." class="search-input">
+                    </div>
                 </div>
-                <div class="materials-grid" id="materialGrid"></div>
+                <div class="material-grid" id="materialGrid"></div>
             </div>
         </div>
     </div>

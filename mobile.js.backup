@@ -1,0 +1,466 @@
+// HairBook Mobile - iPad POS Interface
+let currentClient = null;
+let currentServiceForMaterial = null;
+let cart = []; // [{serviceId, serviceName, materials: [{productId, name, quantity, unit}]}]
+let clients = [];
+let services = [];
+let products = [];
+
+// Initialize
+document.addEventListener('DOMContentLoaded', async () => {
+    // Check if logged in
+    const isLoggedIn = await checkAuth();
+    if (!isLoggedIn) {
+        window.location.href = 'login.html?redirect=mobile.html';
+        return;
+    }
+    
+    loadClients();
+    loadServices();
+    loadProducts();
+    initEventListeners();
+});
+
+// Check authentication
+async function checkAuth() {
+    try {
+        const res = await fetch('api/clients.php?limit=1');
+        return res.ok;
+    } catch {
+        return false;
+    }
+}
+
+function initEventListeners() {
+    // Client search
+    document.getElementById('clientSearch').addEventListener('input', (e) => {
+        filterClients(e.target.value);
+    });
+
+    // Material search
+    document.getElementById('materialSearch').addEventListener('input', (e) => {
+        filterMaterials(e.target.value);
+    });
+
+    // Back to clients
+    document.getElementById('backToClients').addEventListener('click', () => {
+        showClientSection();
+    });
+
+    // Close material selection
+    document.getElementById('closeMaterial').addEventListener('click', () => {
+        hideMaterialSection();
+    });
+
+    // Clear cart
+    document.getElementById('clearCart').addEventListener('click', () => {
+        if (confirm('Opravdu vymazat celý košík?')) {
+            cart = [];
+            updateCartUI();
+            updateSaveButton();
+        }
+    });
+
+    // Save visit
+    document.getElementById('saveButton').addEventListener('click', saveVisit);
+
+    // Quantity modal
+    document.getElementById('qtyMinus').addEventListener('click', () => {
+        const input = document.getElementById('quantityInput');
+        input.value = Math.max(0.1, parseFloat(input.value) - 1);
+    });
+
+    document.getElementById('qtyPlus').addEventListener('click', () => {
+        const input = document.getElementById('quantityInput');
+        input.value = parseFloat(input.value) + 1;
+    });
+
+    document.querySelectorAll('.unit-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.unit-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+        });
+    });
+
+    document.getElementById('cancelQty').addEventListener('click', closeQuantityModal);
+    document.getElementById('confirmQty').addEventListener('click', confirmQuantity);
+}
+
+// Load data from API
+async function loadClients() {
+    try {
+        const res = await fetch('api/clients.php?limit=1000&offset=0');
+        const data = await res.json();
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        // Transform data to simple format
+        console.log('Raw clients data:', data);
+        console.log('First client:', data.clients?.[0]);
+        
+        // API může vracet buď data.clients (array) nebo jen data (array)
+        const clientsArray = Array.isArray(data) ? data : (data.clients || []);
+        
+        clients = clientsArray.filter(c => c && c.id).map(c => {
+            return {
+                id: c.id,
+                name: c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'Bez jména',
+                phone: c.phone || ''
+            };
+        });
+        console.log('Transformed clients:', clients);
+        
+        renderClients();
+    } catch (err) {
+        console.error('Chyba načítání klientů:', err);
+        document.getElementById('clientGrid').innerHTML = '<div class="no-data">Chyba načítání klientů</div>';
+    }
+}
+
+async function loadServices() {
+    try {
+        const res = await fetch('api/services.php');
+        const data = await res.json();
+        
+        console.log('Raw services data:', data);
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        // API vrací přímo pole nebo {services: []}
+        services = Array.isArray(data) ? data : (data.services || []);
+        console.log('Loaded services:', services);
+    } catch (err) {
+        console.error('Chyba načítání služeb:', err);
+    }
+}
+
+async function loadProducts() {
+    try {
+        const res = await fetch('api/products.php');
+        const data = await res.json();
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        // API vrací přímo pole nebo {products: []}
+        products = Array.isArray(data) ? data : (data.products || []);
+    } catch (err) {
+        console.error('Chyba načítání produktů:', err);
+    }
+}
+
+// Render clients
+function renderClients() {
+    const grid = document.getElementById('clientGrid');
+    if (clients.length === 0) {
+        grid.innerHTML = '<div class="no-data">Žádní klienti</div>';
+        return;
+    }
+
+    grid.innerHTML = clients.map(client => `
+        <div class="client-card" onclick="selectClient(${client.id}, '${escapeHtml(client.name)}')">
+            <div class="client-avatar">${getInitials(client.name)}</div>
+            <div class="client-info">
+                <div class="client-name">${escapeHtml(client.name)}</div>
+                <div class="client-phone">${escapeHtml(client.phone || '')}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function filterClients(query) {
+    const filtered = clients.filter(c => 
+        c.name.toLowerCase().includes(query.toLowerCase()) ||
+        (c.phone && c.phone.includes(query))
+    );
+    const grid = document.getElementById('clientGrid');
+    grid.innerHTML = filtered.map(client => `
+        <div class="client-card" onclick="selectClient(${client.id}, '${escapeHtml(client.name)}')">
+            <div class="client-avatar">${getInitials(client.name)}</div>
+            <div class="client-info">
+                <div class="client-name">${escapeHtml(client.name)}</div>
+                <div class="client-phone">${escapeHtml(client.phone || '')}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Select client
+function selectClient(id, name) {
+    currentClient = { id, name };
+    document.getElementById('clientName').textContent = name;
+    showServiceSection();
+    renderServices();
+    updateSaveButton();
+}
+
+function showClientSection() {
+    document.getElementById('clientSection').style.display = 'block';
+    document.getElementById('serviceSection').style.display = 'none';
+    document.getElementById('materialSection').style.display = 'none';
+}
+
+function showServiceSection() {
+    document.getElementById('clientSection').style.display = 'none';
+    document.getElementById('serviceSection').style.display = 'block';
+    document.getElementById('materialSection').style.display = 'none';
+}
+
+// Render services
+function renderServices() {
+    const grid = document.getElementById('serviceGrid');
+    if (services.length === 0) {
+        grid.innerHTML = '<div class="no-data">Žádné služby</div>';
+        return;
+    }
+
+    grid.innerHTML = services.map(service => `
+        <button class="service-btn" onclick="addServiceToCart(${service.id}, '${escapeHtml(service.name)}')">
+            <span class="service-icon">✂️</span>
+            <span class="service-name">${escapeHtml(service.name)}</span>
+        </button>
+    `).join('');
+}
+
+// Add service to cart
+function addServiceToCart(serviceId, serviceName) {
+    // Check if service already in cart
+    if (cart.some(item => item.serviceId === serviceId)) {
+        alert('Tato služba už je v košíku');
+        return;
+    }
+
+    cart.push({
+        serviceId,
+        serviceName,
+        materials: []
+    });
+
+    updateCartUI();
+    updateSaveButton();
+}
+
+// Update cart UI
+function updateCartUI() {
+    const container = document.getElementById('cartItems');
+    
+    if (cart.length === 0) {
+        container.innerHTML = `
+            <div class="empty-cart">
+                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M9 2l-1 3H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-4L15 2H9z"/>
+                    <circle cx="12" cy="13" r="3"/>
+                </svg>
+                <p>Košík je prázdný</p>
+                <p class="empty-cart-hint">Začni přidáním služby</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = cart.map((item, index) => `
+        <div class="cart-item">
+            <div class="cart-item-header">
+                <div class="cart-service-name">${escapeHtml(item.serviceName)}</div>
+                <button class="btn-remove" onclick="removeServiceFromCart(${index})">&times;</button>
+            </div>
+            <div class="cart-materials">
+                ${item.materials.length === 0 ? 
+                    `<div class="no-materials">Bez materiálu</div>` :
+                    item.materials.map((mat, matIndex) => `
+                        <div class="material-item">
+                            <span>${escapeHtml(mat.name)} - ${mat.quantity} ${mat.unit}</span>
+                            <button class="btn-remove-mat" onclick="removeMaterial(${index}, ${matIndex})">×</button>
+                        </div>
+                    `).join('')
+                }
+            </div>
+            <button class="btn-add-material" onclick="openMaterialSelection(${index})">+ Přidat materiál</button>
+        </div>
+    `).join('');
+}
+
+// Remove service from cart
+function removeServiceFromCart(index) {
+    cart.splice(index, 1);
+    updateCartUI();
+    updateSaveButton();
+}
+
+// Remove material from service
+function removeMaterial(serviceIndex, materialIndex) {
+    cart[serviceIndex].materials.splice(materialIndex, 1);
+    updateCartUI();
+}
+
+// Material selection
+function openMaterialSelection(serviceIndex) {
+    currentServiceForMaterial = serviceIndex;
+    const serviceName = cart[serviceIndex].serviceName;
+    document.getElementById('currentServiceName').textContent = serviceName;
+    document.getElementById('serviceSection').style.display = 'none';
+    document.getElementById('materialSection').style.display = 'block';
+    renderMaterials();
+}
+
+function hideMaterialSection() {
+    currentServiceForMaterial = null;
+    document.getElementById('serviceSection').style.display = 'block';
+    document.getElementById('materialSection').style.display = 'none';
+}
+
+function renderMaterials() {
+    const grid = document.getElementById('materialGrid');
+    if (products.length === 0) {
+        grid.innerHTML = '<div class="no-data">Žádné produkty</div>';
+        return;
+    }
+
+    grid.innerHTML = products.map(product => `
+        <button class="material-btn" onclick="selectMaterial(${product.id}, '${escapeHtml(product.name)}')">
+            <span class="material-name">${escapeHtml(product.name)}</span>
+            <span class="material-stock">${product.stock || 0} ${product.unit || 'ks'}</span>
+        </button>
+    `).join('');
+}
+
+function filterMaterials(query) {
+    const filtered = products.filter(p => 
+        p.name.toLowerCase().includes(query.toLowerCase())
+    );
+    const grid = document.getElementById('materialGrid');
+    grid.innerHTML = filtered.map(product => `
+        <button class="material-btn" onclick="selectMaterial(${product.id}, '${escapeHtml(product.name)}')">
+            <span class="material-name">${escapeHtml(product.name)}</span>
+            <span class="material-stock">${product.stock || 0} ${product.unit || 'ks'}</span>
+        </button>
+    `).join('');
+}
+
+// Select material and show quantity modal
+let selectedProduct = null;
+
+function selectMaterial(productId, productName) {
+    selectedProduct = products.find(p => p.id === productId);
+    document.getElementById('productNameModal').textContent = productName;
+    document.getElementById('quantityInput').value = 1;
+    
+    // Set default unit
+    const unit = selectedProduct.unit || 'ks';
+    document.querySelectorAll('.unit-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.unit === unit);
+    });
+    
+    document.getElementById('quantityModal').classList.add('show');
+}
+
+function closeQuantityModal() {
+    document.getElementById('quantityModal').classList.remove('show');
+    selectedProduct = null;
+}
+
+function confirmQuantity() {
+    const quantity = parseFloat(document.getElementById('quantityInput').value);
+    const unit = document.querySelector('.unit-btn.active').dataset.unit;
+    
+    if (quantity <= 0) {
+        alert('Množství musí být větší než 0');
+        return;
+    }
+
+    cart[currentServiceForMaterial].materials.push({
+        productId: selectedProduct.id,
+        name: selectedProduct.name,
+        quantity,
+        unit
+    });
+
+    updateCartUI();
+    closeQuantityModal();
+}
+
+// Save visit
+async function saveVisit() {
+    if (!currentClient || cart.length === 0) {
+        alert('Vyber klienta a přidej alespoň jednu službu');
+        return;
+    }
+
+    const visitData = {
+        clientId: currentClient.id,
+        date: new Date().toISOString().split('T')[0],
+        closed: false,
+        price: 0,
+        note: '',
+        services: cart.map(item => ({
+            name: item.serviceName,
+            materials: item.materials.map(mat => ({
+                productId: mat.productId,
+                name: mat.name,
+                quantity: mat.quantity,
+                unit: mat.unit
+            }))
+        }))
+    };
+
+    try {
+        console.log('Sending visit data:', visitData);
+        
+        const res = await fetch('api/visits.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(visitData)
+        });
+
+        console.log('Response status:', res.status);
+        const text = await res.text();
+        console.log('Response text:', text);
+        
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            throw new Error('Neplatná odpověď serveru: ' + text.substring(0, 200));
+        }
+        
+        if (!res.ok || data.error) {
+            throw new Error(data.error || 'Server error');
+        }
+
+        alert('Návštěva úspěšně uložena! ✅');
+        
+        // Reset
+        cart = [];
+        currentClient = null;
+        document.getElementById('clientName').textContent = 'Vyber klienta';
+        updateCartUI();
+        showClientSection();
+        updateSaveButton();
+        
+    } catch (err) {
+        console.error('Chyba při ukládání:', err);
+        alert('Nepodařilo se uložit návštěvu');
+    }
+}
+
+// Update save button state
+function updateSaveButton() {
+    const btn = document.getElementById('saveButton');
+    btn.disabled = !currentClient || cart.length === 0;
+}
+
+// Helper functions
+function getInitials(name) {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
