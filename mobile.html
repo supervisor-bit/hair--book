@@ -20,6 +20,7 @@
             <span id="clientName">Vyberte klienta</span>
         </div>
         <div class="header-right">
+            <button class="btn-manage" onclick="showMaterialManagement()">⚙️ Správa</button>
             <button class="btn-save" id="saveButton">
                 💾 Uložit návštěvu
                 <span class="cart-badge" id="cartBadge" style="display: none;">0</span>
@@ -71,6 +72,29 @@
                     <h3>📋 Historie návštěv</h3>
                 </div>
                 <div class="history-items" id="historyItems"></div>
+            </div>
+
+            <!-- Material Management Section -->
+            <div class="section" id="materialManagement" style="display: none;">
+                <div class="section-header">
+                    <h3>⚙️ Správa materiálů</h3>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn-new-product" onclick="showAddProductModal()">✚ Nový produkt</button>
+                        <button class="btn-back" onclick="closeMaterialManagement()">← Zpět</button>
+                    </div>
+                </div>
+                <div class="management-filters">
+                    <select id="mgmtCategoryFilter" class="category-filter" onchange="filterManagementProducts()">
+                        <option value="">Všechny kategorie</option>
+                    </select>
+                    <select id="mgmtStockFilter" class="category-filter" onchange="filterManagementProducts()">
+                        <option value="">Všechny stavy</option>
+                        <option value="low">Nízký stav</option>
+                        <option value="ok">Dostatečný stav</option>
+                    </select>
+                    <input type="search" id="mgmtSearch" placeholder="🔍 Hledat produkt..." class="search-input" oninput="filterManagementProducts()">
+                </div>
+                <div class="management-grid" id="managementGrid"></div>
             </div>
 
             <!-- Materials Section -->
@@ -142,6 +166,66 @@
             <div class="modal-actions">
                 <button class="btn-cancel" id="confirmNo">Ne</button>
                 <button class="btn-confirm" id="confirmYes">Ano</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Product Modal -->
+    <div class="modal" id="productModal">
+        <div class="modal-content modal-large">
+            <h3 id="productModalTitle">✚ Nový produkt</h3>
+            <div class="product-form">
+                <input type="text" id="productName" placeholder="Název produktu *" class="form-input" required>
+                <select id="productCategory" class="form-input" required>
+                    <option value="">Vyberte kategorii *</option>
+                </select>
+                <div class="form-row">
+                    <input type="number" id="productPrice" placeholder="Cena *" class="form-input" step="0.01" min="0" required>
+                    <input type="number" id="productSize" placeholder="Velikost balení (ml/g) *" class="form-input" step="1" min="1" required>
+                </div>
+                <div class="form-row">
+                    <input type="number" id="productStock" placeholder="Skladem (ks) *" class="form-input" step="1" min="0" required>
+                    <input type="number" id="productMinStock" placeholder="Min. stav (ks) *" class="form-input" step="1" min="0" required>
+                </div>
+                <textarea id="productDescription" placeholder="Popis (volitelné)" class="form-input" rows="3"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeProductModal()">Zrušit</button>
+                <button class="btn-confirm" onclick="saveProduct()">Uložit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Restock Modal -->
+    <div class="modal" id="restockModal">
+        <div class="modal-content modal-large">
+            <h3>📦 Doplnění skladu</h3>
+            <p id="restockProductName" style="font-weight: 600; font-size: 18px; margin-bottom: 5px;"></p>
+            <p id="restockCurrentStock" style="color: #888; font-size: 14px; margin-bottom: 25px;"></p>
+            
+            <div style="background: var(--bg-light); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+                <label style="display: block; color: var(--text-secondary); font-size: 14px; margin-bottom: 10px; font-weight: 600;">
+                    Přidat kusů:
+                </label>
+                <div class="quantity-input" style="margin-bottom: 15px;">
+                    <button class="btn-qty" onclick="adjustRestockQty(-10)">−10</button>
+                    <button class="btn-qty" onclick="adjustRestockQty(-1)">−1</button>
+                    <input type="number" id="restockQuantity" value="0" min="0" step="1" style="font-size: 24px; font-weight: 600;">
+                    <button class="btn-qty" onclick="adjustRestockQty(1)">+1</button>
+                    <button class="btn-qty" onclick="adjustRestockQty(10)">+10</button>
+                </div>
+                <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+                    <button class="btn-quick-restock" onclick="setRestockQty(5)">+5</button>
+                    <button class="btn-quick-restock" onclick="setRestockQty(10)">+10</button>
+                    <button class="btn-quick-restock" onclick="setRestockQty(20)">+20</button>
+                    <button class="btn-quick-restock" onclick="setRestockQty(50)">+50</button>
+                </div>
+                <div id="restockNewStock" style="color: var(--primary-color); font-weight: 600; font-size: 16px; text-align: center; padding: 12px; background: rgba(6, 182, 212, 0.1); border-radius: 8px;"></div>
+            </div>
+            
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeRestockModal()">Zrušit</button>
+                <button class="btn-confirm" onclick="confirmRestock()" id="restockConfirmBtn">Doplnit</button>
             </div>
         </div>
     </div>

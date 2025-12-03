@@ -5377,6 +5377,9 @@ function renderProducts() {
         </div>
     `;
     
+    console.log('📦 renderProducts() - products.length:', products.length);
+    console.log('📦 First product:', products[0]);
+    
     // Pokud nejsou žádné produkty vůbec
     if (products.length === 0) {
         container.innerHTML = `
@@ -10393,7 +10396,7 @@ async function loadAllData() {
         
         clients = clientsData;
         products = productsData;
-        productCategories = categoriesData;
+        productCategories = Array.isArray(categoriesData) ? categoriesData : (categoriesData.categories || []);
         services = servicesData;
         salonSettings = settingsData;
         visitTemplates = templatesData;

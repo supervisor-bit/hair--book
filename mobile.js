@@ -849,11 +849,12 @@ async function syncOfflineData() {
 
 // Render Visit History
 function renderVisitHistory() {
-    const historyContainer = document.getElementById('visitHistory');
+    const historyContainer = document.getElementById('historyColumn');
     const historyItems = document.getElementById('historyItems');
     
     if (!currentClient || !currentClient.visits || currentClient.visits.length === 0) {
         if (historyContainer) historyContainer.style.display = 'none';
+        if (historyItems) historyItems.innerHTML = '';
         return;
     }
     
@@ -896,7 +897,9 @@ function renderVisitHistory() {
         `;
     }).join('');
     
-    historyContainer.style.display = 'block';
+    if (historyContainer) {
+        historyContainer.style.display = 'flex';
+    }
 }
 
 // Repeat Visit
@@ -949,3 +952,362 @@ async function repeatVisit(visitIndex) {
     
     await showAlert('Návštěva byla přidána do košíku', 'Opakování návštěvy', '✅');
 }
+
+// ==================== MATERIAL MANAGEMENT ====================
+let currentEditProduct = null;
+let currentRestockProduct = null;
+
+function showMaterialManagement() {
+    document.getElementById('clientSection').style.display = 'none';
+    document.getElementById('serviceSection').style.display = 'none';
+    document.getElementById('historyColumn').style.display = 'none';
+    document.getElementById('materialSection').style.display = 'none';
+    document.getElementById('materialManagement').style.display = 'block';
+    
+    // Populate category filters
+    const mgmtCategoryFilter = document.getElementById('mgmtCategoryFilter');
+    mgmtCategoryFilter.innerHTML = '<option value="">Všechny kategorie</option>' +
+        categories.map(cat => `<option value="${cat.id}">${cat.name}</option>`).join('');
+    
+    renderManagementGrid();
+}
+
+function closeMaterialManagement() {
+    document.getElementById('materialManagement').style.display = 'none';
+    updateSectionsVisibility();
+}
+
+function renderManagementGrid() {
+    const grid = document.getElementById('managementGrid');
+    const searchTerm = document.getElementById('mgmtSearch').value.toLowerCase();
+    const categoryFilter = document.getElementById('mgmtCategoryFilter').value;
+    const stockFilter = document.getElementById('mgmtStockFilter').value;
+    
+    let filtered = products.filter(p => {
+        const matchesSearch = !searchTerm || p.name.toLowerCase().includes(searchTerm);
+        const matchesCategory = !categoryFilter || p.categoryId == categoryFilter;
+        
+        let matchesStock = true;
+        if (stockFilter === 'low') {
+            matchesStock = p.stock < p.minStock;
+        } else if (stockFilter === 'ok') {
+            matchesStock = p.stock >= p.minStock;
+        }
+        
+        return matchesSearch && matchesCategory && matchesStock;
+    });
+    
+    // Sort by stock status (low first) and name
+    filtered.sort((a, b) => {
+        const aLow = a.stock < a.minStock ? 1 : 0;
+        const bLow = b.stock < b.minStock ? 1 : 0;
+        if (aLow !== bLow) return bLow - aLow;
+        return a.name.localeCompare(b.name);
+    });
+    
+    if (filtered.length === 0) {
+        grid.innerHTML = '<div class="empty-state">📦<br>Žádné produkty</div>';
+        return;
+    }
+    
+    grid.innerHTML = filtered.map(product => {
+        const category = categories.find(c => c.id == product.categoryId);
+        const isLowStock = product.stock < product.minStock;
+        const packageSize = product.packageSize || product.size || 100;
+        const totalVolume = product.stock * packageSize; // ks * velikost = celkové ml/g
+        const price = product.priceRetail || product.price || 0;
+        
+        return `
+            <div class="management-card ${isLowStock ? 'low-stock' : ''}">
+                <div class="management-card-header">
+                    <div class="management-card-title">
+                        <h4>${product.name}</h4>
+                        <span class="category">${category ? category.name : 'Bez kategorie'}</span>
+                    </div>
+                    ${isLowStock ? '<span style="font-size: 24px;">⚠️</span>' : ''}
+                </div>
+                
+                <div class="management-stock ${isLowStock ? 'low' : ''}">
+                    <div style="flex: 1;">
+                        <div class="stock-label">Skladem</div>
+                        <div class="stock-value ${isLowStock ? 'low' : ''}">${product.stock || 0} ks</div>
+                        <div class="stock-pieces">(${totalVolume} ${product.unit || 'ml'})</div>
+                    </div>
+                    <div>
+                        <div class="stock-label">Min. stav</div>
+                        <div style="font-size: 16px; font-weight: 600; color: var(--text-secondary);">${product.minStock || 0} ks</div>
+                    </div>
+                </div>
+                
+                <div class="management-details">
+                    <div class="detail-item">
+                        <span class="detail-label">Cena</span>
+                        <span class="detail-value">${price} Kč</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Velikost</span>
+                        <span class="detail-value">${packageSize} ${product.unit || 'ml'}</span>
+                    </div>
+                </div>
+                
+                <div class="management-actions">
+                    <button class="btn-mgmt restock" onclick="showRestockModal(${product.id})">📦 Doplnit</button>
+                    <button class="btn-mgmt edit" onclick="showEditProductModal(${product.id})">✏️ Upravit</button>
+                    <button class="btn-mgmt delete" onclick="deleteProduct(${product.id})">🗑️ Smazat</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function filterManagementProducts() {
+    renderManagementGrid();
+}
+
+// Add Product Modal
+function showAddProductModal() {
+    currentEditProduct = null;
+    document.getElementById('productModalTitle').textContent = '✚ Nový produkt';
+    document.getElementById('productName').value = '';
+    document.getElementById('productCategory').innerHTML = '<option value="">Vyberte kategorii *</option>' +
+        categories.map(cat => `<option value="${cat.id}">${cat.name}</option>`).join('');
+    document.getElementById('productCategory').value = '';
+    document.getElementById('productPrice').value = '';
+    document.getElementById('productSize').value = '';
+    document.getElementById('productStock').value = '';
+    document.getElementById('productMinStock').value = '';
+    document.getElementById('productDescription').value = '';
+    document.getElementById('productModal').classList.add('show');
+}
+
+function showEditProductModal(productId) {
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+    
+    currentEditProduct = product;
+    document.getElementById('productModalTitle').textContent = '✏️ Upravit produkt';
+    document.getElementById('productName').value = product.name;
+    document.getElementById('productCategory').innerHTML = '<option value="">Vyberte kategorii *</option>' +
+        categories.map(cat => `<option value="${cat.id}">${cat.name}</option>`).join('');
+    document.getElementById('productCategory').value = product.categoryId;
+    document.getElementById('productPrice').value = product.priceRetail || product.price || 0;
+    document.getElementById('productSize').value = product.packageSize || product.size || 100;
+    document.getElementById('productStock').value = product.stock || 0;
+    document.getElementById('productMinStock').value = product.minStock || 0;
+    document.getElementById('productDescription').value = product.description || '';
+    document.getElementById('productModal').classList.add('show');
+}
+
+function closeProductModal() {
+    document.getElementById('productModal').classList.remove('show');
+    currentEditProduct = null;
+}
+
+async function saveProduct() {
+    const name = document.getElementById('productName').value.trim();
+    const categoryId = document.getElementById('productCategory').value;
+    const price = parseFloat(document.getElementById('productPrice').value);
+    const size = parseFloat(document.getElementById('productSize').value);
+    const stock = parseFloat(document.getElementById('productStock').value);
+    const minStock = parseFloat(document.getElementById('productMinStock').value);
+    const description = document.getElementById('productDescription').value.trim();
+    
+    if (!name || !categoryId || !price || !size || isNaN(stock) || isNaN(minStock)) {
+        await showAlert('Vyplňte všechna povinná pole', 'Chyba', '❌');
+        return;
+    }
+    
+    const productData = {
+        name,
+        categoryId: parseInt(categoryId),
+        priceRetail: price,
+        pricePurchase: 0,
+        priceWork: 0,
+        packageSize: size,
+        stock,
+        minStock,
+        description,
+        unit: 'ml',
+        forSale: true,
+        forWork: true,
+        vatRate: 21
+    };
+    
+    if (currentEditProduct) {
+        productData.id = currentEditProduct.id;
+    }
+    
+    try {
+        let response;
+        if (currentEditProduct) {
+            // Update
+            response = await fetch(`api/products.php?id=${currentEditProduct.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(productData)
+            });
+        } else {
+            // Create
+            response = await fetch('api/products.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(productData)
+            });
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            await showAlert(
+                currentEditProduct ? 'Produkt byl upraven' : 'Produkt byl vytvořen',
+                'Úspěch',
+                '✅'
+            );
+            closeProductModal();
+            await loadProducts();
+            renderManagementGrid();
+        } else {
+            await showAlert(result.error || 'Chyba při ukládání', 'Chyba', '❌');
+        }
+    } catch (error) {
+        console.error('Save product error:', error);
+        await showAlert('Nepodařilo se uložit produkt', 'Chyba', '❌');
+    }
+}
+
+async function deleteProduct(productId) {
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+    
+    const confirmed = await showConfirm(
+        `Opravdu chcete smazat produkt "${product.name}"?`,
+        'Smazat produkt'
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+        const response = await fetch(`api/products.php?id=${productId}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            await showAlert('Produkt byl smazán', 'Úspěch', '✅');
+            await loadProducts();
+            renderManagementGrid();
+        } else {
+            await showAlert(result.error || 'Chyba při mazání', 'Chyba', '❌');
+        }
+    } catch (error) {
+        console.error('Delete product error:', error);
+        await showAlert('Nepodařilo se smazat produkt', 'Chyba', '❌');
+    }
+}
+
+// Restock Modal
+function showRestockModal(productId) {
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+    
+    currentRestockProduct = product;
+    const packageSize = product.packageSize || product.size || 100;
+    const totalVolume = product.stock * packageSize;
+    document.getElementById('restockProductName').textContent = product.name;
+    document.getElementById('restockCurrentStock').textContent = `Aktuální stav: ${product.stock} ks (${totalVolume} ${product.unit || 'ml'})`;
+    document.getElementById('restockQuantity').value = 0;
+    updateRestockPreview();
+    document.getElementById('restockModal').classList.add('show');
+}
+
+function closeRestockModal() {
+    document.getElementById('restockModal').classList.remove('show');
+    currentRestockProduct = null;
+}
+
+function adjustRestockQty(amount) {
+    const input = document.getElementById('restockQuantity');
+    const currentValue = parseFloat(input.value) || 0;
+    input.value = Math.max(0, currentValue + amount);
+    updateRestockPreview();
+}
+
+function setRestockQty(amount) {
+    document.getElementById('restockQuantity').value = amount;
+    updateRestockPreview();
+}
+
+function updateRestockPreview() {
+    const qty = parseFloat(document.getElementById('restockQuantity').value) || 0;
+    const newStock = currentRestockProduct.stock + qty;
+    const packageSize = currentRestockProduct.packageSize || currentRestockProduct.size || 100;
+    const newTotalVolume = newStock * packageSize;
+    
+    const confirmBtn = document.getElementById('restockConfirmBtn');
+    if (qty <= 0) {
+        document.getElementById('restockNewStock').innerHTML = 
+            `<span style="color: #888;">Zadejte množství pro doplnění</span>`;
+        confirmBtn.disabled = true;
+        confirmBtn.style.opacity = '0.5';
+    } else {
+        document.getElementById('restockNewStock').innerHTML = 
+            `<i class="fas fa-arrow-right" style="margin-right: 8px;"></i>` +
+            `Nový stav: <strong>${newStock} ks</strong> (${newTotalVolume} ${currentRestockProduct.unit || 'ml'})`;
+        confirmBtn.disabled = false;
+        confirmBtn.style.opacity = '1';
+    }
+}
+
+async function confirmRestock() {
+    const qty = parseFloat(document.getElementById('restockQuantity').value) || 0;
+    
+    if (qty <= 0) {
+        await showAlert('Zadejte množství k doplnění', 'Chyba', '❌');
+        return;
+    }
+    
+    const newStock = currentRestockProduct.stock + qty;
+    
+    try {
+        const productData = {
+            id: currentRestockProduct.id,
+            name: currentRestockProduct.name,
+            categoryId: currentRestockProduct.categoryId,
+            priceRetail: currentRestockProduct.priceRetail || currentRestockProduct.price || 0,
+            pricePurchase: currentRestockProduct.pricePurchase || 0,
+            priceWork: currentRestockProduct.priceWork || 0,
+            packageSize: currentRestockProduct.packageSize || currentRestockProduct.size || 100,
+            stock: newStock,
+            minStock: currentRestockProduct.minStock || 0,
+            description: currentRestockProduct.description || '',
+            unit: currentRestockProduct.unit || 'ml',
+            forSale: true,
+            forWork: true,
+            vatRate: currentRestockProduct.vatRate || 21
+        };
+        
+        const response = await fetch(`api/products.php?id=${currentRestockProduct.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(productData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            await showAlert(`Sklad byl doplněn o ${qty} ks`, 'Úspěch', '✅');
+            closeRestockModal();
+            await loadProducts();
+            renderManagementGrid();
+        } else {
+            await showAlert(result.error || 'Chyba při doplnění', 'Chyba', '❌');
+        }
+    } catch (error) {
+        console.error('Restock error:', error);
+        await showAlert('Nepodařilo se doplnit sklad', 'Chyba', '❌');
+    }
+}
+
+// Update restock quantity input
+document.getElementById('restockQuantity')?.addEventListener('input', updateRestockPreview);
