@@ -263,6 +263,7 @@ function updateSectionsVisibility() {
     const clientSection = document.getElementById('clientSection');
     const serviceSection = document.getElementById('serviceSection');
     const materialSection = document.getElementById('materialSection');
+    const serviceGrid = document.getElementById('serviceGrid');
     
     if (!currentClient) {
         // Show only clients
@@ -274,10 +275,12 @@ function updateSectionsVisibility() {
         clientSection.style.display = 'none';
         serviceSection.style.display = 'block';
         materialSection.style.display = 'none';
+        if (serviceGrid) serviceGrid.style.display = 'grid';
     } else {
-        // Service added, show ONLY materials (hide services)
+        // Service added, keep serviceSection visible but hide service grid, show materials
         clientSection.style.display = 'none';
-        serviceSection.style.display = 'none';
+        serviceSection.style.display = 'block'; // Keep visible for history
+        if (serviceGrid) serviceGrid.style.display = 'none'; // Hide service buttons
         materialSection.style.display = 'block';
     }
 }
