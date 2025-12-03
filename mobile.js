@@ -838,12 +838,7 @@ function renderVisitHistory() {
     const historyContainer = document.getElementById('visitHistory');
     const historyItems = document.getElementById('historyItems');
     
-    console.log('renderVisitHistory called');
-    console.log('currentClient:', currentClient);
-    console.log('visits:', currentClient?.visits);
-    
     if (!currentClient || !currentClient.visits || currentClient.visits.length === 0) {
-        console.log('No visits to display');
         historyContainer.style.display = 'none';
         return;
     }
@@ -859,9 +854,12 @@ function renderVisitHistory() {
         let materialsHTML = '';
         visit.services.forEach(service => {
             if (service.materials && service.materials.length > 0) {
-                const materials = service.materials.map(m => 
-                    `${m.productName || m.product_name} (${m.quantity}${m.unit})`
-                ).join(', ');
+                const materials = service.materials.map(m => {
+                    const name = m.productName || m.product_name || 'Neznámý produkt';
+                    const qty = m.quantity || 0;
+                    const unit = m.unit || '';
+                    return `${name} (${qty}${unit})`;
+                }).join(', ');
                 materialsHTML += `<div class="history-materials">🧴 ${materials}</div>`;
             }
         });
