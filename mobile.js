@@ -838,7 +838,12 @@ function renderVisitHistory() {
     const historyContainer = document.getElementById('visitHistory');
     const historyItems = document.getElementById('historyItems');
     
+    console.log('renderVisitHistory called');
+    console.log('currentClient:', currentClient);
+    console.log('visits:', currentClient?.visits);
+    
     if (!currentClient || !currentClient.visits || currentClient.visits.length === 0) {
+        console.log('No visits to display');
         historyContainer.style.display = 'none';
         return;
     }
