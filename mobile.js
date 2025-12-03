@@ -169,13 +169,22 @@ function renderMaterials() {
     grid.innerHTML = products.map(product => `
         <button class="material-btn" onclick="selectMaterial(${product.id})">
             <div class="material-name">${product.name}</div>
-            <div class="material-stock">${product.quantity} ${product.unit}</div>
+            <div class="material-stock">Skladem: ${product.stock || 0} ${product.unit || ''}</div>
         </button>
     `).join('');
 }
 
 function renderCart() {
     const container = document.getElementById('cartItems');
+    const badge = document.getElementById('cartBadge');
+    
+    // Update badge - only show if there are services
+    if (cart.length > 0) {
+        badge.textContent = cart.length;
+        badge.style.display = 'inline-flex';
+    } else {
+        badge.style.display = 'none';
+    }
     
     if (cart.length === 0) {
         container.innerHTML = '<div class="empty-cart">🛒<br>Prázdný košík<br><small>Přidejte službu</small></div>';
@@ -191,9 +200,9 @@ function renderCart() {
             ${service.materials.length > 0 ? `
                 <div class="cart-materials">
                     ${service.materials.map((material, materialIndex) => `
-                        <div class="cart-material">
+                        <div class="cart-material" onclick="editMaterial(${serviceIndex}, ${materialIndex})" style="cursor: pointer;">
                             <span>${material.name} (${material.quantity} ${material.unit})</span>
-                            <button class="btn-remove-material" onclick="removeMaterial(${serviceIndex}, ${materialIndex})">×</button>
+                            <button class="btn-remove-material" onclick="event.stopPropagation(); removeMaterial(${serviceIndex}, ${materialIndex})">×</button>
                         </div>
                     `).join('')}
                 </div>
@@ -270,6 +279,29 @@ async function selectService(serviceId) {
     }, 100);
 }
 
+// Edit material quantity
+function editMaterial(serviceIndex, materialIndex) {
+    const material = cart[serviceIndex].materials[materialIndex];
+    const product = products.find(p => p.id === material.productId);
+    if (!product) return;
+    
+    // Open quantity modal with current values
+    document.getElementById('productNameModal').textContent = material.name;
+    document.getElementById('stockInfo').textContent = `Skladem: ${product.stock || 0} ${product.unit || ''}`;
+    document.getElementById('quantityInput').value = material.quantity;
+    document.getElementById('quantityModal').style.display = 'flex';
+    
+    // Set active unit
+    document.querySelectorAll('.unit-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.unit === material.unit);
+    });
+    
+    // Store edit mode
+    window.editMode = { serviceIndex, materialIndex };
+    window.currentProduct = product;
+    window.currentServiceIndex = serviceIndex;
+}
+
 // Material selection
 async function selectMaterial(productId) {
     if (!currentClient) {
@@ -287,8 +319,12 @@ async function selectMaterial(productId) {
     
     // Open quantity modal
     document.getElementById('productNameModal').textContent = product.name;
+    document.getElementById('stockInfo').textContent = `Skladem: ${product.stock || 0} ${product.unit || ''}`;
     document.getElementById('quantityInput').value = 1;
     document.getElementById('quantityModal').style.display = 'flex';
+    
+    // Clear edit mode
+    window.editMode = null;
     
     // Store current product
     window.currentProduct = product;
@@ -343,6 +379,18 @@ async function saveVisit() {
         await showAlert('Přidejte alespoň jednu službu', 'Upozornění', '⚠️');
         return;
     }
+    
+    // Show confirmation with summary
+    const summary = cart.map((s, i) => 
+        `${i + 1}. ${s.serviceName}${s.materials.length > 0 ? `\n   Materiály: ${s.materials.map(m => `${m.name} (${m.quantity}${m.unit})`).join(', ')}` : ''}`
+    ).join('\n\n');
+    
+    const confirmed = await showConfirm(
+        `Uložit návštěvu pro ${currentClient.name}?\n\n${summary}`,
+        'Potvrzení uložení'
+    );
+    
+    if (!confirmed) return;
 
     try {
         const visitData = {
@@ -419,14 +467,20 @@ function initEventListeners() {
         const serviceIndex = window.currentServiceIndex;
         const selectedUnit = document.querySelector('.unit-btn.active').dataset.unit;
         
-        if (product && cart[serviceIndex]) {
+        if (window.editMode) {
+            // Edit existing material
+            const { serviceIndex: sIdx, materialIndex: mIdx } = window.editMode;
+            cart[sIdx].materials[mIdx].quantity = quantity;
+            cart[sIdx].materials[mIdx].unit = selectedUnit;
+            window.editMode = null;
+        } else if (product && cart[serviceIndex]) {
+            // Add new material
             cart[serviceIndex].materials.push({
                 productId: product.id,
                 name: product.name,
                 quantity: quantity,
                 unit: selectedUnit
             });
-            renderCart();
             
             // Scroll to the service with new material
             setTimeout(() => {
@@ -438,6 +492,7 @@ function initEventListeners() {
             }, 100);
         }
         
+        renderCart();
         modal.style.display = 'none';
     });
     
@@ -446,6 +501,13 @@ function initEventListeners() {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.unit-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
+        });
+    });
+    
+    // Quick quantity buttons
+    document.querySelectorAll('.btn-quick-qty').forEach(btn => {
+        btn.addEventListener('click', () => {
+            quantityInput.value = btn.dataset.qty;
         });
     });
     
