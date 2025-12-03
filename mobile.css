@@ -446,33 +446,33 @@ body {
 
 /* Visit History */
 .visit-history {
+    background: var(--bg-light);
+    border-radius: 12px;
     padding: 1rem;
-    margin-bottom: 1rem;
-    border-bottom: 2px solid var(--border-color);
+    margin-bottom: 1.5rem;
+    border: 2px solid var(--border-color);
 }
 
 .history-header {
-    margin-bottom: 0.75rem;
+    margin-bottom: 1rem;
 }
 
 .history-header h4 {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    color: var(--text-primary);
 }
 
 .history-items {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.75rem;
 }
 
 .history-item {
-    background: var(--bg-light);
+    background: var(--bg-medium);
     border-radius: 8px;
-    padding: 0.6rem;
+    padding: 0.75rem;
     border: 1px solid var(--border-color);
     transition: all 0.2s;
 }
@@ -482,44 +482,44 @@ body {
 }
 
 .history-date {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--text-secondary);
-    margin-bottom: 0.4rem;
+    margin-bottom: 0.5rem;
     font-weight: 600;
 }
 
 .history-services {
-    font-size: 13px;
+    font-size: 14px;
     color: var(--text-primary);
-    margin-bottom: 0.3rem;
+    margin-bottom: 0.5rem;
     font-weight: 500;
 }
 
 .history-materials {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--text-secondary);
-    margin-left: 0.5rem;
-    margin-top: 0.2rem;
-    line-height: 1.4;
+    margin-left: 1rem;
+    margin-top: 0.25rem;
+    line-height: 1.5;
 }
 
 .btn-repeat-visit {
     background: var(--primary-color);
     color: white;
     border: none;
-    padding: 5px 10px;
-    border-radius: 5px;
-    font-size: 11px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
     font-weight: 600;
     cursor: pointer;
-    margin-top: 0.5rem;
+    margin-top: 0.75rem;
     transition: all 0.2s;
     width: 100%;
 }
 
 .btn-repeat-visit:hover {
     background: var(--primary-hover);
-    transform: scale(1.02);
+    transform: translateY(-1px);
 }
 
 /* Service Grid */

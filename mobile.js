@@ -848,14 +848,14 @@ function renderVisitHistory() {
     
     historyItems.innerHTML = recentVisits.map((visit, index) => {
         const date = new Date(visit.date).toLocaleDateString('cs-CZ');
-        const servicesText = visit.services.map(s => s.serviceName || s.service_name).join(', ');
+        const servicesText = visit.services.map(s => s.name || s.serviceName || s.service_name).join(', ');
         
         // Get materials from all services
         let materialsHTML = '';
         visit.services.forEach(service => {
             if (service.materials && service.materials.length > 0) {
                 const materials = service.materials.map(m => {
-                    const name = m.productName || m.product_name || 'Neznámý produkt';
+                    const name = m.name || m.productName || m.product_name || 'Neznámý produkt';
                     const qty = m.quantity || 0;
                     const unit = m.unit || '';
                     return `${name} (${qty}${unit})`;
@@ -889,7 +889,7 @@ async function repeatVisit(visitIndex) {
     
     // Add services with materials from the visit
     visit.services.forEach(service => {
-        const serviceName = service.serviceName || service.service_name;
+        const serviceName = service.name || service.serviceName || service.service_name;
         
         // Find service in services list
         const serviceData = services.find(s => s.name === serviceName);
@@ -904,7 +904,7 @@ async function repeatVisit(visitIndex) {
         // Add materials
         if (service.materials && service.materials.length > 0) {
             service.materials.forEach(material => {
-                const productName = material.productName || material.product_name;
+                const productName = material.name || material.productName || material.product_name;
                 const product = products.find(p => p.name === productName);
                 
                 if (product) {
