@@ -166,12 +166,26 @@ function renderMaterials() {
         grid.innerHTML = '<p style="text-align: center; color: #888;">Žádné produkty</p>';
         return;
     }
-    grid.innerHTML = products.map(product => `
-        <button class="material-btn" onclick="selectMaterial(${product.id})">
-            <div class="material-name">${product.name}</div>
-            <div class="material-stock">Skladem: ${product.stock || 0} ${product.unit || ''}</div>
-        </button>
-    `).join('');
+    grid.innerHTML = products.map(product => {
+        const stock = Math.floor(product.stock || 0);
+        const unit = product.unit || '';
+        const packageSize = product.packageSize || 1;
+        
+        let stockHTML = `${stock} ${unit}`;
+        
+        // Pokud je jednotka ml nebo g, přidej přepočet na kusy pod to
+        if ((unit === 'ml' || unit === 'g') && packageSize > 0) {
+            const pieces = Math.floor(stock / packageSize);
+            stockHTML = `${stock} ${unit}<br><small>(${pieces} ks)</small>`;
+        }
+        
+        return `
+            <button class="material-btn" onclick="selectMaterial(${product.id})">
+                <div class="material-name">${product.name}</div>
+                <div class="material-stock">${stockHTML}</div>
+            </button>
+        `;
+    }).join('');
 }
 
 function renderCart() {
@@ -285,9 +299,20 @@ function editMaterial(serviceIndex, materialIndex) {
     const product = products.find(p => p.id === material.productId);
     if (!product) return;
     
+    // Calculate stock display
+    const stock = Math.floor(product.stock || 0);
+    const unit = product.unit || '';
+    const packageSize = product.packageSize || 1;
+    let stockDisplay = `${stock} ${unit}`;
+    
+    if ((unit === 'ml' || unit === 'g') && packageSize > 0) {
+        const pieces = Math.floor(stock / packageSize);
+        stockDisplay = `${stock} ${unit} (${pieces} ks)`;
+    }
+    
     // Open quantity modal with current values
     document.getElementById('productNameModal').textContent = material.name;
-    document.getElementById('stockInfo').textContent = `Skladem: ${product.stock || 0} ${product.unit || ''}`;
+    document.getElementById('stockInfo').textContent = `Skladem: ${stockDisplay}`;
     document.getElementById('quantityInput').value = material.quantity;
     document.getElementById('quantityModal').style.display = 'flex';
     
@@ -317,9 +342,20 @@ async function selectMaterial(productId) {
     const product = products.find(p => p.id === productId);
     if (!product) return;
     
+    // Calculate stock display
+    const stock = Math.floor(product.stock || 0);
+    const unit = product.unit || '';
+    const packageSize = product.packageSize || 1;
+    let stockDisplay = `${stock} ${unit}`;
+    
+    if ((unit === 'ml' || unit === 'g') && packageSize > 0) {
+        const pieces = Math.floor(stock / packageSize);
+        stockDisplay = `${stock} ${unit} (${pieces} ks)`;
+    }
+    
     // Open quantity modal
     document.getElementById('productNameModal').textContent = product.name;
-    document.getElementById('stockInfo').textContent = `Skladem: ${product.stock || 0} ${product.unit || ''}`;
+    document.getElementById('stockInfo').textContent = `Skladem: ${stockDisplay}`;
     document.getElementById('quantityInput').value = 1;
     document.getElementById('quantityModal').style.display = 'flex';
     
