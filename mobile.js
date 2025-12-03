@@ -104,7 +104,8 @@ async function loadClients() {
         clients = data.map(c => ({
             id: c.id,
             name: `${c.firstName} ${c.lastName}`,
-            phone: c.phone
+            phone: c.phone,
+            visits: c.visits || []
         }));
         
         renderClients();
