@@ -835,11 +835,18 @@ async function syncOfflineData() {
 
 // Render Visit History
 function renderVisitHistory() {
+    console.log('=== renderVisitHistory START ===');
     const historyContainer = document.getElementById('visitHistory');
     const historyItems = document.getElementById('historyItems');
     
+    console.log('historyContainer:', historyContainer);
+    console.log('currentClient:', currentClient);
+    console.log('visits:', currentClient?.visits);
+    console.log('visits length:', currentClient?.visits?.length);
+    
     if (!currentClient || !currentClient.visits || currentClient.visits.length === 0) {
-        historyContainer.style.display = 'none';
+        console.log('No visits - hiding container');
+        if (historyContainer) historyContainer.style.display = 'none';
         return;
     }
     
@@ -874,7 +881,10 @@ function renderVisitHistory() {
         `;
     }).join('');
     
+    console.log('Setting HTML:', historyItems.innerHTML.substring(0, 100));
+    console.log('Showing container');
     historyContainer.style.display = 'block';
+    console.log('=== renderVisitHistory END ===');
 }
 
 // Repeat Visit
