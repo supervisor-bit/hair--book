@@ -438,10 +438,9 @@ async function removeMaterial(serviceIndex, materialIndex) {
 
 // Back to services (keep client and cart, just show services again)
 function backToServices() {
-    const serviceSection = document.getElementById('serviceSection');
-    const materialSection = document.getElementById('materialSection');
-    serviceSection.style.display = 'block';
-    materialSection.style.display = 'none';
+    currentServiceForMaterial = null;
+    updateSectionsVisibility();
+    renderVisitHistory();
 }
 
 // Clear cart
@@ -847,8 +846,8 @@ function renderVisitHistory() {
         return;
     }
     
-    // Show only last 3 visits
-    const recentVisits = currentClient.visits.slice(0, 3);
+    // Show all visits
+    const recentVisits = currentClient.visits;
     
     historyItems.innerHTML = recentVisits.map((visit, index) => {
         const date = new Date(visit.date).toLocaleDateString('cs-CZ');
