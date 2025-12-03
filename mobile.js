@@ -862,27 +862,35 @@ function renderVisitHistory() {
     
     historyItems.innerHTML = recentVisits.map((visit, index) => {
         const date = new Date(visit.date).toLocaleDateString('cs-CZ');
-        const servicesText = visit.services.map(s => s.name || s.serviceName || s.service_name).join(', ');
         
-        // Get materials from all services
-        let materialsHTML = '';
+        // Generate hierarchical services with materials
+        let servicesHTML = '';
         visit.services.forEach(service => {
+            const serviceName = service.name || service.serviceName || service.service_name;
+            
+            let materialsHTML = '';
             if (service.materials && service.materials.length > 0) {
-                const materials = service.materials.map(m => {
+                const materialsList = service.materials.map(m => {
                     const name = m.name || m.productName || m.product_name || 'Neznámý produkt';
                     const qty = m.quantity || 0;
                     const unit = m.unit || '';
-                    return `${name} (${qty}${unit})`;
-                }).join(', ');
-                materialsHTML += `<div class="history-materials">🧴 ${materials}</div>`;
+                    return `<div class="history-material-item">• ${name} (${qty}${unit})</div>`;
+                }).join('');
+                materialsHTML = `<div class="history-materials">${materialsList}</div>`;
             }
+            
+            servicesHTML += `
+                <div class="history-service-group">
+                    <div class="history-service-name">✂️ ${serviceName}</div>
+                    ${materialsHTML}
+                </div>
+            `;
         });
         
         return `
             <div class="history-item">
                 <div class="history-date">${date}</div>
-                <div class="history-services">✂️ ${servicesText}</div>
-                ${materialsHTML}
+                ${servicesHTML}
                 <button class="btn-repeat-visit" onclick="repeatVisit(${index})">🔄 Opakovat</button>
             </div>
         `;
