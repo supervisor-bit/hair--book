@@ -62,6 +62,9 @@ let cart = []; // [{serviceId, serviceName, materials: [{productId, name, quanti
 let clients = [];
 let services = [];
 let products = [];
+let categories = [];
+let currentCategoryFilter = '';
+let isOffline = false;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
@@ -75,8 +78,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadClients();
     loadServices();
     loadProducts();
+    loadCategories();
     initEventListeners();
     updateSectionsVisibility();
+    initOfflineMode();
+    restoreCartFromStorage();
 });
 
 // Check authentication
@@ -166,10 +172,31 @@ function renderMaterials() {
         grid.innerHTML = '<p style="text-align: center; color: #888;">Žádné produkty</p>';
         return;
     }
-    grid.innerHTML = products.map(product => {
+    
+    // Filter by category if selected
+    let filteredProducts = products;
+    if (currentCategoryFilter) {
+        filteredProducts = products.filter(p => p.categoryId == currentCategoryFilter);
+    }
+    
+    // Filter by search
+    const searchInput = document.getElementById('materialSearch');
+    if (searchInput && searchInput.value) {
+        const search = searchInput.value.toLowerCase();
+        filteredProducts = filteredProducts.filter(p => p.name.toLowerCase().includes(search));
+    }
+    
+    if (filteredProducts.length === 0) {
+        grid.innerHTML = '<p style="text-align: center; color: #888;">Žádné produkty v této kategorii</p>';
+        return;
+    }
+    
+    grid.innerHTML = filteredProducts.map(product => {
         const stock = Math.floor(product.stock || 0);
         const unit = product.unit || '';
         const packageSize = product.packageSize || 1;
+        const minStock = product.minStock || 0;
+        const isLowStock = stock < minStock && minStock > 0;
         
         let stockHTML = `${stock} ${unit}`;
         
@@ -179,8 +206,13 @@ function renderMaterials() {
             stockHTML = `${stock} ${unit}<br><small>(${pieces} ks)</small>`;
         }
         
+        // Add low stock warning
+        if (isLowStock) {
+            stockHTML += '<br><span class="low-stock-warning">⚠️ Nízký sklad</span>';
+        }
+        
         return `
-            <button class="material-btn" onclick="selectMaterial(${product.id})">
+            <button class="material-btn ${isLowStock ? 'low-stock' : ''}" onclick="selectMaterial(${product.id})">
                 <div class="material-name">${product.name}</div>
                 <div class="material-stock">${stockHTML}</div>
             </button>
@@ -260,6 +292,7 @@ async function selectClient(clientId) {
     document.getElementById('clientName').textContent = currentClient?.name || 'Vyberte klienta';
     renderClients();
     updateSectionsVisibility();
+    saveCartToStorage();
 }
 
 // Service selection
@@ -291,6 +324,8 @@ async function selectService(serviceId) {
             lastService.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
     }, 100);
+    
+    saveCartToStorage();
 }
 
 // Edit material quantity
@@ -346,6 +381,9 @@ async function selectMaterial(productId) {
     const stock = Math.floor(product.stock || 0);
     const unit = product.unit || '';
     const packageSize = product.packageSize || 1;
+    const minStock = product.minStock || 0;
+    const isLowStock = stock < minStock && minStock > 0;
+    
     let stockDisplay = `${stock} ${unit}`;
     
     if ((unit === 'ml' || unit === 'g') && packageSize > 0) {
@@ -353,9 +391,14 @@ async function selectMaterial(productId) {
         stockDisplay = `${stock} ${unit} (${pieces} ks)`;
     }
     
+    if (isLowStock) {
+        stockDisplay += ' ⚠️ NÍZKÝ SKLAD';
+    }
+    
     // Open quantity modal
     document.getElementById('productNameModal').textContent = product.name;
     document.getElementById('stockInfo').textContent = `Skladem: ${stockDisplay}`;
+    document.getElementById('stockInfo').style.color = isLowStock ? '#fbbf24' : '#888';
     document.getElementById('quantityInput').value = 1;
     document.getElementById('quantityModal').style.display = 'flex';
     
@@ -374,6 +417,7 @@ async function removeService(serviceIndex) {
         cart.splice(serviceIndex, 1);
         renderCart();
         updateSectionsVisibility();
+        saveCartToStorage();
     }
 }
 
@@ -382,6 +426,7 @@ async function removeMaterial(serviceIndex, materialIndex) {
     if (confirmed) {
         cart[serviceIndex].materials.splice(materialIndex, 1);
         renderCart();
+        saveCartToStorage();
     }
 }
 
@@ -402,6 +447,7 @@ function clearCart() {
     renderCart();
     renderClients();
     updateSectionsVisibility();
+    clearCartStorage();
 }
 
 // Save visit
@@ -446,23 +492,49 @@ async function saveVisit() {
             }))
         };
 
-        const response = await fetch('api/visits.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(visitData)
-        });
+        // Try to save online first
+        if (!isOffline) {
+            const response = await fetch('api/visits.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(visitData)
+            });
 
-        if (response.ok) {
-            await showAlert('Návštěva byla úspěšně uložena', 'Úspěch', '✅');
-            clearCart();
+            if (response.ok) {
+                await showAlert('Návštěva byla úspěšně uložena', 'Úspěch', '✅');
+                clearCart();
+                clearCartStorage();
+                return;
+            } else {
+                const responseText = await response.text();
+                await showAlert('Chyba při ukládání návštěvy: ' + responseText, 'Chyba', '❌');
+                return;
+            }
         } else {
-            const responseText = await response.text();
-            await showAlert('Chyba při ukládání návštěvy: ' + responseText, 'Chyba', '❌');
+            // Save offline for later sync
+            const pendingVisits = JSON.parse(localStorage.getItem('hairbook_pending_visits') || '[]');
+            pendingVisits.push(visitData);
+            localStorage.setItem('hairbook_pending_visits', JSON.stringify(pendingVisits));
+            
+            await showAlert('Návštěva uložena offline. Bude synchronizována po obnovení připojení.', 'Offline režim', '📵');
+            clearCart();
+            clearCartStorage();
         }
     } catch (error) {
-        await showAlert('Chyba: ' + error.message, 'Chyba', '❌');
+        // If network error, try to save offline
+        if (!navigator.onLine) {
+            const pendingVisits = JSON.parse(localStorage.getItem('hairbook_pending_visits') || '[]');
+            pendingVisits.push(visitData);
+            localStorage.setItem('hairbook_pending_visits', JSON.stringify(pendingVisits));
+            
+            await showAlert('Návštěva uložena offline. Bude synchronizována po obnovení připojení.', 'Offline režim', '📵');
+            clearCart();
+            clearCartStorage();
+        } else {
+            await showAlert('Chyba: ' + error.message, 'Chyba', '❌');
+        }
     }
 }
 
@@ -529,6 +601,7 @@ function initEventListeners() {
         }
         
         renderCart();
+        saveCartToStorage();
         modal.style.display = 'none';
     });
     
@@ -570,18 +643,190 @@ function initEventListeners() {
     });
     
     const materialSearch = document.getElementById('materialSearch');
-    materialSearch.addEventListener('input', (e) => {
-        const search = e.target.value.toLowerCase();
-        const filtered = products.filter(p => 
-            p.name.toLowerCase().includes(search)
-        );
-        
-        const grid = document.getElementById('materialGrid');
-        grid.innerHTML = filtered.map(product => `
-            <button class="material-btn" onclick="selectMaterial(${product.id})">
-                <div class="material-name">${product.name}</div>
-                <div class="material-stock">${product.quantity} ${product.unit}</div>
-            </button>
-        `).join('');
+    materialSearch.addEventListener('input', () => {
+        renderMaterials();
     });
+}
+
+// ============ NEW FEATURES ============
+
+// Load Categories
+async function loadCategories() {
+    try {
+        const response = await fetch('api/categories.php');
+        const data = await response.json();
+        if (data.success) {
+            categories = data.categories || [];
+            renderCategoryFilter();
+        }
+    } catch (error) {
+        console.error('Error loading categories:', error);
+    }
+}
+
+// Render Category Filter
+function renderCategoryFilter() {
+    const filterEl = document.getElementById('categoryFilter');
+    if (!filterEl) return;
+    
+    filterEl.innerHTML = '<option value="">Všechny kategorie</option>' + 
+        categories.map(cat => `<option value="${cat.id}">${cat.icon || '📦'} ${cat.name}</option>`).join('');
+}
+
+// Filter Materials by Category
+function filterMaterialsByCategory() {
+    const filterEl = document.getElementById('categoryFilter');
+    currentCategoryFilter = filterEl.value;
+    renderMaterials();
+}
+
+// Show New Client Modal
+function showNewClientModal() {
+    const modal = document.getElementById('newClientModal');
+    document.getElementById('newClientFirstName').value = '';
+    document.getElementById('newClientLastName').value = '';
+    document.getElementById('newClientPhone').value = '';
+    modal.style.display = 'flex';
+    document.getElementById('newClientFirstName').focus();
+}
+
+// Close New Client Modal
+function closeNewClientModal() {
+    document.getElementById('newClientModal').style.display = 'none';
+}
+
+// Create New Client
+async function createNewClient() {
+    const firstName = document.getElementById('newClientFirstName').value.trim();
+    const lastName = document.getElementById('newClientLastName').value.trim();
+    const phone = document.getElementById('newClientPhone').value.trim();
+    
+    if (!firstName || !lastName) {
+        await showAlert('Vyplňte prosím jméno a příjmení', 'Chyba', '⚠️');
+        return;
+    }
+    
+    try {
+        const response = await fetch('api/clients.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                firstName,
+                lastName,
+                phone: phone || null
+            })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            closeNewClientModal();
+            await showAlert('Klient byl úspěšně vytvořen', 'Úspěch', '✅');
+            await loadClients();
+            // Auto-select new client
+            if (data.clientId) {
+                selectClient(data.clientId);
+            }
+        } else {
+            await showAlert(data.error || 'Nepodařilo se vytvořit klienta', 'Chyba', '❌');
+        }
+    } catch (error) {
+        console.error('Error creating client:', error);
+        await showAlert('Chyba při vytváření klienta', 'Chyba', '❌');
+    }
+}
+
+// Initialize Offline Mode
+function initOfflineMode() {
+    const indicator = document.getElementById('offlineIndicator');
+    
+    window.addEventListener('online', () => {
+        isOffline = false;
+        indicator.classList.remove('show');
+        syncOfflineData();
+    });
+    
+    window.addEventListener('offline', () => {
+        isOffline = true;
+        indicator.classList.add('show');
+    });
+    
+    // Check initial status
+    if (!navigator.onLine) {
+        isOffline = true;
+        indicator.classList.add('show');
+    }
+}
+
+// Restore Cart from LocalStorage
+function restoreCartFromStorage() {
+    try {
+        const savedCart = localStorage.getItem('hairbook_mobile_cart');
+        const savedClient = localStorage.getItem('hairbook_mobile_client');
+        
+        if (savedCart) {
+            cart = JSON.parse(savedCart);
+            renderCart();
+        }
+        
+        if (savedClient) {
+            const client = JSON.parse(savedClient);
+            currentClient = client;
+            document.getElementById('clientName').textContent = client.name;
+            updateSectionsVisibility();
+        }
+    } catch (error) {
+        console.error('Error restoring cart:', error);
+    }
+}
+
+// Save Cart to LocalStorage
+function saveCartToStorage() {
+    try {
+        localStorage.setItem('hairbook_mobile_cart', JSON.stringify(cart));
+        if (currentClient) {
+            localStorage.setItem('hairbook_mobile_client', JSON.stringify(currentClient));
+        }
+    } catch (error) {
+        console.error('Error saving cart:', error);
+    }
+}
+
+// Clear Cart Storage
+function clearCartStorage() {
+    localStorage.removeItem('hairbook_mobile_cart');
+    localStorage.removeItem('hairbook_mobile_client');
+}
+
+// Sync Offline Data
+async function syncOfflineData() {
+    const pendingVisits = JSON.parse(localStorage.getItem('hairbook_pending_visits') || '[]');
+    
+    if (pendingVisits.length === 0) return;
+    
+    for (const visit of pendingVisits) {
+        try {
+            const response = await fetch('api/visits.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(visit)
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                // Remove from pending
+                const index = pendingVisits.indexOf(visit);
+                if (index > -1) {
+                    pendingVisits.splice(index, 1);
+                }
+            }
+        } catch (error) {
+            console.error('Error syncing visit:', error);
+        }
+    }
+    
+    localStorage.setItem('hairbook_pending_visits', JSON.stringify(pendingVisits));
+    
+    if (pendingVisits.length === 0) {
+        await showAlert('Všechna offline data byla synchronizována', 'Synchronizace', '✅');
+    }
 }

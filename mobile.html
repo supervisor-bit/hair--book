@@ -27,6 +27,9 @@
         </div>
     </header>
 
+    <!-- Offline Indicator -->
+    <div class="offline-indicator" id="offlineIndicator">📵 Offline režim</div>
+
     <!-- Main Content -->
     <div class="mobile-container">
         <!-- Left Panel - Cart -->
@@ -45,7 +48,10 @@
             <div class="section" id="clientSection">
                 <div class="section-header">
                     <h3>👥 Klienti</h3>
-                    <input type="search" id="clientSearch" placeholder="🔍 Hledat klienta..." class="search-input">
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn-new-client" onclick="showNewClientModal()">✚ Nový klient</button>
+                        <input type="search" id="clientSearch" placeholder="🔍 Hledat klienta..." class="search-input">
+                    </div>
                 </div>
                 <div class="client-grid" id="clientGrid"></div>
             </div>
@@ -66,7 +72,12 @@
                         <h3>🧴 Materiály</h3>
                         <button class="btn-done" onclick="backToServices()">✓ Hotovo s materiály</button>
                     </div>
-                    <input type="search" id="materialSearch" placeholder="🔍 Hledat produkt..." class="search-input">
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <select id="categoryFilter" class="category-filter" onchange="filterMaterialsByCategory()">
+                            <option value="">Všechny kategorie</option>
+                        </select>
+                        <input type="search" id="materialSearch" placeholder="🔍 Hledat produkt..." class="search-input">
+                    </div>
                 </div>
                 <div class="material-grid" id="materialGrid"></div>
             </div>
@@ -123,6 +134,22 @@
             <div class="modal-actions">
                 <button class="btn-cancel" id="confirmNo">Ne</button>
                 <button class="btn-confirm" id="confirmYes">Ano</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Client Modal -->
+    <div class="modal" id="newClientModal">
+        <div class="modal-content">
+            <h3>✚ Nový klient</h3>
+            <div style="display: flex; flex-direction: column; gap: 15px; margin: 20px 0;">
+                <input type="text" id="newClientFirstName" placeholder="Jméno *" class="form-input" required>
+                <input type="text" id="newClientLastName" placeholder="Příjmení *" class="form-input" required>
+                <input type="tel" id="newClientPhone" placeholder="Telefon" class="form-input">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeNewClientModal()">Zrušit</button>
+                <button class="btn-confirm" onclick="createNewClient()">Vytvořit</button>
             </div>
         </div>
     </div>
