@@ -263,25 +263,26 @@ function updateSectionsVisibility() {
     const clientSection = document.getElementById('clientSection');
     const serviceSection = document.getElementById('serviceSection');
     const materialSection = document.getElementById('materialSection');
-    const serviceGrid = document.getElementById('serviceGrid');
+    const historyColumn = document.getElementById('historyColumn');
     
     if (!currentClient) {
         // Show only clients
         clientSection.style.display = 'block';
         serviceSection.style.display = 'none';
         materialSection.style.display = 'none';
+        if (historyColumn) historyColumn.style.display = 'none';
     } else if (cart.length === 0) {
-        // Client selected, show services
+        // Client selected, show services + history in 2 columns
         clientSection.style.display = 'none';
         serviceSection.style.display = 'block';
         materialSection.style.display = 'none';
-        if (serviceGrid) serviceGrid.style.display = 'grid';
+        if (historyColumn) historyColumn.style.display = 'block';
     } else {
-        // Service added, keep serviceSection visible but hide service grid, show materials
+        // Service added, show materials (hide services and history)
         clientSection.style.display = 'none';
-        serviceSection.style.display = 'block'; // Keep visible for history
-        if (serviceGrid) serviceGrid.style.display = 'none'; // Hide service buttons
+        serviceSection.style.display = 'none';
         materialSection.style.display = 'block';
+        if (historyColumn) historyColumn.style.display = 'none';
     }
 }
 
