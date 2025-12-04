@@ -1332,14 +1332,58 @@ function downloadProductImportTemplate() {
         showNotification('Knihovna pro Excel není načtena.', 'error');
         return;
     }
-    const aoa = [
-        ['name','barcode','category','unit','packageSize','stock','minStock','purchasePrice','salePrice','vatRate','forSale','forWork'],
-        ['Šampon Loreal 500 ml','859xxxxxxx','Kategorie','ml',500,10,2,150,299,21,1,1]
+    
+    // List 1: Kategorie
+    const categoriesData = [
+        ['Název kategorie', 'Popis'],
+        ['Barvy', 'Barvící přípravky, oxidanty, tónování'],
+        ['Šampóny', 'Mycí přípravky pro vlasy'],
+        ['Kondicionéry', 'Péče po mytí'],
+        ['Masky', 'Intenzivní péče'],
+        ['Styling', 'Laky, pěny, gely, vosky'],
+        ['Ošetření', 'Séra, oleje, ampule'],
+        ['Trvalá ondulace', 'Přípravky na trvalou'],
+        ['Nářadí', 'Nůžky, hřebeny, kartáče'],
+        ['Spotřební materiál', 'Fólie, mističky, štětce']
     ];
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    
+    // List 2: Produkty
+    const productsData = [
+        ['name','barcode','category','unit','packageSize','stock','minStock','purchasePrice','salePrice','vatRate','forSale','forWork'],
+        ['PŘÍKLAD: Blond Studio Multi-Techniques Powder','3474637026943','Barvy','g',500,0,1,450,0,21,0,1],
+        ['PŘÍKLAD: Šampon Serie Expert Absolut Repair','3474636977130','Šampóny','ml',300,0,2,180,350,21,1,1],
+        ['PŘÍKLAD: Oxidant Oxydant Creme 20 vol 6%','3474630610770','Barvy','ml',1000,0,1,85,0,21,0,1],
+        ['','','','','','','','','','','','']
+    ];
+    
+    const wsCategories = XLSX.utils.aoa_to_sheet(categoriesData);
+    const wsProducts = XLSX.utils.aoa_to_sheet(productsData);
+    
+    // Nastavit šířky sloupců pro lepší čitelnost
+    wsCategories['!cols'] = [
+        { wch: 25 },
+        { wch: 50 }
+    ];
+    
+    wsProducts['!cols'] = [
+        { wch: 40 },  // name
+        { wch: 15 },  // barcode
+        { wch: 20 },  // category
+        { wch: 8 },   // unit
+        { wch: 12 },  // packageSize
+        { wch: 10 },  // stock
+        { wch: 10 },  // minStock
+        { wch: 12 },  // purchasePrice
+        { wch: 12 },  // salePrice
+        { wch: 8 },   // vatRate
+        { wch: 8 },   // forSale
+        { wch: 8 }    // forWork
+    ];
+    
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Import');
-    XLSX.writeFile(wb, 'sablona-import-produkty.xlsx');
+    XLSX.utils.book_append_sheet(wb, wsCategories, '1-Kategorie');
+    XLSX.utils.book_append_sheet(wb, wsProducts, '2-Produkty');
+    XLSX.writeFile(wb, 'hairbook-import-sablona.xlsx');
 }
 async function findNextAvailableSlot() {
     const shift = calendarShiftFilter || 'all';
