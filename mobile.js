@@ -1330,5 +1330,7 @@ async function confirmRestock() {
     }
 }
 
+
+
 // Update restock quantity input
 document.getElementById('restockQuantity')?.addEventListener('input', updateRestockPreview);
