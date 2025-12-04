@@ -482,7 +482,7 @@ function calculatePieces(stock, unit, packageSize) {
     if (unit === 'ks') {
         return stock;
     }
-    return Math.floor(stock / packageSize);
+    return (stock / packageSize).toFixed(1);
 }
 
 // Funkce pro formátování zobrazení skladu
@@ -504,7 +504,7 @@ function formatStockDisplay(stockOrProduct, unit, packageSize) {
     if (unitStr === 'ks') {
         return `${pieces} ks`;
     }
-    return `${pieces} ks (${stock} ${unitStr})`;
+    return `${pieces} ks | ${Math.round(stock)} ${unitStr}`;
 }
 
 // Odhlášení
@@ -646,6 +646,13 @@ function initNavigation() {
             const targetPage = document.getElementById('page-' + pageName);
             if (targetPage) {
                 targetPage.classList.add('active');
+            }
+            
+            // Skrýt plovoucí okno a vymazat připravené materiály při opuštění stránky klientů
+            if (pageName !== 'clients') {
+                hidePreparedMaterialsPanel();
+                preparedMaterials = [];
+                renderPreparedMaterials();
             }
             
             // Inicializovat stránku dashboard
@@ -3799,7 +3806,9 @@ function renderMaterialCards() {
         }
         card.setAttribute('data-name', product.name.toLowerCase());
         card.innerHTML = `
-            <i class="fas ${categoryIcon}" style="color: ${categoryColor}"></i>
+            <div style="width: 40px; height: 40px; background: ${categoryColor}; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white; margin: 0 auto 0.5rem auto;">
+                <i class="fas ${categoryIcon}" style="font-size: 1.25rem;"></i>
+            </div>
             <h6>${product.name}</h6>
             <p>Sklad: ${formatStockDisplay(product)}</p>
         `;
@@ -3841,7 +3850,6 @@ function renderMaterialCards() {
                 </div>
             </td>
             <td><strong>${product.name}</strong></td>
-            <td>${product.brand || '-'}</td>
             <td>${formatStockDisplay(product)}</td>
             <td>${product.unit || 'ks'}</td>
 
@@ -4022,6 +4030,14 @@ window.removeFromPreparedMaterials = function(index) {
     renderPreparedMaterials();
 }
 
+// Skrýt plovoucí okno připravených materiálů
+function hidePreparedMaterialsPanel() {
+    const panel = document.getElementById('preparedMaterialsFloat');
+    if (panel) {
+        panel.style.display = 'none';
+    }
+}
+
 // Vymazat všechny připravené materiály
 window.clearPreparedMaterials = function() {
     if (preparedMaterials.length === 0) return;
@@ -4189,13 +4205,13 @@ function updateMaterialPreview() {
     
     // Stav po odečtu
     const afterStock = product.stock - baseQuantity;
-    const afterStockInPieces = afterStock / product.packageSize;
+    const afterStockInPieces = (afterStock / product.packageSize).toFixed(1);
     const afterColor = afterStock < 0 ? '#ef4444' : (afterStock < product.minStock ? '#f59e0b' : '#10b981');
-    document.getElementById('previewAfterStock').textContent = `${afterStockInPieces.toFixed(2)} ks`;
+    document.getElementById('previewAfterStock').textContent = `${afterStockInPieces} ks | ${Math.round(afterStock)} ${product.unit}`;
     document.getElementById('previewAfterStock').style.color = afterColor;
     
     if (afterStock < 0) {
-        document.getElementById('previewAfterStock').innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${afterStockInPieces.toFixed(2)} ks (nedostatek!)`;
+        document.getElementById('previewAfterStock').innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${afterStockInPieces} ks | ${Math.round(afterStock)} ${product.unit} (nedostatek!)`;
     }
 }
 
@@ -4816,7 +4832,7 @@ function generateWriteOffMaterialList() {
             if (!product) continue; // Přeskočit pokud produkt neexistuje
             
             const totalAmount = (visitProduct.quantity || 0) * (product.packageSize || 1);
-            html += `<div style="padding: 0.25rem 0 0.25rem 1rem; font-size: 0.875rem;">• ${product.name}: <strong>${visitProduct.quantity} ks</strong> (${totalAmount} ${product.unit || ''})</div>`;
+            html += `<div style="padding: 0.25rem 0 0.25rem 1rem; font-size: 0.875rem;">• ${product.name}: <strong>${visitProduct.quantity} ks | ${Math.round(totalAmount)} ${product.unit || ''}</strong></div>`;
         }
     }
     
@@ -5157,7 +5173,7 @@ function generateHistoricalWriteOffMaterialList(visit) {
         html += '<div style="font-weight: 600; margin: 1rem 0 0.5rem 0; color: var(--text-dark);"><i class="fas fa-shopping-bag"></i> Prodané produkty:</div>';
         for (const product of visit.products) {
             const totalAmount = product.quantity * product.packageSize;
-            html += `<div style="padding: 0.25rem 0 0.25rem 1rem; font-size: 0.875rem;">• ${product.name}: <strong>${product.quantity} ks</strong> (${totalAmount} ${product.unit})</div>`;
+            html += `<div style="padding: 0.25rem 0 0.25rem 1rem; font-size: 0.875rem;">• ${product.name}: <strong>${product.quantity} ks | ${Math.round(totalAmount)} ${product.unit}</strong></div>`;
         }
     }
     
@@ -5310,6 +5326,10 @@ function cancelNewVisit() {
     document.getElementById('page-clients').classList.add('active');
     
     currentVisit = { id: null, clientId: null, services: [], closed: false };
+    
+    // Vymazat připravené materiály
+    preparedMaterials = [];
+    renderPreparedMaterials();
 }
 
 // === PRODUKTY ===
@@ -5561,8 +5581,8 @@ async function showProductDetail(product, clickedElement = null, keepMovementsPa
                         const packageSize = product.packageSize || 1;
                         const packagesCount = (movement.unit === 'ks'
                             ? movement.quantity
-                            : movement.quantity / packageSize).toFixed(2);
-                        const packagesDisplay = packagesCount !== '1.00' ? `${packagesCount} ks` : '1 ks';
+                            : movement.quantity / packageSize).toFixed(1);
+                        const packagesDisplay = `${packagesCount} ks`;
                         
                         return `
                             <tr>
@@ -5570,7 +5590,7 @@ async function showProductDetail(product, clickedElement = null, keepMovementsPa
                                         <td><span class="movement-badge ${typeClass}">${typeLabel}</span></td>
                                         <td class="${typeClass}">
                                             <strong>${quantitySign}${packagesDisplay}</strong>
-                                            <span style="color: #9ca3af; font-size: 0.875rem; margin-left: 0.5rem;">(${movement.quantity} ${displayUnit})</span>
+                                            <span style="color: #9ca3af; font-size: 0.875rem; margin-left: 0.5rem;">(${Math.round(movement.quantity)} ${displayUnit})</span>
                                         </td>
                                         <td>${movement.note}</td>
                                     </tr>
@@ -8649,7 +8669,7 @@ function filterSalesProducts() {
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                 <span style="font-size: 0.875rem; color: #6b7280;">Skladem:</span>
-                <strong style="font-size: 0.9375rem;">${pieces} ks</strong>
+                <strong style="font-size: 0.9375rem;">${formatStockDisplay(p)}</strong>
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 0.75rem; border-top: 1px solid #e5e7eb;">
                 <span style="font-size: 1.125rem; font-weight: 700; color: var(--primary-color);">${p.priceRetail || 0} Kč</span>
@@ -8688,8 +8708,7 @@ function filterSalesProducts() {
                 </div>
             </td>
             <td><strong>${p.name}</strong></td>
-            <td>${p.brand || '-'}</td>
-            <td>${pieces} ks</td>
+            <td>${formatStockDisplay(p)}</td>
             <td><strong style="color: var(--primary-color);">${p.priceRetail || 0} Kč</strong></td>
             <td>
                 ${!isOutOfStock ? `<button onclick="addToSalesCart(${p.id}, 'sale')" class="btn btn-sm btn-primary" style="padding: 0.375rem 0.75rem;">
@@ -9182,7 +9201,7 @@ function filterIssueProducts() {
                 </div>
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 0.75rem; border-top: 1px solid #e5e7eb;">
-                <span style="font-size: 0.875rem; color: #6b7280;">Skladem: <strong>${p.stock} ${p.unit || 'ks'}</strong></span>
+                <span style="font-size: 0.875rem; color: #6b7280;">Skladem: <strong>${formatStockDisplay(p)}</strong></span>
                 ${stockBadge}
             </div>
         `;
@@ -9241,8 +9260,7 @@ function filterIssueProducts() {
                 </div>
             </td>
             <td><strong>${p.name}</strong></td>
-            <td>${p.brand || '-'}</td>
-            <td><span class="${stockClass}">${p.stock} ${p.unit || 'ks'}</span></td>
+            <td><span class="${stockClass}">${formatStockDisplay(p)}</span></td>
             <td>${p.unit || 'ks'}</td>
             <td>
                 ${!isOutOfStock ? `<button onclick="addToIssueCart(${p.id})" class="btn btn-sm btn-primary" style="padding: 0.375rem 0.75rem;">
@@ -11621,7 +11639,7 @@ function getMonthName(monthNum) {
 }
 
 function exportInventoryToCSV() {
-    let csv = 'Produkt,Kategorie,Sklad,Minimum,Jednotka,Nákupní cena,DPH,Celková hodnota\n';
+    let csv = 'Produkt,Kategorie,Sklad (ks),Sklad (ml/g),Jednotka,Nákupní cena,DPH,Celková hodnota\n';
     
     let totalValue = 0;
     let totalProducts = 0;
@@ -11633,15 +11651,17 @@ function exportInventoryToCSV() {
         const purchasePrice = product.pricePurchase || 0;
         const vatRate = product.vatRate || 21;
         const stockValue = product.stock * purchasePrice;
+        const stockInPieces = (product.stock / (product.packageSize || 1)).toFixed(1);
+        const minStockInPieces = (product.minStock / (product.packageSize || 1)).toFixed(1);
         
         totalValue += stockValue;
         totalProducts++;
         
-        if ((product.stock || 0) <= (product.minStock || 0)) {
+        if (parseFloat(stockInPieces) <= parseFloat(minStockInPieces)) {
             lowStockCount++;
         }
         
-        csv += `"${product.name}","${categoryName}",${product.stock},${product.minStock},"${product.unit}",${purchasePrice},${vatRate}%,${stockValue}\n`;
+        csv += `"${product.name}","${categoryName}",${stockInPieces},${Math.round(product.stock)},"${product.unit}",${purchasePrice},${vatRate}%,${stockValue}\n`;
     });
     
     // Přidat prázdný řádek a sumarizaci
@@ -11872,7 +11892,6 @@ function showInventoryModal() {
                         <th style="padding: 0.75rem; text-align: left; font-weight: 600;">Produkt</th>
                         <th style="padding: 0.75rem; text-align: left; font-weight: 600;">Kategorie</th>
                         <th style="padding: 0.75rem; text-align: right; font-weight: 600;">Sklad</th>
-                        <th style="padding: 0.75rem; text-align: right; font-weight: 600;">Minimum</th>
                         <th style="padding: 0.75rem; text-align: left; font-weight: 600;">Jednotka</th>
                         <th style="padding: 0.75rem; text-align: right; font-weight: 600;">Nákupní cena</th>
                         <th style="padding: 0.75rem; text-align: right; font-weight: 600;">DPH</th>
@@ -11887,7 +11906,9 @@ function showInventoryModal() {
         const categoryName = category ? category.name : 'Bez kategorie';
         const purchasePrice = product.pricePurchase || 0;
         const stockValue = product.stock * purchasePrice;
-        const isLowStock = (product.stock || 0) < (product.minStock || 0);
+        const stockInPieces = (product.stock / (product.packageSize || 1)).toFixed(1);
+        const minStockInPieces = (product.minStock / (product.packageSize || 1)).toFixed(1);
+        const isLowStock = parseFloat(stockInPieces) < parseFloat(minStockInPieces);
         
         totalValue += stockValue;
         totalProducts++;
@@ -11897,13 +11918,14 @@ function showInventoryModal() {
         }
         
         const vatRate = product.vatRate || 21;
+        const stockDisplay = formatStockDisplay(product);
+        const minStockDisplay = formatStockDisplay(product.minStock, product.unit, product.packageSize);
         
         html += `
             <tr style="border-bottom: 1px solid #f3f4f6; ${isLowStock ? 'background: #fef2f2;' : ''}">
                 <td style="padding: 0.75rem; font-weight: 600; color: ${isLowStock ? '#ef4444' : '#374151'};">${product.name}</td>
                 <td style="padding: 0.75rem;">${categoryName}</td>
-                <td style="padding: 0.75rem; text-align: right; font-weight: 600; color: ${isLowStock ? '#ef4444' : '#374151'};">${product.stock}</td>
-                <td style="padding: 0.75rem; text-align: right;">${product.minStock}</td>
+                <td style="padding: 0.75rem; text-align: right; font-weight: 600; color: ${isLowStock ? '#ef4444' : '#374151'};">${stockDisplay}</td>
                 <td style="padding: 0.75rem;">${product.unit}</td>
                 <td style="padding: 0.75rem; text-align: right;">${purchasePrice.toLocaleString('cs-CZ')} Kč</td>
                 <td style="padding: 0.75rem; text-align: right;">${vatRate}%</td>
@@ -11914,7 +11936,7 @@ function showInventoryModal() {
     
     html += `
                     <tr style="background: #f0fdf4; border-top: 2px solid #10b981; font-weight: 700;">
-                        <td colspan="7" style="padding: 0.75rem;">CELKEM</td>
+                        <td colspan="6" style="padding: 0.75rem;">CELKEM</td>
                         <td style="padding: 0.75rem; text-align: right; color: #10b981; font-size: 1.125rem;">${totalValue.toLocaleString('cs-CZ')} Kč</td>
                     </tr>
                 </tbody>
@@ -11957,7 +11979,7 @@ function openQuickInventoryModal() {
         const cat = productCategories.find(c => c.id === p.categoryId);
         const categoryName = cat ? cat.name : '';
         const currentBase = p.stock || 0;
-        const currentPieces = calculatePieces(currentBase, p.unit, p.packageSize);
+        const currentPieces = (currentBase / (p.packageSize || 1)).toFixed(1);
         const currentDisplay = formatStockDisplay(p);
         return `
             <tr class="quick-inv-row" data-id="${p.id}">
@@ -11987,11 +12009,11 @@ function updateQuickInventoryDiff(productId) {
     if (!product) return;
     const newPieces = parseFloat(input.value);
     const currentBase = product.stock || 0;
-    const currentPieces = calculatePieces(currentBase, product.unit, product.packageSize);
+    const currentPieces = (currentBase / (product.packageSize || 1)).toFixed(1);
     const newBase = isNaN(newPieces) ? currentBase : (product.unit === 'ks' ? newPieces : newPieces * (product.packageSize || 1));
     const diffBase = newBase - currentBase;
-    const diffPieces = isNaN(newPieces) ? 0 : (newPieces - currentPieces);
-    diffCell.textContent = `${diffPieces.toFixed(2)} ks (${diffBase.toFixed(2)} ${product.unit})`;
+    const diffPieces = isNaN(newPieces) ? 0 : (newPieces - parseFloat(currentPieces));
+    diffCell.textContent = `${diffPieces.toFixed(1)} ks | ${Math.round(diffBase)} ${product.unit}`;
     diffCell.style.color = diffBase > 0 ? '#10b981' : (diffBase < 0 ? '#ef4444' : '#374151');
 }
 
@@ -12005,7 +12027,7 @@ async function applyQuickInventoryAdjustments() {
         const newPieces = parseFloat(inp.value);
         if (isNaN(newPieces)) return;
         const currentBase = product.stock || 0;
-        const currentPieces = calculatePieces(currentBase, product.unit, product.packageSize);
+        const currentPieces = (currentBase / (product.packageSize || 1)).toFixed(1);
         const newBase = product.unit === 'ks' ? newPieces : newPieces * (product.packageSize || 1);
         const diffBase = newBase - currentBase;
         if (Math.abs(diffBase) > 0.0001) {
@@ -12811,11 +12833,13 @@ function exportRevenueDetailToCSV() {
 }
 
 function exportInventoryToCSV() {
-    let csv = 'Název,Kategorie,Množství,Jednotka,Min. stav,Cena nákup,DPH,Cena prodej,Poznámka\n';
+    let csv = 'Název,Kategorie,Sklad (ks),Sklad (ml/g),Jednotka,Cena nákup,DPH,Cena prodej,Poznámka\n';
     
     products.forEach(product => {
-        const qty = product.stock !== undefined ? product.stock : (product.quantity || 0);
-        const minQty = product.minStock !== undefined ? product.minStock : (product.minQuantity || 1);
+        const qtyBase = product.stock !== undefined ? product.stock : (product.quantity || 0);
+        const minQtyBase = product.minStock !== undefined ? product.minStock : (product.minQuantity || 1);
+        const qtyPieces = (qtyBase / (product.packageSize || 1)).toFixed(1);
+        const minQtyPieces = (minQtyBase / (product.packageSize || 1)).toFixed(1);
         const purchasePrice = product.pricePurchase !== undefined ? product.pricePurchase : (product.purchasePrice || '');
         const salePrice = product.priceRetail !== undefined ? product.priceRetail : (product.priceSale || product.salePrice || '');
         const vatRate = product.vatRate || 21;
@@ -12834,18 +12858,20 @@ function exportInventoryToCSV() {
             return str;
         };
         
-        csv += `${escapeCsv(product.name)},${escapeCsv(categoryName)},${qty},${product.unit},${minQty},${purchasePrice},${vatRate}%,${salePrice},${escapeCsv(product.description || product.note || '')}\n`;
+        csv += `${escapeCsv(product.name)},${escapeCsv(categoryName)},${qtyPieces},${Math.round(qtyBase)},${product.unit},${purchasePrice},${vatRate}%,${salePrice},${escapeCsv(product.description || product.note || '')}\n`;
     });
     
     downloadCSV(csv, 'inventura.csv');
 }
 
 function exportInventoryToExcel() {
-    let content = '<table><thead><tr><th>Název</th><th>Kategorie</th><th>Množství</th><th>Jednotka</th><th>Min. stav</th><th>Cena nákup</th><th>DPH</th><th>Cena prodej</th><th>Poznámka</th></tr></thead><tbody>';
+    let content = '<table><thead><tr><th>Název</th><th>Kategorie</th><th>Sklad (ks)</th><th>Sklad (ml/g)</th><th>Jednotka</th><th>Cena nákup</th><th>DPH</th><th>Cena prodej</th><th>Poznámka</th></tr></thead><tbody>';
     
     products.forEach(product => {
-        const qty = product.stock !== undefined ? product.stock : (product.quantity || 0);
-        const minQty = product.minStock !== undefined ? product.minStock : (product.minQuantity || 1);
+        const qtyBase = product.stock !== undefined ? product.stock : (product.quantity || 0);
+        const minQtyBase = product.minStock !== undefined ? product.minStock : (product.minQuantity || 1);
+        const qtyPieces = (qtyBase / (product.packageSize || 1)).toFixed(1);
+        const minQtyPieces = (minQtyBase / (product.packageSize || 1)).toFixed(1);
         const purchasePrice = product.pricePurchase !== undefined ? product.pricePurchase : (product.purchasePrice || '');
         const salePrice = product.priceRetail !== undefined ? product.priceRetail : (product.priceSale || product.salePrice || '');
         const vatRate = product.vatRate || 21;
@@ -12854,7 +12880,7 @@ function exportInventoryToExcel() {
         const category = productCategories.find(c => c.id === product.categoryId);
         const categoryName = category ? category.name : '';
         
-        content += `<tr><td>${product.name}</td><td>${categoryName}</td><td>${qty}</td><td>${product.unit}</td><td>${minQty}</td><td>${purchasePrice}</td><td>${vatRate}%</td><td>${salePrice}</td><td>${product.description || product.note || ''}</td></tr>`;
+        content += `<tr><td>${product.name}</td><td>${categoryName}</td><td>${qtyPieces}</td><td>${Math.round(qtyBase)}</td><td>${product.unit}</td><td>${purchasePrice}</td><td>${vatRate}%</td><td>${salePrice}</td><td>${product.description || product.note || ''}</td></tr>`;
     });
     
     content += '</tbody></table>';
@@ -12868,7 +12894,7 @@ function exportInventoryToExcel() {
 }
 
 function exportLowStockToCSV() {
-    let csv = 'Název,Kategorie,Aktuální stav,Min. stav,Chybí,Cena nákup\n';
+    let csv = 'Název,Kategorie,Aktuální stav (ks),Min. stav (ks),Chybí (ks),Cena nákup\n';
     
     // Escapovat hodnoty s čárkami nebo uvozovkami
     const escapeCsv = (val) => {
@@ -12881,20 +12907,24 @@ function exportLowStockToCSV() {
     };
     
     products.filter(p => {
-        const qty = p.stock !== undefined ? p.stock : (p.quantity || 0);
-        const minQty = p.minStock !== undefined ? p.minStock : (p.minQuantity || 1);
-        return qty < minQty;
+        const qtyBase = p.stock !== undefined ? p.stock : (p.quantity || 0);
+        const minQtyBase = p.minStock !== undefined ? p.minStock : (p.minQuantity || 1);
+        const qtyPieces = (qtyBase / (p.packageSize || 1)).toFixed(1);
+        const minQtyPieces = (minQtyBase / (p.packageSize || 1)).toFixed(1);
+        return parseFloat(qtyPieces) < parseFloat(minQtyPieces);
     }).forEach(product => {
-        const qty = product.stock !== undefined ? product.stock : (product.quantity || 0);
-        const minQty = product.minStock !== undefined ? product.minStock : (product.minQuantity || 1);
-        const missing = minQty - qty;
+        const qtyBase = product.stock !== undefined ? product.stock : (product.quantity || 0);
+        const minQtyBase = product.minStock !== undefined ? product.minStock : (product.minQuantity || 1);
+        const qtyPieces = (qtyBase / (product.packageSize || 1)).toFixed(1);
+        const minQtyPieces = (minQtyBase / (product.packageSize || 1)).toFixed(1);
+        const missing = (parseFloat(minQtyPieces) - parseFloat(qtyPieces)).toFixed(1);
         const purchasePrice = product.pricePurchase !== undefined ? product.pricePurchase : (product.purchasePrice || '');
         
         // Najít název kategorie
         const category = productCategories.find(c => c.id === product.categoryId);
         const categoryName = category ? category.name : '';
         
-        csv += `${escapeCsv(product.name)},${escapeCsv(categoryName)},${qty},${minQty},${missing},${purchasePrice}\n`;
+        csv += `${escapeCsv(product.name)},${escapeCsv(categoryName)},${qtyPieces},${minQtyPieces},${missing},${purchasePrice}\n`;
     });
     
     downloadCSV(csv, 'nizky_stav.csv');

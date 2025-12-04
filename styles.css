@@ -99,6 +99,26 @@ body {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
 }
 
 .nav-item {
@@ -1371,7 +1391,7 @@ body {
     overflow-y: auto;
     padding: 1rem;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 0.75rem;
     align-content: start;
 }
@@ -1384,10 +1404,11 @@ body {
     cursor: pointer;
     transition: all 0.2s;
     text-align: center;
-    min-height: 100px;
+    min-height: 130px;
     display: flex;
     flex-direction: column;
     justify-content: center;
+    gap: 0.5rem;
 }
 
 .material-card:hover {
@@ -1401,11 +1422,7 @@ body {
     cursor: move;
 }
 
-.material-card i {
-    font-size: 1.75rem;
-    color: var(--primary-color);
-    margin-bottom: 0.5rem;
-}
+
 
 .material-card h6 {
     font-size: 0.875rem;
@@ -1421,11 +1438,11 @@ body {
 }
 
 .material-card p {
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     color: var(--text-medium);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1.4;
+    font-weight: 500;
+    word-break: break-word;
 }
 
 /* Product sale cards */

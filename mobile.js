@@ -193,18 +193,19 @@ function renderMaterials() {
     }
     
     grid.innerHTML = filteredProducts.map(product => {
-        const stock = Math.floor(product.stock || 0);
+        const stock = product.stock || 0;
         const unit = product.unit || '';
         const packageSize = product.packageSize || 1;
         const minStock = product.minStock || 0;
-        const isLowStock = stock < minStock && minStock > 0;
+        const minStockInPieces = (minStock / packageSize).toFixed(1);
+        const stockInPieces = (stock / packageSize).toFixed(1);
+        const isLowStock = parseFloat(stockInPieces) < parseFloat(minStockInPieces) && minStock > 0;
         
-        let stockHTML = `${stock} ${unit}`;
+        let stockHTML = `${Math.round(stock)} ${unit}`;
         
         // Pokud je jednotka ml nebo g, přidej přepočet na kusy pod to
         if ((unit === 'ml' || unit === 'g') && packageSize > 0) {
-            const pieces = Math.floor(stock / packageSize);
-            stockHTML = `${stock} ${unit}<br><small>(${pieces} ks)</small>`;
+            stockHTML = `${stockInPieces} ks<br><small>(${Math.round(stock)} ${unit})</small>`;
         }
         
         // Add low stock warning
@@ -341,14 +342,14 @@ function editMaterial(serviceIndex, materialIndex) {
     if (!product) return;
     
     // Calculate stock display
-    const stock = Math.floor(product.stock || 0);
+    const stock = product.stock || 0;
     const unit = product.unit || '';
     const packageSize = product.packageSize || 1;
-    let stockDisplay = `${stock} ${unit}`;
+    const pieces = (stock / packageSize).toFixed(1);
+    let stockDisplay = `${Math.round(stock)} ${unit}`;
     
     if ((unit === 'ml' || unit === 'g') && packageSize > 0) {
-        const pieces = Math.floor(stock / packageSize);
-        stockDisplay = `${stock} ${unit} (${pieces} ks)`;
+        stockDisplay = `${pieces} ks | ${Math.round(stock)} ${unit}`;
     }
     
     // Open quantity modal with current values
@@ -384,17 +385,18 @@ async function selectMaterial(productId) {
     if (!product) return;
     
     // Calculate stock display
-    const stock = Math.floor(product.stock || 0);
+    const stock = product.stock || 0;
     const unit = product.unit || '';
     const packageSize = product.packageSize || 1;
     const minStock = product.minStock || 0;
-    const isLowStock = stock < minStock && minStock > 0;
+    const minStockInPieces = (minStock / packageSize).toFixed(1);
+    const stockInPieces = (stock / packageSize).toFixed(1);
+    const isLowStock = parseFloat(stockInPieces) < parseFloat(minStockInPieces) && minStock > 0;
     
-    let stockDisplay = `${stock} ${unit}`;
+    let stockDisplay = `${Math.round(stock)} ${unit}`;
     
     if ((unit === 'ml' || unit === 'g') && packageSize > 0) {
-        const pieces = Math.floor(stock / packageSize);
-        stockDisplay = `${stock} ${unit} (${pieces} ks)`;
+        stockDisplay = `${stockInPieces} ks | ${Math.round(stock)} ${unit}`;
     }
     
     if (isLowStock) {
@@ -1012,9 +1014,10 @@ function renderManagementGrid() {
     
     grid.innerHTML = filtered.map(product => {
         const category = categories.find(c => c.id == product.categoryId);
-        const isLowStock = product.stock < product.minStock;
         const packageSize = product.packageSize || product.size || 100;
-        const totalVolume = product.stock * packageSize; // ks * velikost = celkové ml/g
+        const stockInPieces = (product.stock / packageSize).toFixed(1); // přesný počet kusů
+        const minStockInPieces = ((product.minStock || 0) / packageSize).toFixed(1);
+        const isLowStock = parseFloat(stockInPieces) < parseFloat(minStockInPieces);
         const price = product.priceRetail || product.price || 0;
         
         return `
@@ -1030,12 +1033,18 @@ function renderManagementGrid() {
                 <div class="management-stock ${isLowStock ? 'low' : ''}">
                     <div style="flex: 1;">
                         <div class="stock-label">Skladem</div>
-                        <div class="stock-value ${isLowStock ? 'low' : ''}">${product.stock || 0} ks</div>
-                        <div class="stock-pieces">(${totalVolume} ${product.unit || 'ml'})</div>
+                        <div class="stock-value ${isLowStock ? 'low' : ''}" style="font-size: 18px;">
+                            ${stockInPieces} ks <span style="color: var(--text-secondary); font-size: 16px;">|</span> ${Math.round(product.stock || 0)} ${product.unit || 'ml'}
+                        </div>
+                        <div class="stock-pieces" style="font-size: 12px; color: var(--text-secondary);">
+                            Velikost balení: ${packageSize} ${product.unit || 'ml'}
+                        </div>
                     </div>
-                    <div>
+                    <div style="text-align: right;">
                         <div class="stock-label">Min. stav</div>
-                        <div style="font-size: 16px; font-weight: 600; color: var(--text-secondary);">${product.minStock || 0} ks</div>
+                        <div style="font-size: 14px; font-weight: 600; color: var(--text-secondary);">
+                            ${minStockInPieces} ks | ${Math.round(product.minStock || 0)} ${product.unit || 'ml'}
+                        </div>
                     </div>
                 </div>
                 
@@ -1213,9 +1222,13 @@ function showRestockModal(productId) {
     
     currentRestockProduct = product;
     const packageSize = product.packageSize || product.size || 100;
-    const totalVolume = product.stock * packageSize;
+    const stockInPieces = (product.stock / packageSize).toFixed(1);
+    
     document.getElementById('restockProductName').textContent = product.name;
-    document.getElementById('restockCurrentStock').textContent = `Aktuální stav: ${product.stock} ks (${totalVolume} ${product.unit || 'ml'})`;
+    document.getElementById('restockCurrentStock').innerHTML = 
+        `<strong>${stockInPieces} ks</strong> <span style="color: var(--text-secondary);">|</span> <strong>${Math.round(product.stock)} ${product.unit || 'ml'}</strong>`;
+    document.getElementById('restockPackageSize').innerHTML = 
+        `<strong>${packageSize} ${product.unit || 'ml'}</strong>`;
     document.getElementById('restockQuantity').value = 0;
     updateRestockPreview();
     document.getElementById('restockModal').classList.add('show');
@@ -1240,20 +1253,25 @@ function setRestockQty(amount) {
 
 function updateRestockPreview() {
     const qty = parseFloat(document.getElementById('restockQuantity').value) || 0;
-    const newStock = currentRestockProduct.stock + qty;
     const packageSize = currentRestockProduct.packageSize || currentRestockProduct.size || 100;
-    const newTotalVolume = newStock * packageSize;
+    const addedVolume = qty * packageSize;
+    const newTotalVolume = currentRestockProduct.stock + addedVolume;
+    const newStockInPieces = (newTotalVolume / packageSize).toFixed(1);
     
     const confirmBtn = document.getElementById('restockConfirmBtn');
     if (qty <= 0) {
         document.getElementById('restockNewStock').innerHTML = 
-            `<span style="color: #888;">Zadejte množství pro doplnění</span>`;
+            `<span style="color: var(--text-secondary);">💡 Zvolte kolik kusů chcete přidat</span>`;
         confirmBtn.disabled = true;
         confirmBtn.style.opacity = '0.5';
     } else {
+        document.getElementById('restockNewStock').style.cssText = 
+            'color: var(--primary-color); font-weight: 600; font-size: 16px; text-align: center; padding: 12px; background: rgba(6, 182, 212, 0.1); border-radius: 8px; border: 2px solid var(--primary-color);';
         document.getElementById('restockNewStock').innerHTML = 
-            `<i class="fas fa-arrow-right" style="margin-right: 8px;"></i>` +
-            `Nový stav: <strong>${newStock} ks</strong> (${newTotalVolume} ${currentRestockProduct.unit || 'ml'})`;
+            `<div style="font-size: 13px; margin-bottom: 5px;">Po doplnění ${qty} ${qty === 1 ? 'kusu' : 'kusů'}:</div>` +
+            `<strong style="font-size: 18px;">${newStockInPieces} ks</strong> ` +
+            `<span style="color: var(--text-secondary);">|</span> ` +
+            `<strong style="font-size: 18px;">${Math.round(newTotalVolume)} ${currentRestockProduct.unit || 'ml'}</strong>`;
         confirmBtn.disabled = false;
         confirmBtn.style.opacity = '1';
     }
@@ -1267,7 +1285,10 @@ async function confirmRestock() {
         return;
     }
     
-    const newStock = currentRestockProduct.stock + qty;
+    // Přepočítat kusy na ml/g pro databázi
+    const packageSize = currentRestockProduct.packageSize || currentRestockProduct.size || 100;
+    const addedVolume = qty * packageSize; // kusy * velikost = ml/g
+    const newStock = currentRestockProduct.stock + addedVolume;
     
     try {
         const productData = {
